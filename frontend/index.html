@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeML Agent 控制台</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: Inter, Arial, sans-serif; margin: 0; padding: 20px; background: #0b1020; color: #edf2ff; }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap: 14px; }
+    .card { background: #151d34; border: 1px solid #293a6f; border-radius: 12px; padding: 16px; }
+    h1 { margin: 0 0 8px; }
+    h2 { margin: 0 0 10px; font-size: 18px; }
+    label { display: block; margin-top: 8px; font-size: 14px; }
+    input, textarea, select, button { width: 100%; margin-top: 6px; padding: 10px; border-radius: 8px; border: 1px solid #3b4f89; background: #0d1530; color: #fff; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    .row button { flex: 1; }
+    .btn { cursor: pointer; font-weight: 700; background: #4f66ff; border: 0; }
+    .btn.secondary { background: #2b3d78; }
+    pre { background: #0c142a; border: 1px solid #2d3f73; border-radius: 8px; padding: 10px; min-height: 120px; white-space: pre-wrap; }
+    .ok { color: #77f2a0; }
+    .warn { color: #ffd166; }
+    .muted { color: #b9c4ef; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>VibeML Agent（可用版）</h1>
+    <p class="muted">入口先澄清意图，训练中可随时暂停并下载 checkpoint。</p>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1) 意图澄清</h2>
+        <label>目标一句话<input id="goal" value="将客服工单转成稳定 JSON，优先保证结构正确" /></label>
+        <label>必须保留（逗号分隔）<input id="mustKeep" value="JSON结构完整,优先级准确" /></label>
+        <label>允许变化（逗号分隔）<input id="canChange" value="措辞风格,解释长度" /></label>
+        <label>不可接受错误（逗号分隔）<input id="worstErrors" value="格式错误,漏掉退款判断" /></label>
+        <label>优化优先级
+          <select id="priority">
+            <option value="quality">质量</option>
+            <option value="latency">速度</option>
+            <option value="cost">成本</option>
+          </select>
+        </label>
+        <label>训练策略
+          <select id="mode">
+            <option value="conservative">保守</option>
+            <option value="standard" selected>标准</option>
+            <option value="aggressive">激进</option>
+          </select>
+        </label>
+        <button class="btn" onclick="clarifyIntent()">检查模糊并生成意图卡</button>
+        <pre id="clarifyResult">等待检查...</pre>
+      </section>
+
+      <section class="card">
+        <h2>2) 训练控制</h2>
+        <label>样本备注<textarea id="sampleNotes" rows="2" placeholder="例如：A类样本最重要，B类不能学坏"></textarea></label>
+        <button class="btn" onclick="startTraining()">开始训练</button>
+        <div class="row">
+          <button class="btn secondary" onclick="pauseTraining()">暂停并保存 checkpoint</button>
+          <button class="btn secondary" onclick="resumeTraining()">继续</button>
+        </div>
+        <div class="row">
+          <button class="btn secondary" onclick="refreshStatus()">刷新状态</button>
+          <button class="btn secondary" onclick="stopTraining()">停止训练</button>
+        </div>
+        <div class="row">
+          <button class="btn secondary" onclick="toggleAutoRefresh()" id="autoBtn">开启自动刷新</button>
+        </div>
+        <p id="jobInfo" class="muted">尚未启动任务。</p>
+        <pre id="jobStatus">等待任务...</pre>
+      </section>
+
+      <section class="card">
+        <h2>3) Checkpoint 下载</h2>
+        <div class="row">
+          <button class="btn secondary" onclick="listCheckpoints()">刷新列表</button>
+          <button class="btn secondary" onclick="downloadLatest()">下载最新</button>
+        </div>
+        <label>指定文件名<input id="downloadName" placeholder="例如 123abc_step_10.json" /></label>
+        <button class="btn secondary" onclick="downloadCheckpointByName()">下载指定 checkpoint</button>
+        <pre id="checkpointList">等待任务...</pre>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const API = "/api";
+    let currentJobId = "";
+    let timer = null;
+
+    const byId = (id) => document.getElementById(id);
+    const parseList = (v) => v.split(',').map(s => s.trim()).filter(Boolean);
+
+    function payload() {
+      return {
+        objective: byId("goal").value,
+        user_goal: byId("goal").value,
+        must_keep: parseList(byId("mustKeep").value),
+        can_change: parseList(byId("canChange").value),
+        worst_errors: parseList(byId("worstErrors").value),
+        priority: byId("priority").value,
+        mode: byId("mode").value,
+        sample_notes: byId("sampleNotes").value,
+      }
+    }
+
+    async function api(url, method = "GET", body = null) {
+      const res = await fetch(`${API}${url}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : null,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status} ${text}`);
+      }
+      return res.json();
+    }
+
+    async function clarifyIntent() {
+      try {
+        const data = await api("/intent/clarify", "POST", {
+          user_goal: payload().user_goal,
+          must_keep: payload().must_keep,
+          can_change: payload().can_change,
+          worst_errors: payload().worst_errors,
+          priority: payload().priority,
+        });
+        byId("clarifyResult").textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        byId("clarifyResult").textContent = `错误: ${e.message}`;
+      }
+    }
+
+    async function startTraining() {
+      try {
+        const data = await api("/training/start", "POST", payload());
+        currentJobId = data.job_id;
+        byId("jobInfo").innerHTML = `<span class='ok'>任务已启动</span> Job ID: ${currentJobId}`;
+        await refreshStatus();
+      } catch (e) {
+        byId("jobInfo").innerHTML = `<span class='warn'>启动失败</span> ${e.message}`;
+      }
+    }
+
+    async function refreshStatus() {
+      if (!currentJobId) return;
+      try {
+        const data = await api(`/training/${currentJobId}`);
+        byId("jobStatus").textContent = JSON.stringify(data, null, 2);
+        if (data.latest_checkpoints?.length) {
+          byId("downloadName").value = data.latest_checkpoints[data.latest_checkpoints.length - 1].file;
+        }
+      } catch (e) {
+        byId("jobStatus").textContent = `刷新失败: ${e.message}`;
+      }
+    }
+
+    async function pauseTraining() {
+      if (!currentJobId) return;
+      await api(`/training/${currentJobId}/pause`, "POST");
+      await refreshStatus();
+      await listCheckpoints();
+    }
+
+    async function resumeTraining() {
+      if (!currentJobId) return;
+      await api(`/training/${currentJobId}/resume`, "POST");
+      await refreshStatus();
+    }
+
+    async function stopTraining() {
+      if (!currentJobId) return;
+      await api(`/training/${currentJobId}/stop`, "POST");
+      await refreshStatus();
+      await listCheckpoints();
+    }
+
+    async function listCheckpoints() {
+      if (!currentJobId) return;
+      const data = await api(`/training/${currentJobId}/checkpoints`);
+      byId("checkpointList").textContent = JSON.stringify(data, null, 2);
+    }
+
+    function downloadLatest() {
+      if (!currentJobId) return;
+      window.open(`${API}/training/${currentJobId}/download/latest`, "_blank");
+    }
+
+    function downloadCheckpointByName() {
+      if (!currentJobId) return;
+      const name = byId("downloadName").value.trim();
+      if (!name) return;
+      window.open(`${API}/training/${currentJobId}/download/${name}`, "_blank");
+    }
+
+    function toggleAutoRefresh() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+        byId("autoBtn").textContent = "开启自动刷新";
+        return;
+      }
+      timer = setInterval(refreshStatus, 2000);
+      byId("autoBtn").textContent = "关闭自动刷新";
+    }
+  </script>
+</body>
+</html>
