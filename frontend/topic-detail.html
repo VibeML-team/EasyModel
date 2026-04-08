@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeML · 专题解释</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <style>
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-Regular (1).otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root {
+      --bg-primary: #03070a;
+      --bg-secondary: #08110f;
+      --bg-tertiary: #0d1916;
+      --violet-400: #9dffe0;
+      --violet-500: #47f5b7;
+      --violet-600: #10ca90;
+      --blue-400: #d4fff2;
+      --blue-500: #84ffd5;
+      --emerald-400: #57f8c2;
+      --emerald-500: #1fd79d;
+      --cyan-400: #7cf6e4;
+      --gray-300: #d8f3ea;
+      --gray-400: #9bc2b5;
+      --gray-500: #70958a;
+      --gray-600: #4b6760;
+      --gray-700: #334943;
+      --white: #f4fff9;
+      --surface-glass: rgba(14, 31, 26, 0.58);
+      --surface-glass-strong: rgba(10, 24, 20, 0.78);
+      --border-soft: rgba(136, 255, 216, 0.16);
+      --border-strong: rgba(136, 255, 216, 0.34);
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f5f9f7;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f0f6f3;
+      --violet-400: #06b67f;
+      --violet-500: #059d6f;
+      --violet-600: #048a61;
+      --blue-400: #0f172a;
+      --blue-500: #0b1220;
+      --emerald-400: #049f70;
+      --emerald-500: #04825c;
+      --cyan-400: #0f766e;
+      --gray-300: #1f3630;
+      --gray-400: #35564d;
+      --gray-500: #527167;
+      --gray-600: #708880;
+      --gray-700: #8ca199;
+      --white: #07130f;
+      --surface-glass: rgba(255, 255, 255, 0.75);
+      --surface-glass-strong: rgba(255, 255, 255, 0.92);
+      --border-soft: rgba(4, 138, 97, 0.16);
+      --border-strong: rgba(4, 138, 97, 0.3);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Avenir Next LT Pro", sans-serif;
+      background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
+      color: var(--white);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .topbar {
+      max-width: 1280px;
+      margin: 0 auto 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .back-link,
+    .theme-toggle {
+      border: 1px solid var(--border-soft);
+      background: var(--surface-glass);
+      color: var(--gray-300);
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 9px 14px;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .theme-toggle { cursor: pointer; }
+
+    .back-link:hover,
+    .theme-toggle:hover {
+      color: var(--white);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .layout {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--surface-glass);
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+    }
+
+    .model-nav {
+      padding: 18px;
+      position: sticky;
+      top: 20px;
+    }
+
+    .model-nav h3 {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+
+    .topic-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .topic-btn {
+      text-decoration: none;
+      border: 1px solid var(--border-soft);
+      color: var(--gray-400);
+      background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent);
+      border-radius: 999px;
+      padding: 7px 13px;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .topic-btn:hover,
+    .topic-btn.active {
+      color: var(--white);
+      border-color: var(--border-strong);
+      background: rgba(31, 215, 157, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .detail {
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .detail-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-soft);
+      padding-bottom: 14px;
+    }
+
+    .title {
+      font-size: clamp(1.4rem, 2.4vw, 2.1rem);
+      margin-bottom: 0;
+    }
+
+    .desc {
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 14px;
+      line-height: 1.7;
+      color: var(--gray-300);
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+    }
+
+    .desc p { margin-bottom: 12px; }
+    .desc p:last-child { margin-bottom: 0; }
+    .math-block {
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin: 10px 0;
+      background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent);
+      overflow-x: auto;
+    }
+
+    .external-box {
+      margin-top: 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(31, 215, 157, 0.06);
+    }
+
+    .external-title {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 8px;
+    }
+
+    .external-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      padding: 8px 12px;
+      color: var(--white);
+      font-size: 13px;
+      background: linear-gradient(135deg, rgba(16, 202, 144, 0.35), rgba(31, 215, 157, 0.15));
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .external-link:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -14px rgba(31, 215, 157, 0.8);
+    }
+
+    .external-note {
+      margin-top: 8px;
+      color: var(--gray-500);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1024px) {
+      .layout { grid-template-columns: 1fr; }
+      .model-nav { position: static; }
+      .topic-row { flex-direction: row; flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back-link" href="./index.html#capabilities">← 返回主页</a>
+    <button id="themeToggle" class="theme-toggle" aria-label="切换明暗主题">◐</button>
+  </header>
+
+  <main class="layout">
+    <aside class="panel model-nav">
+      <h3>专题目录</h3>
+      <nav id="topicRow" class="topic-row"></nav>
+    </aside>
+
+    <section class="panel detail">
+      <div class="detail-head">
+        <h1 id="topicTitle" class="title"></h1>
+      </div>
+      <article id="topicDesc" class="desc"></article>
+      <section id="externalBox" class="external-box">
+        <div class="external-title">External Reference</div>
+        <a id="externalLink" class="external-link" href="#" target="_blank" rel="noopener noreferrer">打开外链</a>
+        <p id="externalNote" class="external-note"></p>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const TOPIC_DATA = {
+      bayes: {
+        title: '贝叶斯优化',
+        desc: String.raw`
+          <p>贝叶斯优化（BO）用于求解昂贵黑盒函数 \(f(x)\) 的全局最优。关键思想是：每次实验都很贵，所以要“聪明选点”。</p>
+          <p>其代理模型常用高斯过程（GP）。对于未评估点 \(x^*\)，模型给出分布预测而不是单点预测：</p>
+          <div class="math-block">\[ f(x^*) \sim \mathcal{N}(\mu(x^*),\sigma^2(x^*)) \]</div>
+          <p>采集函数决定下一次评估点。以期望改善 EI 为例：</p>
+          <div class="math-block">\[ EI(x)=\mathbb{E}[\max(f(x)-f(x^+),0)] \]</div>
+          <p>其中 \(x^+\) 是当前最好点。EI 在“探索（大 \(\sigma\)）”与“利用（优 \(\mu\)）”之间给出可计算平衡。高维场景中常转向 TPE 或深度代理模型（如 BNN）。</p>
+        `,
+        external: {
+          label: 'BoTorch 官方文档',
+          url: 'https://botorch.org/',
+          note: 'Meta 开发的前沿 BO 框架，支持 MC 采集函数与并行 GPU 优化。'
+        }
+      },
+      automl: {
+        title: 'AutoML',
+        desc: String.raw`
+          <p>AutoML 不仅是超参数搜索（HPO），更深层是“算法选择 + 架构搜索 + 元学习冷启动”的联合优化。</p>
+          <p>NAS 早期方案常用强化学习控制器，代价极高。DARTS 通过可微松弛把离散结构选择转为连续优化：</p>
+          <div class="math-block">\[ \mathcal{L}_{total}=\mathcal{L}_{train}(w,\alpha),\quad \alpha=\mathrm{softmax}(\theta) \]</div>
+          <p>这样可在双层优化（bilevel optimization）里同时更新网络参数 \(w\) 与结构参数 \(\alpha\)。现代 AutoML 还利用历史任务元特征做 zero-shot 初始化，显著缩短冷启动时间。</p>
+        `,
+        external: {
+          label: 'AutoML.org 官方网站',
+          url: 'https://www.automl.org/',
+          note: 'AutoML 先驱团队主站，包含 Auto-sklearn、NAS 与前沿论文资源。'
+        }
+      },
+      distill: {
+        title: '模型蒸馏',
+        desc: String.raw`
+          <p>知识蒸馏核心是让 Student 学习 Teacher 的“软分布信息”，而不仅是 one-hot 标签。</p>
+          <p>经典蒸馏损失可写为：</p>
+          <div class="math-block">\[ \mathcal{L}=\alpha\,\mathcal{L}_{CE}(y,\sigma(z_s)) + (1-\alpha)\,T^2\,\mathcal{L}_{KL}(\sigma(z_t/T),\sigma(z_s/T)) \]</div>
+          <p>其中 \(T\) 为温度系数。乘 \(T^2\) 是为了抵消高温下梯度缩小，维持软目标与硬目标在训练中的有效权重。前沿方法还包括特征蒸馏（Hint）与关系蒸馏（样本间结构）。</p>
+        `,
+        external: {
+          label: 'Hinton 蒸馏论文 (arXiv)',
+          url: 'https://arxiv.org/abs/1503.02531',
+          note: '《Distilling the Knowledge in a Neural Network》，蒸馏方法奠基文献。'
+        }
+      },
+      gnn: {
+        title: 'GNN',
+        desc: String.raw`
+          <p>消息传递型 GNN 的基本更新范式是：</p>
+          <div class="math-block">\[ h_v^{(k+1)}=\phi\Big(h_v^{(k)},\operatorname{AGG}\{h_u^{(k)}:u\in\mathcal{N}(v)\}\Big) \]</div>
+          <p>理论上，多数标准 GNN（GCN/GraphSAGE 等）表达能力上限与 1-WL 测试同阶，因此在某些图同构场景会失效。</p>
+          <p>GraphSAGE 通过邻居采样实现 mini-batch 训练，解决超大图可扩展性；GAT 用注意力权重 \(a_{ij}\) 动态建模邻居重要性，提升异质图上的表达质量。</p>
+        `,
+        external: {
+          label: 'PyTorch Geometric 官方文档',
+          url: 'https://pytorch-geometric.readthedocs.io/',
+          note: '图学习事实标准工具链，含主流 GNN 变体与数学定义。'
+        }
+      },
+      ts: {
+        title: '时序预测',
+        desc: String.raw`
+          <p>时序建模最大难点是分布偏移（non-stationarity）：未来均值/方差变化会导致历史经验失效。</p>
+          <p>PatchTST 通过 patch token 化把复杂度由 \(O(N^2)\) 降到 \(O((N/P)^2)\)，在保留局部连续语义的同时提升长序列效率。</p>
+          <p>另一条路线是状态空间模型（SSM/Mamba），推理复杂度接近 \(O(N)\)，适合超长依赖场景。当前研究也从点预测转向概率预测（分位数回归、密度建模），提升风险控制能力。</p>
+        `,
+        external: {
+          label: 'Darts 官方库',
+          url: 'https://github.com/unit8co/darts',
+          note: '覆盖 ARIMA 到 Transformer 的统一时序框架，支持概率预测。'
+        }
+      },
+      ai4s: {
+        title: 'AI4Science',
+        desc: String.raw`
+          <p>AI4Science 的关键是把物理规律写入学习目标，而不是只拟合观测数据。PINNs 的典型目标函数为：</p>
+          <div class="math-block">\[ \mathcal{L}_{total}=\mathcal{L}_{data}+\lambda\,\mathcal{L}_{PDE} \]</div>
+          <p>其中 \(\mathcal{L}_{PDE}\) 通过自动微分计算 PDE 残差，强制模型满足物理定律。</p>
+          <p>Neural Operator（如 FNO）则直接学习“函数到函数”的映射，可在低分辨率训练后对高分辨率网格做 zero-shot 泛化，是科学模拟加速的重要方向。</p>
+        `,
+        external: {
+          label: 'DeepXDE 官方文档',
+          url: 'https://deepxde.readthedocs.io/',
+          note: 'PINNs/PDE 求解主流库，由相关研究核心团队维护。'
+        }
+      }
+    };
+
+    const ORDER = ['bayes', 'automl', 'distill', 'gnn', 'ts', 'ai4s'];
+    const params = new URLSearchParams(window.location.search);
+    const selected = params.get('topic');
+    const activeKey = ORDER.includes(selected) ? selected : 'bayes';
+
+    const titleEl = document.getElementById('topicTitle');
+    const descEl = document.getElementById('topicDesc');
+    const rowEl = document.getElementById('topicRow');
+    const externalLinkEl = document.getElementById('externalLink');
+    const externalNoteEl = document.getElementById('externalNote');
+
+    function renderMath() {
+      if (window.MathJax?.typesetPromise && window.MathJax?.typesetClear) {
+        window.MathJax.typesetClear([descEl]);
+        window.MathJax.typesetPromise([descEl]).catch(() => {});
+      }
+    }
+
+    function renderNav(current) {
+      rowEl.innerHTML = '';
+      ORDER.forEach((key) => {
+        const item = TOPIC_DATA[key];
+        const a = document.createElement('a');
+        a.href = `./topic-detail.html?topic=${key}`;
+        a.textContent = item.title;
+        a.className = `topic-btn${key === current ? ' active' : ''}`;
+        rowEl.appendChild(a);
+      });
+    }
+
+    function renderTopic(key) {
+      const item = TOPIC_DATA[key];
+      titleEl.textContent = item.title;
+      descEl.innerHTML = item.desc;
+      externalLinkEl.textContent = item.external.label;
+      externalLinkEl.href = item.external.url;
+      externalNoteEl.textContent = item.external.note;
+      renderNav(key);
+      renderMath();
+    }
+
+    renderTopic(activeKey);
+
+    const mjScript = document.getElementById('MathJax-script');
+    if (mjScript) {
+      mjScript.addEventListener('load', () => {
+        renderMath();
+      });
+    }
+
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('vibeml-theme');
+    if (savedTheme === 'light') root.setAttribute('data-theme', 'light');
+
+    themeToggle?.addEventListener('click', () => {
+      const isLight = root.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        root.removeAttribute('data-theme');
+        localStorage.setItem('vibeml-theme', 'dark');
+      } else {
+        root.setAttribute('data-theme', 'light');
+        localStorage.setItem('vibeml-theme', 'light');
+      }
+    });
+
+  </script>
+</body>
+</html>
