@@ -269,7 +269,8 @@
     .cursor { animation: blink 1s infinite; }
     @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
     .demo-tags { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-    .demo-tag { font-size: 12px; color: var(--gray-500); border: 1px solid var(--border-soft); border-radius: 9999px; padding: 4px 12px; background: rgba(136, 255, 216, 0.05); }
+    .demo-tag { font-size: 12px; color: var(--gray-500); border: 1px solid var(--border-soft); border-radius: 9999px; padding: 4px 12px; background: rgba(136, 255, 216, 0.05); text-decoration: none; display: inline-block; transition: all 0.2s ease; }
+    .demo-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: rgba(31, 215, 157, 0.12); }
 
     /* Scroll Indicator */
     .scroll-indicator { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--gray-600); font-size: 12px; }
@@ -591,7 +592,8 @@
     .models-section { margin-top: 48px; background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 16px; padding: 24px; backdrop-filter: blur(10px); }
     .models-label { font-size: 12px; color: var(--gray-500); text-align: center; margin-bottom: 16px; }
     .models-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-    .model-tag { font-size: 12px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace; }
+    .model-tag { font-size: 12px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
+    .model-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: color-mix(in srgb, rgba(16, 202, 144, 0.22) 52%, var(--bg-tertiary)); }
 
     /* Footer */
     footer { background: color-mix(in srgb, var(--bg-primary) 86%, #000 14%); border-top: 1px solid var(--border-soft); padding: 64px 24px 32px; }
@@ -745,12 +747,12 @@
         </div>
 
         <div class="demo-tags">
-          <span class="demo-tag">贝叶斯优化</span>
-          <span class="demo-tag">AutoML</span>
-          <span class="demo-tag">模型蒸馏</span>
-          <span class="demo-tag">GNN</span>
-          <span class="demo-tag">时序预测</span>
-          <span class="demo-tag">AI4Science</span>
+          <a class="demo-tag" href="./topic-detail.html?topic=bayes">贝叶斯优化</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=automl">AutoML</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=distill">模型蒸馏</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=gnn">GNN</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=ts">时序预测</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=ai4s">AI4Science</a>
         </div>
       </div>
     </div>
@@ -1132,18 +1134,18 @@ validation → out_of_time_split</pre>
       <div class="models-section">
         <div class="models-label">支持的模型家族</div>
         <div class="models-list">
-          <span class="model-tag">XGBoost / LightGBM</span>
-          <span class="model-tag">Transformer</span>
-          <span class="model-tag">LSTM / TCN</span>
-          <span class="model-tag">GNN / Graph Transformer</span>
-          <span class="model-tag">Tabular DNN</span>
-          <span class="model-tag">Random Forest</span>
-          <span class="model-tag">PPO / SAC (RL)</span>
-          <span class="model-tag">Neural ODE</span>
-          <span class="model-tag">Diffusion Model</span>
-          <span class="model-tag">Causal ML</span>
-          <span class="model-tag">Conformal Prediction</span>
-          <span class="model-tag">AutoML Pipeline</span>
+          <a class="model-tag" href="./model-detail.html?model=xgboost-lightgbm">XGBoost / LightGBM</a>
+          <a class="model-tag" href="./model-detail.html?model=transformer">Transformer</a>
+          <a class="model-tag" href="./model-detail.html?model=lstm-tcn">LSTM / TCN</a>
+          <a class="model-tag" href="./model-detail.html?model=gnn-graph-transformer">GNN / Graph Transformer</a>
+          <a class="model-tag" href="./model-detail.html?model=tabular-dnn">Tabular DNN</a>
+          <a class="model-tag" href="./model-detail.html?model=random-forest">Random Forest</a>
+          <a class="model-tag" href="./model-detail.html?model=ppo-sac-rl">PPO / SAC (RL)</a>
+          <a class="model-tag" href="./model-detail.html?model=neural-ode">Neural ODE</a>
+          <a class="model-tag" href="./model-detail.html?model=diffusion-model">Diffusion Model</a>
+          <a class="model-tag" href="./model-detail.html?model=causal-ml">Causal ML</a>
+          <a class="model-tag" href="./model-detail.html?model=conformal-prediction">Conformal Prediction</a>
+          <a class="model-tag" href="./model-detail.html?model=automl-pipeline">AutoML Pipeline</a>
         </div>
       </div>
     </div>
