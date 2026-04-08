@@ -969,12 +969,151 @@
     /* Utility */
     .hidden { display: none !important; }
 
+    /* === Agent Activity Feed (Manus-style) === */
+    .agent-feed {
+      margin-top: 12px;
+      border-left: 2px solid var(--violet-500);
+      padding-left: 16px;
+    }
+
+    .agent-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      animation: fadeSlideIn 0.3s ease;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .agent-step .step-icon {
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .agent-step .step-text {
+      line-height: 1.5;
+    }
+
+    .agent-step.thinking .step-text {
+      color: var(--violet-400);
+    }
+
+    .agent-step.action {
+      margin: 2px 0;
+    }
+
+    .agent-step.action .step-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--cyan-400);
+      background: rgba(34, 211, 238, 0.06);
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .agent-step.observation .step-text {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      opacity: 0.7;
+      max-height: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .agent-step.done .step-text {
+      color: var(--emerald-400);
+    }
+
+    .agent-step.error .step-text {
+      color: var(--rose-400);
+    }
+
+    .agent-spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--violet-400);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* === Mode Toggle (LM Studio style) === */
+    .mode-toggle {
+      display: flex;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .mode-btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: transparent;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .mode-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .mode-btn.active {
+      background: rgba(139, 92, 246, 0.2);
+      color: var(--violet-400);
+      box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3);
+    }
+
+    .mode-btn .mode-icon {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    /* Developer 模式：所有技术细节默认展开 */
+    body.mode-developer .tech-details { display: block !important; }
+    body.mode-developer .tech-section-body { display: block !important; }
+    body.mode-developer .tech-toggle { display: none; }
+
+    /* User 模式（默认）：技术细节全部收起 */
+    body.mode-user .tech-details { display: none; }
+    body.mode-user .tech-section-body { display: none; }
+    body.mode-user .tech-toggle .arrow { transform: rotate(0deg); }
+
     /* Responsive */
     @media (max-width: 768px) {
       .header-title { display: none; }
       .header-divider { display: none; }
       .messages { padding: 16px; }
       .input-area { padding: 12px 16px; }
+      .mode-btn span:not(.mode-icon) { display: none; }
+      .mode-btn { padding: 6px 10px; }
     }
   </style>
 </head>
@@ -994,7 +1133,17 @@
       <div class="header-divider"></div>
       <span class="header-title">Chat / 新对话</span>
     </div>
-    <div class="header-actions">
+    <div class="header-actions" style="display: flex; align-items: center; gap: 12px;">
+      <div class="mode-toggle" id="modeToggle">
+        <button class="mode-btn active" id="modeUser" onclick="setMode('user')">
+          <span class="mode-icon">👤</span>
+          <span>User</span>
+        </button>
+        <button class="mode-btn" id="modeDev" onclick="setMode('developer')">
+          <span class="mode-icon">🛠</span>
+          <span>Developer</span>
+        </button>
+      </div>
       <a href="/" class="header-btn">返回首页</a>
       <button class="header-btn primary" onclick="startNewChat()">+ 新对话</button>
     </div>
@@ -1071,6 +1220,25 @@
     let isWaitingResponse = false;
     let currentDatasetId = null;
     let currentJobId = null;
+
+    // === Mode Toggle: User / Developer ===
+    let currentMode = localStorage.getItem('vibeml-mode') || 'user';
+
+    function setMode(mode) {
+      currentMode = mode;
+      localStorage.setItem('vibeml-mode', mode);
+
+      // 更新按钮状态
+      document.getElementById('modeUser').classList.toggle('active', mode === 'user');
+      document.getElementById('modeDev').classList.toggle('active', mode === 'developer');
+
+      // 更新 body class
+      document.body.classList.remove('mode-user', 'mode-developer');
+      document.body.classList.add('mode-' + mode);
+    }
+
+    // 初始化模式
+    setMode(currentMode);
     let selectedPriority = 'quality';
     let selectedAugStrength = 'standard';
 
@@ -1141,34 +1309,204 @@
     }
 
     async function uploadFile(file) {
-      showLoading();
+      // Manus 风格：创建一条 Agent 活动消息，实时更新
+      const feedId = 'agent-feed-' + Date.now();
+      addMessage('assistant', `
+        <p>🤖 <strong>Agent 正在处理你的数据...</strong></p>
+        <div class="agent-feed" id="${feedId}">
+          <div class="agent-step">
+            <span class="step-icon"><span class="agent-spinner"></span></span>
+            <span class="step-text">接收文件: ${file.name} (${formatFileSize(file.size)})</span>
+          </div>
+        </div>
+      `);
 
       const formData = new FormData();
       formData.append('file', file);
 
+      // 先获取用户之前的目标描述（如果有）
+      let userGoal = '';
+      document.querySelectorAll('.message').forEach(m => {
+        const author = m.querySelector('.message-author');
+        const text = m.querySelector('.message-text');
+        if (author && author.textContent === 'You' && text) {
+          const t = text.textContent.trim();
+          if (t.length > 10 && !t.startsWith('我准备了')) userGoal = t;
+        }
+      });
+      if (userGoal) formData.append('user_goal', userGoal);
+
       try {
-        const response = await fetch(`${API}/data/upload`, {
+        // 使用 SSE 流式端点
+        const response = await fetch(`${API}/data/upload-stream`, {
           method: 'POST',
           body: formData
         });
 
-        const data = await response.json();
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${response.status}`);
+        }
 
-        if (data.success || data.dataset_id) {
-          currentDatasetId = data.dataset_id;
-          addMessage('assistant', `
-            <p>📂 数据已接收（${data.n_rows} 行 × ${data.n_cols} 列），正在让 AI 分析数据结构...</p>
-          `);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-          // 自动触发 LLM 数据探索
-          await exploreDataset(data.dataset_id);
-        } else {
-          throw new Error(data.message || '上传失败');
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // 保留未完成的行
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const evt = JSON.parse(line.slice(6));
+              const feed = document.getElementById(feedId);
+              if (!feed) continue;
+
+              if (evt.step === 'result' && evt.done) {
+                // 最终结果
+                hideLoading();
+                const data = evt.data;
+                currentDatasetId = data.dataset_id;
+
+                // 移除 spinner
+                feed.querySelectorAll('.agent-spinner').forEach(s => {
+                  s.parentElement.innerHTML = '✅';
+                });
+
+                // 添加完成标记
+                appendAgentStep(feed, '✅', 'Agent 分析完成', 'done');
+
+                // 展示探索结果
+                if (data.exploration) {
+                  showDataExplorationFromStream(data);
+                }
+              } else if (evt.step === 'error') {
+                hideLoading();
+                appendAgentStep(feed, '❌', evt.message, 'error');
+              } else if (evt.step === 'action') {
+                // Agent 执行的命令
+                appendAgentStep(feed, '⚡', evt.message, 'action');
+              } else if (evt.step === 'observe') {
+                // 命令输出（可折叠）
+                appendAgentStep(feed, '👁', evt.message, 'observation');
+              } else if (evt.step === 'think') {
+                // Agent 思考
+                appendAgentStep(feed, '', evt.message, 'thinking');
+              } else {
+                // 其他进度事件（extract, scan 等）
+                appendAgentStep(feed, '', evt.message, '');
+              }
+            } catch (e) {
+              // JSON 解析失败，忽略
+            }
+          }
         }
       } catch (e) {
         hideLoading();
+        const feed = document.getElementById(feedId);
+        if (feed) {
+          appendAgentStep(feed, '❌', `处理失败: ${e.message}`, 'error');
+        }
+        // 回退到普通上传
+        addMessage('assistant', `<p>⚠️ 流式处理失败，尝试基础上传...</p>`);
+        await uploadFileFallback(file);
+      }
+    }
+
+    function appendAgentStep(feed, icon, text, className) {
+      const step = document.createElement('div');
+      step.className = 'agent-step ' + (className || '');
+      step.innerHTML = `
+        <span class="step-icon">${icon || (className === 'thinking' ? '<span class="agent-spinner"></span>' : '•')}</span>
+        <span class="step-text">${text}</span>
+      `;
+      feed.appendChild(step);
+      // 滚动到底部
+      const messages = document.getElementById('messages');
+      if (messages) messages.scrollTop = messages.scrollHeight;
+    }
+
+    function showDataExplorationFromStream(data) {
+      const exp = data.exploration || {};
+      let html = '';
+
+      // 业务摘要
+      if (exp.business_summary) {
+        html += `<div class="plan-business" style="margin-top: 12px;">
+          <div class="plan-understanding">${exp.business_summary}</div>
+        </div>`;
+      }
+
+      // 数据类型 + 格式
+      if (exp.data_type || exp.format_details) {
+        html += `<div class="card card-violet" style="margin-top: 12px;">
+          <div class="card-header"><span>📦</span><span>数据集识别结果</span></div>
+          <div style="padding: 4px 0;">`;
+        if (exp.data_type) {
+          html += `<div class="setup-row"><span class="setup-label">数据类型</span><span class="setup-value emerald">${exp.data_type}</span></div>`;
+        }
+        if (exp.format_details) {
+          html += `<div class="setup-row"><span class="setup-label">格式</span><span style="font-size: 12px;">${exp.format_details}</span></div>`;
+        }
+        const stats = exp.statistics || {};
+        if (stats.total_samples) {
+          html += `<div class="setup-row"><span class="setup-label">样本数</span><span>${stats.total_samples}</span></div>`;
+        }
+        if (stats.classes && stats.classes.length > 0) {
+          html += `<div class="setup-row"><span class="setup-label">类别数</span><span>${stats.classes.length} 类</span></div>`;
+        }
+        html += `</div></div>`;
+      }
+
+      // 目录树（Developer 模式可见）
+      if (data.file_scan && data.file_scan.directory_tree) {
+        const treeId = 'tree-' + Date.now();
+        html += `
+          <button class="tech-toggle" onclick="toggleTechDetails('${treeId}', this)">
+            <span class="arrow">▶</span>
+            <span>📁 查看文件结构</span>
+          </button>
+          <div class="tech-details" id="${treeId}">
+            <pre style="font-size: 11px; color: var(--text-secondary); overflow-x: auto; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">${data.file_scan.directory_tree}</pre>
+          </div>`;
+      }
+
+      // 质量问题
+      if (exp.quality_issues && exp.quality_issues.length > 0) {
+        html += `<div class="needs-more-info" style="margin-top: 12px;">
+          ⚠️ <strong>数据质量提醒</strong>：
+          <ul style="margin: 6px 0 0 16px; font-size: 12px;">
+            ${exp.quality_issues.map(i => `<li>${i.description}${i.suggestion ? ' → ' + i.suggestion : ''}</li>`).join('')}
+          </ul>
+        </div>`;
+      }
+
+      // 下一步引导
+      html += `<p style="margin-top: 16px;">现在请描述你的<strong>业务目标和约束</strong>，我会结合数据生成个性化训练方案。</p>`;
+
+      if (html) addMessage('assistant', html);
+    }
+
+    async function uploadFileFallback(file) {
+      // 普通上传回退
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const response = await fetch(`${API}/data/upload`, { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.success || data.dataset_id) {
+          currentDatasetId = data.dataset_id;
+          addMessage('assistant', `<p>✅ 数据已上传（${data.data_type || '未知类型'}，${data.file_scan?.total_files || '?'} 个文件）</p>`);
+        }
+      } catch (e) {
         addMessage('assistant', `<p>❌ 上传失败: ${e.message}</p>`);
       }
+      hideLoading();
     }
 
     async function importFromLink(url) {

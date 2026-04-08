@@ -1,22 +1,20 @@
 """
-数据管理模块 - 数据上传、预处理、特征工程
+数据管理模块 - 通用数据上传、AI 驱动探索、特征工程
 
-支持：
-- CSV/Excel 数据上传
-- 自动列类型推断
-- 缺失值处理
-- 特征编码（类别、数值、文本）
-- 数据验证
+设计理念：不预设用户上传的是什么格式。
+Agent 拿到文件后，自己打开看、理解、报告。
 """
 
 from __future__ import annotations
 
 import json
+import os
 import pickle
+from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 import pandas as pd
@@ -30,8 +28,11 @@ DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# =============================================
+# 数据规范（通用，不限于表格）
+# =============================================
+
 class ColumnType(str, Enum):
-    """列数据类型"""
     NUMERIC = "numeric"
     CATEGORICAL = "categorical"
     TEXT = "text"
@@ -43,7 +44,6 @@ class ColumnType(str, Enum):
 
 @dataclass
 class ColumnInfo:
-    """列元信息"""
     name: str
     column_type: ColumnType
     dtype: str = ""
@@ -66,15 +66,24 @@ class ColumnInfo:
 
 @dataclass
 class DataSpec:
-    """数据规范"""
+    """通用数据规范 — 适用于表格、图像、文本等任何格式"""
     dataset_id: str
     filename: str
-    n_rows: int
-    n_cols: int
+    n_rows: int = 0          # 表格行数 / 图像数量 / 样本数
+    n_cols: int = 0          # 表格列数
+    data_type: str = "unknown"  # tabular / image_detection / image_classification / text / audio / unknown
     columns: list[ColumnInfo] = field(default_factory=list)
     target_column: str | None = None
     id_column: str | None = None
     feature_columns: list[str] = field(default_factory=list)
+    # 通用元数据（LLM 探索结果存这里）
+    metadata: dict[str, Any] = field(default_factory=dict)
+    # 文件结构快照
+    file_scan: dict[str, Any] = field(default_factory=dict)
+    # LLM 探索结果
+    exploration: dict[str, Any] = field(default_factory=dict)
+    # 原始数据存储路径
+    storage_path: str = ""
     
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -82,26 +91,221 @@ class DataSpec:
             "filename": self.filename,
             "n_rows": self.n_rows,
             "n_cols": self.n_cols,
+            "data_type": self.data_type,
             "target_column": self.target_column,
             "id_column": self.id_column,
             "feature_columns": self.feature_columns,
-            "columns": [
-                {
-                    "name": c.name,
-                    "column_type": c.column_type.value,
-                    "dtype": c.dtype,
-                    "missing_count": c.missing_count,
-                    "unique_count": c.unique_count,
-                    "sample_values": c.sample_values[:5],
-                    "statistics": c.statistics,
-                }
-                for c in self.columns
-            ],
+            "metadata": self.metadata,
+            "file_scan": self.file_scan,
+            "exploration": self.exploration,
+            "columns": [c.to_dict() for c in self.columns],
         }
 
 
+# =============================================
+# 通用文件扫描器 — 不解析，只观察
+# =============================================
+
+class FileScanner:
+    """
+    扫描目录结构，生成一份"文件观察报告"给 LLM Agent。
+    
+    不预设任何格式。只是忠实记录看到了什么：
+    - 目录树
+    - 文件扩展名统计
+    - 采样几个文件的内容（文本文件读前几行，二进制文件报告大小）
+    """
+    
+    # 文本类扩展名
+    TEXT_EXTS = {
+        '.csv', '.tsv', '.txt', '.json', '.jsonl', '.xml', '.yaml', '.yml',
+        '.md', '.py', '.cfg', '.ini', '.conf', '.log', '.names', '.data',
+        '.labels', '.classes',
+    }
+    
+    # 图像类扩展名
+    IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp', '.gif'}
+    
+    # 音频类扩展名
+    AUDIO_EXTS = {'.wav', '.mp3', '.flac', '.ogg', '.m4a'}
+    
+    # 模型/权重文件
+    MODEL_EXTS = {'.pt', '.pth', '.onnx', '.h5', '.pb', '.tflite', '.bin', '.safetensors', '.ckpt'}
+    
+    # 数据文件
+    DATA_EXTS = {'.csv', '.tsv', '.xlsx', '.xls', '.parquet', '.feather', '.sqlite', '.db', '.hdf5'}
+    
+    # 忽略的文件/目录
+    IGNORE_PATTERNS = {'__MACOSX', '.DS_Store', '__pycache__', '.git', 'Thumbs.db'}
+    
+    @classmethod
+    def scan_directory(cls, root_dir: str | Path, max_files: int = 500) -> dict[str, Any]:
+        """
+        扫描目录，返回结构化的观察报告。
+        这份报告会直接喂给 LLM，让它判断这是什么数据集。
+        """
+        root = Path(root_dir)
+        
+        # 收集文件信息
+        all_files = []
+        ext_counter = Counter()
+        total_size = 0
+        dir_set = set()
+        
+        for f in root.rglob('*'):
+            # 跳过忽略的
+            if any(p in str(f) for p in cls.IGNORE_PATTERNS):
+                continue
+            if f.is_dir():
+                rel = str(f.relative_to(root))
+                if len(dir_set) < 50:
+                    dir_set.add(rel)
+                continue
+            if not f.is_file():
+                continue
+            
+            rel_path = str(f.relative_to(root))
+            ext = f.suffix.lower()
+            size = f.stat().st_size
+            
+            ext_counter[ext] += 1
+            total_size += size
+            
+            if len(all_files) < max_files:
+                all_files.append({
+                    "path": rel_path,
+                    "ext": ext,
+                    "size": size,
+                })
+        
+        # 按扩展名分类统计
+        ext_stats = dict(ext_counter.most_common(20))
+        
+        # 采样文件内容（给 LLM 看）
+        samples = cls._sample_file_contents(root, all_files)
+        
+        # 生成目录树（简化版，只显示前2层 + 关键文件）
+        tree = cls._build_tree_summary(root, max_depth=3, max_items=30)
+        
+        return {
+            "total_files": sum(ext_counter.values()),
+            "total_size_bytes": total_size,
+            "total_size_human": cls._human_size(total_size),
+            "extensions": ext_stats,
+            "directories": sorted(list(dir_set))[:30],
+            "directory_tree": tree,
+            "file_samples": samples,
+            "has_images": any(ext in cls.IMAGE_EXTS for ext in ext_counter),
+            "has_tabular": any(ext in cls.DATA_EXTS for ext in ext_counter),
+            "has_text": any(ext in cls.TEXT_EXTS for ext in ext_counter),
+            "has_audio": any(ext in cls.AUDIO_EXTS for ext in ext_counter),
+            "has_models": any(ext in cls.MODEL_EXTS for ext in ext_counter),
+        }
+    
+    @classmethod
+    def _sample_file_contents(cls, root: Path, files: list[dict], max_samples: int = 10) -> list[dict]:
+        """采样几个文件的内容，给 LLM 看"""
+        samples = []
+        sampled_exts = set()
+        
+        # 优先采样不同类型的文件
+        # 1. 先找配置/元数据文件（yaml, json, txt at root level）
+        priority_files = [f for f in files if f["ext"] in {'.yaml', '.yml', '.json', '.cfg', '.names', '.classes', '.data'}]
+        # 2. 再找标注/标签文件
+        annotation_files = [f for f in files if f["ext"] in {'.txt', '.xml', '.json'} and any(kw in f["path"].lower() for kw in ['label', 'annot', 'train', 'val', 'test'])]
+        # 3. CSV/表格
+        tabular_files = [f for f in files if f["ext"] in {'.csv', '.tsv'}]
+        # 4. 其他文本
+        other_text = [f for f in files if f["ext"] in cls.TEXT_EXTS and f not in priority_files + annotation_files + tabular_files]
+        
+        for file_list in [priority_files, annotation_files, tabular_files, other_text]:
+            for finfo in file_list[:3]:
+                if len(samples) >= max_samples:
+                    break
+                fp = root / finfo["path"]
+                try:
+                    content = cls._read_file_preview(fp, finfo["ext"])
+                    if content:
+                        samples.append({
+                            "path": finfo["path"],
+                            "ext": finfo["ext"],
+                            "size": finfo["size"],
+                            "content_preview": content,
+                        })
+                        sampled_exts.add(finfo["ext"])
+                except Exception:
+                    pass
+        
+        return samples
+    
+    @classmethod
+    def _read_file_preview(cls, path: Path, ext: str, max_lines: int = 20, max_chars: int = 2000) -> str | None:
+        """读取文件预览内容"""
+        if ext in cls.IMAGE_EXTS or ext in cls.AUDIO_EXTS or ext in cls.MODEL_EXTS:
+            return None  # 二进制文件不读内容
+        
+        try:
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                lines = []
+                total_chars = 0
+                for i, line in enumerate(f):
+                    if i >= max_lines or total_chars >= max_chars:
+                        lines.append(f"... (共 {i+1}+ 行)")
+                        break
+                    lines.append(line.rstrip())
+                    total_chars += len(line)
+                return "\n".join(lines)
+        except Exception:
+            return None
+    
+    @classmethod
+    def _build_tree_summary(cls, root: Path, max_depth: int = 3, max_items: int = 30) -> str:
+        """生成简化的目录树"""
+        lines = []
+        count = 0
+        
+        def _walk(dir_path: Path, prefix: str, depth: int):
+            nonlocal count
+            if depth > max_depth or count > max_items:
+                return
+            
+            items = sorted(dir_path.iterdir(), key=lambda x: (x.is_file(), x.name))
+            # 过滤忽略项
+            items = [i for i in items if not any(p in i.name for p in cls.IGNORE_PATTERNS)]
+            
+            for i, item in enumerate(items):
+                if count > max_items:
+                    lines.append(f"{prefix}... ({len(items) - i} more)")
+                    break
+                
+                is_last = i == len(items) - 1
+                connector = "└── " if is_last else "├── "
+                
+                if item.is_dir():
+                    n_children = sum(1 for _ in item.rglob('*') if _.is_file())
+                    lines.append(f"{prefix}{connector}{item.name}/ ({n_children} files)")
+                    count += 1
+                    next_prefix = prefix + ("    " if is_last else "│   ")
+                    _walk(item, next_prefix, depth + 1)
+                else:
+                    size = cls._human_size(item.stat().st_size)
+                    lines.append(f"{prefix}{connector}{item.name} ({size})")
+                    count += 1
+        
+        _walk(root, "", 0)
+        return "\n".join(lines)
+    
+    @staticmethod
+    def _human_size(size_bytes: int) -> str:
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size_bytes < 1024:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024
+        return f"{size_bytes:.1f} TB"
+
+
 class DataTypeDetector:
-    """自动数据类型检测器"""
+    """表格数据的列类型检测器（用于表格类数据集）"""
     
     @staticmethod
     def detect_column_type(series: pd.Series) -> ColumnType:
@@ -323,10 +527,20 @@ class FeatureEngineer:
 
 
 class DataManager:
-    """数据管理主类"""
+    """
+    数据管理主类
+    
+    核心流程：
+    1. 接收文件（任意格式）→ 保存到磁盘
+    2. 如果是压缩包 → 解压
+    3. 扫描目录结构 → 生成观察报告
+    4. （可选）LLM Agent 分析报告 → 理解数据
+    5. 如果是表格数据 → 额外做列分析
+    """
     
     def __init__(self):
         self.detector = DataTypeDetector()
+        self.scanner = FileScanner()
         self.datasets: dict[str, DataSpec] = {}
     
     def upload_file(
@@ -335,219 +549,160 @@ class DataManager:
         filename: str,
         dataset_id: str | None = None,
         target_hint: str | None = None,
+        progress_callback: Callable[[str, str], None] | None = None,
     ) -> DataSpec:
         """
-        上传并解析多种格式的数据文件
+        上传任意格式的文件。
         
-        支持格式：
-        - CSV (.csv)
-        - Excel (.xlsx, .xls)
-        - ZIP (.zip) - 包含上述格式的压缩包
-        - 7Z (.7z) - 包含上述格式的压缩包
+        不预设格式——保存、解压、扫描，然后让 AI Agent 分析。
+        
+        Args:
+            progress_callback: 进度回调 (step_id, message)，用于实时推送给前端
         """
         import uuid
-        import tempfile
-        import zipfile
         import shutil
         
         if dataset_id is None:
             dataset_id = f"ds_{uuid.uuid4().hex[:8]}"
         
-        # 获取文件扩展名
-        ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        def _emit(step: str, msg: str):
+            if progress_callback:
+                progress_callback(step, msg)
         
-        # 创建临时目录
-        temp_dir = tempfile.mkdtemp()
-        temp_file = Path(temp_dir) / filename
+        # Step 1: 保存原始文件
+        _emit("save", f"📥 接收文件: {filename} ({FileScanner._human_size(len(content))})")
         
-        # 保存上传的内容
-        with open(temp_file, 'wb') as f:
+        dataset_dir = DATA_DIR / dataset_id
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        raw_file = dataset_dir / filename
+        with open(raw_file, 'wb') as f:
             f.write(content)
         
-        try:
-            # 处理压缩文件
-            if ext == 'zip':
-                df = self._extract_and_read_zip(temp_file, temp_dir)
-                # 更新文件名为实际数据文件名
-                filename = self._find_data_file(temp_dir)
-            elif ext == '7z':
-                df = self._extract_and_read_7z(temp_file, temp_dir)
-                filename = self._find_data_file(temp_dir)
-            elif ext in ['xlsx', 'xls']:
-                df = pd.read_excel(temp_file)
-            elif ext == 'csv':
-                df = pd.read_csv(temp_file)
-            else:
-                raise ValueError(f"不支持的文件格式: {ext}")
-            
-            # 确保有有效的 DataFrame
-            if df is None or df.empty:
-                raise ValueError("无法从文件中读取数据")
-            
-            # 保存为 CSV 格式（统一存储）
-            csv_filename = f"{dataset_id}_data.csv"
-            csv_path = DATA_DIR / csv_filename
-            df.to_csv(csv_path, index=False)
-            
-            # 分析每列
-            columns_info = []
-            column_types = {}
-            
-            for col in df.columns:
-                info = self.detector.analyze_column(df[col])
-                columns_info.append(info)
-                column_types[col] = info.column_type
-            
-            # 推断目标列
-            target_column = self.detector.infer_target_column(df, target_hint)
-            
-            # 推断ID列
-            id_column = None
-            for col_info in columns_info:
-                if col_info.column_type == ColumnType.ID:
-                    id_column = col_info.name
-                    break
-            
-            # 确定特征列
-            feature_columns = [
-                c.name for c in columns_info
-                if c.name not in [target_column, id_column] and c.column_type != ColumnType.ID
-            ]
-            
-            spec = DataSpec(
-                dataset_id=dataset_id,
-                filename=csv_filename,
-                n_rows=len(df),
-                n_cols=len(df.columns),
-                columns=columns_info,
-                target_column=target_column,
-                id_column=id_column,
-                feature_columns=feature_columns,
-            )
-            
-            # 保存元数据
-            meta_path = DATA_DIR / f"{dataset_id}_meta.json"
-            with open(meta_path, 'w', encoding='utf-8') as f:
-                json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
-            
-            self.datasets[dataset_id] = spec
-            return spec
-            
-        finally:
-            # 清理临时目录
-            shutil.rmtree(temp_dir, ignore_errors=True)
-    
-    def _extract_and_read_zip(self, zip_path: Path, extract_dir: str) -> pd.DataFrame:
-        """解压 ZIP 并读取数据文件"""
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_dir)
-        return self._read_data_from_dir(extract_dir)
-    
-    def _extract_and_read_7z(self, archive_path: Path, extract_dir: str) -> pd.DataFrame:
-        """解压 7Z 并读取数据文件"""
-        try:
-            import py7zr
-            with py7zr.SevenZipFile(archive_path, mode='r') as z:
-                z.extractall(path=extract_dir)
-            return self._read_data_from_dir(extract_dir)
-        except ImportError:
-            raise ValueError("处理 7Z 文件需要安装 py7zr: pip install py7zr")
-    
-    def _find_data_file(self, directory: str) -> str:
-        """在目录中递归查找数据文件"""
-        dir_path = Path(directory)
-        for pattern in ['**/*.csv', '**/*.xlsx', '**/*.xls']:
-            files = sorted(dir_path.glob(pattern), key=lambda f: f.stat().st_size, reverse=True)
-            # 跳过隐藏文件和 macOS 元数据
-            files = [f for f in files if not f.name.startswith('.') and '__MACOSX' not in str(f)]
-            if files:
-                return files[0].name
-        return "data.csv"
-    
-    def _read_data_from_dir(self, directory: str) -> pd.DataFrame:
-        """从目录中递归查找并读取数据文件"""
-        dir_path = Path(directory)
+        # Step 2: 解压（如果是压缩包）
+        ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
+        extract_dir = dataset_dir / "extracted"
         
-        def _find_files(patterns):
-            """递归搜索，跳过隐藏文件和 macOS 元数据目录"""
-            results = []
-            for pat in patterns:
-                for f in dir_path.glob(pat):
-                    if not f.name.startswith('.') and '__MACOSX' not in str(f):
-                        results.append(f)
-            # 按文件大小降序（优先读最大的数据文件）
-            return sorted(results, key=lambda f: f.stat().st_size, reverse=True)
+        if ext == 'zip':
+            _emit("extract", f"📦 正在解压 ZIP 文件...")
+            import zipfile
+            try:
+                with zipfile.ZipFile(raw_file, 'r') as zf:
+                    zf.extractall(extract_dir)
+                _emit("extract", f"✅ 解压完成，共 {sum(1 for _ in extract_dir.rglob('*') if _.is_file())} 个文件")
+            except Exception as e:
+                _emit("extract", f"⚠️ 解压失败: {e}")
+                raise ValueError(f"ZIP 解压失败: {e}")
+            scan_root = extract_dir
+        elif ext == '7z':
+            _emit("extract", f"📦 正在解压 7Z 文件...")
+            try:
+                import py7zr
+                with py7zr.SevenZipFile(raw_file, mode='r') as z:
+                    z.extractall(path=str(extract_dir))
+                _emit("extract", f"✅ 解压完成")
+            except ImportError:
+                raise ValueError("处理 7Z 文件需要安装 py7zr")
+            except Exception as e:
+                raise ValueError(f"7Z 解压失败: {e}")
+            scan_root = extract_dir
+        elif ext in ('tar', 'gz', 'tgz'):
+            _emit("extract", f"📦 正在解压 tar 文件...")
+            import tarfile
+            try:
+                with tarfile.open(raw_file, 'r:*') as tf:
+                    tf.extractall(extract_dir)
+                _emit("extract", f"✅ 解压完成")
+            except Exception as e:
+                raise ValueError(f"tar 解压失败: {e}")
+            scan_root = extract_dir
+        else:
+            # 非压缩包，直接扫描文件本身
+            scan_root = dataset_dir
         
-        # 优先读取 CSV
-        csv_files = _find_files(['**/*.csv'])
-        if csv_files:
-            return pd.read_csv(csv_files[0])
+        # Step 3: 扫描目录结构
+        _emit("scan", "🔍 正在扫描文件结构...")
+        file_scan = self.scanner.scan_directory(scan_root)
+        _emit("scan", f"📁 发现 {file_scan['total_files']} 个文件 ({file_scan['total_size_human']})")
         
-        # 然后尝试 Excel
-        excel_files = _find_files(['**/*.xlsx', '**/*.xls'])
-        if excel_files:
-            return pd.read_excel(excel_files[0])
+        exts = file_scan['extensions']
+        if exts:
+            ext_summary = ', '.join(f"{e}({n})" for e, n in list(exts.items())[:6])
+            _emit("scan", f"📋 文件类型: {ext_summary}")
         
-        raise ValueError("压缩包中未找到 CSV 或 Excel 文件。支持的格式：.csv, .xlsx, .xls")
-    
-    def upload_csv(
-        self,
-        content: bytes,
-        filename: str,
-        dataset_id: str | None = None,
-        target_hint: str | None = None,
-    ) -> DataSpec:
-        """上传并解析 CSV 文件"""
-        
-        if dataset_id is None:
-            import uuid
-            dataset_id = f"ds_{uuid.uuid4().hex[:8]}"
-        
-        # 保存原始文件
-        file_path = DATA_DIR / f"{dataset_id}_{filename}"
-        with open(file_path, 'wb') as f:
-            f.write(content)
-        
-        # 读取数据
-        try:
-            df = pd.read_csv(file_path)
-        except Exception as e:
-            raise ValueError(f"无法解析 CSV: {e}")
-        
-        # 分析每列
+        # Step 4: 尝试读取表格数据（如果有的话）
+        df = None
         columns_info = []
-        column_types = {}
-        
-        for col in df.columns:
-            info = self.detector.analyze_column(df[col])
-            columns_info.append(info)
-            column_types[col] = info.column_type
-        
-        # 推断目标列
-        target_column = self.detector.infer_target_column(df, target_hint)
-        
-        # 推断ID列
+        n_rows = file_scan['total_files']  # 默认用文件数作为样本数
+        n_cols = 0
+        data_type = "unknown"
+        target_column = None
         id_column = None
-        for col_info in columns_info:
-            if col_info.column_type == ColumnType.ID:
-                id_column = col_info.name
-                break
+        feature_columns = []
         
-        # 确定特征列
-        feature_columns = [
-            c.name for c in columns_info
-            if c.name not in [target_column, id_column] and c.column_type != ColumnType.ID
-        ]
+        if file_scan['has_tabular']:
+            _emit("parse", "📊 发现表格数据，正在解析...")
+            try:
+                df = self._try_read_tabular(scan_root)
+                if df is not None and not df.empty:
+                    n_rows = len(df)
+                    n_cols = len(df.columns)
+                    data_type = "tabular"
+                    _emit("parse", f"✅ 表格解析成功: {n_rows} 行 × {n_cols} 列")
+                    
+                    # 列分析
+                    for col in df.columns:
+                        info = self.detector.analyze_column(df[col])
+                        columns_info.append(info)
+                    
+                    target_column = self.detector.infer_target_column(df, target_hint)
+                    for ci in columns_info:
+                        if ci.column_type == ColumnType.ID:
+                            id_column = ci.name
+                            break
+                    feature_columns = [
+                        c.name for c in columns_info
+                        if c.name not in [target_column, id_column] and c.column_type != ColumnType.ID
+                    ]
+                    
+                    # 保存为标准 CSV
+                    csv_path = dataset_dir / f"{dataset_id}_data.csv"
+                    df.to_csv(csv_path, index=False)
+            except Exception as e:
+                _emit("parse", f"⚠️ 表格解析失败: {e}")
         
+        if file_scan['has_images']:
+            img_count = sum(n for ext, n in exts.items() if ext in FileScanner.IMAGE_EXTS)
+            _emit("scan", f"🖼️ 发现 {img_count} 张图片")
+            if data_type == "unknown":
+                data_type = "image"
+                n_rows = img_count
+        
+        if file_scan['has_audio']:
+            audio_count = sum(n for ext, n in exts.items() if ext in FileScanner.AUDIO_EXTS)
+            _emit("scan", f"🎵 发现 {audio_count} 个音频文件")
+            if data_type == "unknown":
+                data_type = "audio"
+                n_rows = audio_count
+        
+        if file_scan['has_models']:
+            model_count = sum(n for ext, n in exts.items() if ext in FileScanner.MODEL_EXTS)
+            _emit("scan", f"🧠 发现 {model_count} 个模型/权重文件")
+        
+        _emit("done", "🤖 文件扫描完成，等待 AI Agent 深度分析...")
+        
+        # 构建 DataSpec
         spec = DataSpec(
             dataset_id=dataset_id,
             filename=filename,
-            n_rows=len(df),
-            n_cols=len(df.columns),
+            n_rows=n_rows,
+            n_cols=n_cols,
+            data_type=data_type,
             columns=columns_info,
             target_column=target_column,
             id_column=id_column,
             feature_columns=feature_columns,
+            file_scan=file_scan,
+            storage_path=str(dataset_dir),
         )
         
         # 保存元数据
@@ -558,12 +713,165 @@ class DataManager:
         self.datasets[dataset_id] = spec
         return spec
     
+    def upload_from_disk(
+        self,
+        file_path: Path,
+        filename: str,
+        dataset_id: str,
+        target_hint: str | None = None,
+        progress_callback: Callable[[str, str], None] | None = None,
+    ) -> DataSpec:
+        """
+        处理已在磁盘上的大文件（不读入内存）。
+        直接在文件所在目录操作。
+        """
+        import shutil
+        
+        def _emit(step: str, msg: str):
+            if progress_callback:
+                progress_callback(step, msg)
+        
+        file_path = Path(file_path)
+        dataset_dir = file_path.parent
+        ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
+        extract_dir = dataset_dir / "extracted"
+        
+        # 解压
+        if ext == 'zip':
+            _emit("extract", f"📦 正在解压 ZIP ({self.scanner._human_size(file_path.stat().st_size)})...")
+            import zipfile
+            try:
+                with zipfile.ZipFile(file_path, 'r') as zf:
+                    zf.extractall(extract_dir)
+                n_files = sum(1 for _ in extract_dir.rglob('*') if _.is_file())
+                _emit("extract", f"✅ 解压完成，共 {n_files} 个文件")
+            except Exception as e:
+                raise ValueError(f"ZIP 解压失败: {e}")
+            scan_root = extract_dir
+        elif ext == '7z':
+            _emit("extract", "📦 正在解压 7Z...")
+            try:
+                import py7zr
+                with py7zr.SevenZipFile(str(file_path), mode='r') as z:
+                    z.extractall(path=str(extract_dir))
+            except Exception as e:
+                raise ValueError(f"7Z 解压失败: {e}")
+            scan_root = extract_dir
+        else:
+            scan_root = dataset_dir
+        
+        # 扫描
+        _emit("scan", "🔍 正在扫描文件结构...")
+        file_scan = self.scanner.scan_directory(scan_root)
+        _emit("scan", f"📁 发现 {file_scan['total_files']} 个文件 ({file_scan['total_size_human']})")
+        
+        exts = file_scan['extensions']
+        if exts:
+            ext_summary = ', '.join(f"{e}({n})" for e, n in list(exts.items())[:6])
+            _emit("scan", f"📋 文件类型: {ext_summary}")
+        
+        n_rows = file_scan['total_files']
+        data_type = "unknown"
+        if file_scan.get('has_images'):
+            img_count = sum(n for e, n in exts.items() if e in FileScanner.IMAGE_EXTS)
+            _emit("scan", f"🖼️ 发现 {img_count} 张图片")
+            data_type = "image"
+            n_rows = img_count
+        if file_scan.get('has_tabular'):
+            data_type = "tabular" if not file_scan.get('has_images') else data_type
+        
+        _emit("done", "🤖 文件扫描完成，等待 AI Agent 探索...")
+        
+        spec = DataSpec(
+            dataset_id=dataset_id,
+            filename=filename,
+            n_rows=n_rows,
+            n_cols=0,
+            data_type=data_type,
+            file_scan=file_scan,
+            storage_path=str(dataset_dir),
+        )
+        
+        meta_path = DATA_DIR / f"{dataset_id}_meta.json"
+        with open(meta_path, 'w', encoding='utf-8') as f:
+            json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
+        
+        self.datasets[dataset_id] = spec
+        return spec
+    
+    def _try_read_tabular(self, root: Path) -> pd.DataFrame | None:
+        """尝试从目录中读取表格数据（任何格式）"""
+        def _find(patterns):
+            results = []
+            for pat in patterns:
+                for f in root.rglob(pat):
+                    if not f.name.startswith('.') and '__MACOSX' not in str(f):
+                        results.append(f)
+            return sorted(results, key=lambda f: f.stat().st_size, reverse=True)
+        
+        # CSV
+        for f in _find(['*.csv']):
+            try:
+                return pd.read_csv(f)
+            except Exception:
+                continue
+        
+        # TSV
+        for f in _find(['*.tsv']):
+            try:
+                return pd.read_csv(f, sep='\t')
+            except Exception:
+                continue
+        
+        # Excel
+        for f in _find(['*.xlsx', '*.xls']):
+            try:
+                return pd.read_excel(f)
+            except Exception:
+                continue
+        
+        # Parquet
+        for f in _find(['*.parquet']):
+            try:
+                return pd.read_parquet(f)
+            except Exception:
+                continue
+        
+        # JSON (tabular)
+        for f in _find(['*.json']):
+            try:
+                data = json.loads(f.read_text(encoding='utf-8'))
+                if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                    return pd.DataFrame(data)
+            except Exception:
+                continue
+        
+        # JSONL
+        for f in _find(['*.jsonl']):
+            try:
+                return pd.read_json(f, lines=True)
+            except Exception:
+                continue
+        
+        return None
+    
+    def get_file_scan(self, dataset_id: str) -> dict[str, Any]:
+        """获取数据集的文件扫描报告（供 LLM 分析）"""
+        spec = self.get_dataset(dataset_id)
+        if spec.file_scan:
+            return spec.file_scan
+        
+        # 如果没有缓存的扫描，重新扫描
+        storage = Path(spec.storage_path) if spec.storage_path else DATA_DIR / dataset_id
+        if storage.exists():
+            return self.scanner.scan_directory(storage)
+        return {}
+    
     def get_dataset(self, dataset_id: str) -> DataSpec:
         """获取数据集信息"""
         if dataset_id in self.datasets:
             return self.datasets[dataset_id]
         
-        # 尝试从文件加载
         meta_path = DATA_DIR / f"{dataset_id}_meta.json"
         if meta_path.exists():
             with open(meta_path, 'r', encoding='utf-8') as f:
@@ -571,11 +879,16 @@ class DataManager:
             spec = DataSpec(
                 dataset_id=data['dataset_id'],
                 filename=data['filename'],
-                n_rows=data['n_rows'],
-                n_cols=data['n_cols'],
+                n_rows=data.get('n_rows', 0),
+                n_cols=data.get('n_cols', 0),
+                data_type=data.get('data_type', 'unknown'),
                 target_column=data.get('target_column'),
                 id_column=data.get('id_column'),
                 feature_columns=data.get('feature_columns', []),
+                metadata=data.get('metadata', {}),
+                file_scan=data.get('file_scan', {}),
+                exploration=data.get('exploration', {}),
+                storage_path=data.get('storage_path', ''),
             )
             self.datasets[dataset_id] = spec
             return spec
@@ -583,25 +896,28 @@ class DataManager:
         raise ValueError(f"数据集不存在: {dataset_id}")
     
     def load_dataframe(self, dataset_id: str) -> pd.DataFrame:
-        """加载数据为 DataFrame"""
+        """加载表格数据为 DataFrame"""
         spec = self.get_dataset(dataset_id)
-        # 文件名已经是 {dataset_id}_data.csv 格式
-        file_path = DATA_DIR / spec.filename
-        return pd.read_csv(file_path)
+        csv_path = Path(spec.storage_path) / f"{dataset_id}_data.csv" if spec.storage_path else DATA_DIR / spec.filename
+        if csv_path.exists():
+            return pd.read_csv(csv_path)
+        # 回退：尝试原始文件名
+        alt_path = DATA_DIR / spec.filename
+        if alt_path.exists():
+            return pd.read_csv(alt_path)
+        raise ValueError(f"表格数据文件不存在: {csv_path}")
     
     def list_datasets(self) -> list[DataSpec]:
         """列出所有数据集"""
-        # 扫描数据目录
         for meta_file in DATA_DIR.glob("*_meta.json"):
             dataset_id = meta_file.stem.replace("_meta", "")
             if dataset_id not in self.datasets:
                 try:
                     self.get_dataset(dataset_id)
-                except:
+                except Exception:
                     pass
-        
         return list(self.datasets.values())
 
 
-# 全局数据管理器实例
+# 全局实例
 data_manager = DataManager()

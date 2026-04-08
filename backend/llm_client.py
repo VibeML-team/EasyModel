@@ -72,7 +72,7 @@ class LLMClient:
                 "Authorization": f"Bearer {self.config.api_key}",
                 "Content-Type": "application/json",
             },
-            timeout=60.0,
+            timeout=180.0,  # 3分钟，复杂 prompt 需要更多时间
         )
     
     def chat_completion(
@@ -438,7 +438,7 @@ class LLMClient:
             is_ml_request = data.get("is_ml_request", False)
             
             if not is_ml_request:
-                # 不是 ML 需求 → 直接标记为需澄清，附上引导语
+                # LLM 判断不是 ML 需求 → 引导用户
                 friendly = data.get("friendly_message", "")
                 reasons = [friendly] if friendly else ["输入不包含可识别的机器学习/数据科学需求"]
                 questions = data.get("follow_up_questions", [
@@ -448,23 +448,11 @@ class LLMClient:
                 ])
                 return True, reasons, questions
             
-            # 是 ML 需求
-            is_ambiguous = data.get("is_ambiguous", True)
-            
-            # 关键保护：如果 LLM 认为这是 ML 需求，且用户描述足够详细（>50字），
-            # 即使 LLM 标记为"模糊"，也强制认为足够清晰。
-            # 原因：LLM 倾向于保守地要求更多信息，但 VibeML 的设计理念是
-            # "从自然语言中提取需求"，而不是要求用户填写更多表单字段。
-            if is_ambiguous and len(user_goal.strip()) >= 50:
-                print(f"[INFO] LLM 判断为模糊但描述已足够详细({len(user_goal.strip())}字)，"
-                      f"覆盖为清晰。LLM reasons: {data.get('reasons', [])}")
-                is_ambiguous = False
-            
-            return (
-                is_ambiguous,
-                data.get("reasons", []),
-                data.get("follow_up_questions", []),
-            )
+            # LLM 认为是 ML 需求 → 直接进入方案生成
+            # 不再看 is_ambiguous。LLM 的 NLU 既然理解了这是 ML 任务，
+            # 就不应该因为用户没填"约束"表单字段而卡住。
+            # 真正缺少的信息会在方案生成阶段通过 needs_more_info 标注。
+            return (False, [], [])
         except Exception:
             # JSON 解析失败 → 安全侧，标记为模糊
             return True, ["无法解析需求，请重新描述"], [
@@ -588,6 +576,98 @@ class LLMClient:
                 },
                 "business_summary": response[:500] if response else "数据分析失败，请重试。",
                 "suggested_next_steps": ["请重试数据探索"],
+            }
+    
+    def explore_data_files(
+        self,
+        file_scan: dict,
+        n_rows: int,
+        filename: str,
+        user_goal: str | None = None,
+    ) -> dict:
+        """
+        AI Agent 探索非表格数据集（图像、音频、自定义格式等）。
+        
+        不预设任何格式。把文件扫描报告喂给 LLM，让它自己判断这是什么。
+        """
+        system_prompt = """你是一位资深数据科学家。你正在查看一个新数据集的文件结构。
+
+你的任务：
+1. **判断数据集类型** — 根据目录结构、文件扩展名、采样的文件内容，判断这是什么类型的数据集（如 YOLO 目标检测、COCO 格式、ImageNet 图像分类、表格数据、音频数据、NLP 语料、自定义格式等）
+2. **理解数据组织方式** — 描述数据是如何组织的（目录结构含义、标注文件格式、配置文件作用等）
+3. **提取关键统计** — 样本数量、类别数、类别分布、是否均衡等
+4. **识别潜在问题** — 数据质量、标注质量、类别不均衡、缺失文件等
+5. **给出通俗总结** — 让非技术人员也能理解这份数据是关于什么的
+
+请用中文输出。"""
+
+        # 构建观察报告
+        tree = file_scan.get("directory_tree", "")
+        exts = file_scan.get("extensions", {})
+        samples = file_scan.get("file_samples", [])
+        
+        samples_text = ""
+        for s in samples[:8]:
+            samples_text += f"\n--- {s['path']} ({s['ext']}, {s['size']} bytes) ---\n"
+            samples_text += s.get("content_preview", "(binary file)")[:500]
+            samples_text += "\n"
+
+        user_prompt = f"""文件名: {filename}
+{'用户目标: ' + user_goal if user_goal else ''}
+
+=== 文件统计 ===
+总文件数: {file_scan.get('total_files', '?')}
+总大小: {file_scan.get('total_size_human', '?')}
+扩展名分布: {json.dumps(exts, ensure_ascii=False)}
+
+=== 目录树 ===
+{tree[:3000]}
+
+=== 采样文件内容 ===
+{samples_text[:4000]}
+
+请严格按以下 JSON 格式输出：
+
+{{
+    "data_type": "数据集类型（如 yolo_detection / coco_detection / image_classification / tabular / text_corpus / audio / custom）",
+    "format_details": "检测到的具体格式描述（如 YOLOv5 格式，含 data.yaml 配置）",
+    "data_understanding": {{
+        "summary": "一句话总结这是什么数据",
+        "organization": "数据是如何组织的",
+        "annotation_format": "标注格式描述（如有）",
+        "key_files": ["重要文件列表及其作用"]
+    }},
+    "statistics": {{
+        "total_samples": 0,
+        "classes": ["类别名列表（如能从配置/标注中提取）"],
+        "class_distribution": {{"class_name": "样本数或占比"}},
+        "splits": {{"train": 0, "val": 0, "test": 0}},
+        "other_stats": {{}}
+    }},
+    "quality_issues": [
+        {{"severity": "high/medium/low", "description": "问题描述", "suggestion": "建议"}}
+    ],
+    "business_summary": "用通俗语言告诉用户：这份数据是关于什么的、包含了哪些信息、有多少样本",
+    "suggested_next_steps": ["建议的下一步操作"]
+}}"""
+
+        response = self.chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=3000,
+        )
+        
+        try:
+            json_str = self._extract_json(response)
+            return json.loads(json_str)
+        except Exception:
+            return {
+                "data_type": "unknown",
+                "business_summary": response[:500] if response else "数据分析失败",
+                "data_understanding": {"summary": "分析完成但结构化输出失败", "raw": response[:1000]},
             }
     
     def suggest_data_sources(
@@ -727,7 +807,7 @@ class LLMClient:
             csv_text = "\n".join(lines)
 
         return csv_text
-
+    
     def _check_structured_output_support(self) -> bool:
         """检查是否支持结构化输出"""
         # OpenAI gpt-4 系列支持 structured outputs

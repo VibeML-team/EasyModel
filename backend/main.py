@@ -285,6 +285,24 @@ app = FastAPI(
     description="从自然语言需求到可部署模型权重的全自动 ML 平台",
 )
 
+# 大文件上传支持
+from starlette.formparsers import MultiPartParser
+MultiPartParser.spool_max_size = 1024 * 1024 * 2048  # 2 GB spool to disk threshold
+MultiPartParser.max_part_size = 1024 * 1024 * 2048   # 2 GB max part size
+
+
+async def _stream_upload_to_disk(file: UploadFile, dest: Path) -> int:
+    """流式写入磁盘，不把文件全部读入内存"""
+    total = 0
+    with open(dest, 'wb') as f:
+        while True:
+            chunk = await file.read(1024 * 1024)  # 1MB chunks
+            if not chunk:
+                break
+            f.write(chunk)
+            total += len(chunk)
+    return total
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -412,41 +430,211 @@ async def upload_data(
     target_hint: str = Form(""),
 ) -> dict[str, Any]:
     """
-    上传数据文件
-    
-    支持格式：
-    - CSV (.csv)
-    - Excel (.xlsx, .xls)
-    - ZIP (.zip) - 包含上述格式的压缩包
-    - 7Z (.7z) - 包含上述格式的压缩包
+    上传任意格式的数据文件。
+    流式写入磁盘，支持大文件（几百MB ~ 几GB）。
     """
-    # 检查文件扩展名
-    allowed_extensions = ['.csv', '.xlsx', '.xls', '.zip', '.7z']
-    filename_lower = file.filename.lower()
+    import uuid as _uuid
+    dataset_id = f"ds_{_uuid.uuid4().hex[:8]}"
     
-    if not any(filename_lower.endswith(ext) for ext in allowed_extensions):
-        raise HTTPException(400, f"不支持的文件格式。支持: {', '.join(allowed_extensions)}")
+    # 流式写入磁盘（不读入内存）
+    upload_dir = DATA_DIR / dataset_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    dest = upload_dir / file.filename
+    file_size = await _stream_upload_to_disk(file, dest)
     
-    content = await file.read()
+    # 从磁盘读取交给 data_manager
+    content = dest.read_bytes() if file_size < 500 * 1024 * 1024 else None  # >500MB 不读入内存
     
     try:
-        spec = data_manager.upload_file(
-            content=content,
-            filename=file.filename,
-            target_hint=target_hint if target_hint else None,
-        )
+        if content is not None:
+            spec = data_manager.upload_file(
+                content=content,
+                filename=file.filename,
+                dataset_id=dataset_id,
+                target_hint=target_hint if target_hint else None,
+            )
+        else:
+            # 大文件：直接让 data_manager 从磁盘处理
+            spec = data_manager.upload_from_disk(
+                file_path=dest,
+                filename=file.filename,
+                dataset_id=dataset_id,
+                target_hint=target_hint if target_hint else None,
+            )
         return {
             "success": True,
             "dataset_id": spec.dataset_id,
             "filename": spec.filename,
             "n_rows": spec.n_rows,
             "n_cols": spec.n_cols,
+            "data_type": spec.data_type,
             "target_column": spec.target_column,
             "feature_columns": spec.feature_columns,
+            "file_scan": {
+                "total_files": spec.file_scan.get("total_files", 0),
+                "total_size_human": spec.file_scan.get("total_size_human", ""),
+                "extensions": spec.file_scan.get("extensions", {}),
+                "has_images": spec.file_scan.get("has_images", False),
+                "has_tabular": spec.file_scan.get("has_tabular", False),
+            },
             "columns": [c.to_dict() for c in spec.columns],
         }
     except Exception as e:
         raise HTTPException(400, f"数据处理失败: {str(e)}")
+
+
+from fastapi.responses import StreamingResponse
+
+@app.post("/api/data/upload-stream")
+async def upload_and_analyze_stream(
+    file: UploadFile = File(...),
+    target_hint: str = Form(""),
+    user_goal: str = Form(""),
+):
+    """
+    上传 + 扫描 + AI Agent 自主探索，全流程 SSE 流式推送。
+    流式写入磁盘，支持大文件。
+    """
+    import uuid as _uuid
+    filename = file.filename
+    dataset_id = f"ds_{_uuid.uuid4().hex[:8]}"
+    
+    # 流式写入磁盘
+    upload_dir = DATA_DIR / dataset_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    dest = upload_dir / filename
+    file_size = await _stream_upload_to_disk(file, dest)
+    
+    async def event_stream():
+        progress_events = []
+        
+        def on_progress(step: str, message: str):
+            progress_events.append({"step": step, "message": message, "done": False})
+        
+        on_progress("save", f"📥 文件已接收: {filename} ({file_size / 1024 / 1024:.1f} MB)")
+        
+        # 从磁盘处理
+        try:
+            content = dest.read_bytes() if file_size < 500 * 1024 * 1024 else None
+            if content is not None:
+                spec = data_manager.upload_file(
+                    content=content,
+                    filename=filename,
+                    dataset_id=dataset_id,
+                    target_hint=target_hint if target_hint else None,
+                    progress_callback=on_progress,
+                )
+            else:
+                spec = data_manager.upload_from_disk(
+                    file_path=dest,
+                    filename=filename,
+                    dataset_id=dataset_id,
+                    target_hint=target_hint if target_hint else None,
+                    progress_callback=on_progress,
+                )
+        except Exception as e:
+            yield f"data: {json.dumps({'step': 'error', 'message': f'❌ 处理失败: {str(e)}', 'done': True}, ensure_ascii=False)}\n\n"
+            return
+        
+        # 推送所有进度事件
+        for evt in progress_events:
+            yield f"data: {json.dumps(evt, ensure_ascii=False)}\n\n"
+        
+        # === ReAct Agent 自主探索数据 ===
+        exploration = None
+        from backend.compiler import _use_llm_compiler
+        if _use_llm_compiler():
+            try:
+                from backend.llm_client import get_llm_client
+                from backend.data_exploration_agent import run_exploration_agent
+                client = get_llm_client()
+                
+                # 确保 httpx 超时足够
+                import httpx
+                if hasattr(client, 'client'):
+                    client.client = httpx.Client(
+                        base_url=client.config.base_url,
+                        headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
+                        timeout=180.0,
+                    )
+                
+                # 确定 Agent 工作目录（解压后的目录）
+                agent_cwd = str(Path(spec.storage_path) / "extracted") if spec.storage_path else str(DATA_DIR / spec.dataset_id)
+                if not Path(agent_cwd).exists():
+                    agent_cwd = spec.storage_path or str(DATA_DIR / spec.dataset_id)
+                
+                file_size_human = spec.file_scan.get("total_size_human", "unknown")
+                
+                # 运行 ReAct Agent，实时推送每一步
+                for event in run_exploration_agent(
+                    dataset_dir=agent_cwd,
+                    filename=filename,
+                    file_size_human=file_size_human,
+                    user_goal=user_goal if user_goal else None,
+                    llm_client=client,
+                ):
+                    etype = event["type"]
+                    content = event["content"]
+                    
+                    if etype == "thought":
+                        yield f"data: {json.dumps({'step': 'think', 'message': f'💭 {content}', 'done': False}, ensure_ascii=False)}\n\n"
+                    elif etype == "action":
+                        yield f"data: {json.dumps({'step': 'action', 'message': f'⚡ 执行: {content}', 'done': False}, ensure_ascii=False)}\n\n"
+                    elif etype == "observation":
+                        # 截断过长的输出
+                        obs_preview = content[:300] + ('...' if len(content) > 300 else '')
+                        yield f"data: {json.dumps({'step': 'observe', 'message': f'👁 {obs_preview}', 'done': False}, ensure_ascii=False)}\n\n"
+                    elif etype == "insight":
+                        exploration = content
+                        yield f"data: {json.dumps({'step': 'think', 'message': '✅ 数据探索完成', 'done': False}, ensure_ascii=False)}\n\n"
+                    elif etype == "error":
+                        yield f"data: {json.dumps({'step': 'think', 'message': f'⚠️ {content}', 'done': False}, ensure_ascii=False)}\n\n"
+                
+                # 保存探索结果
+                if exploration:
+                    spec.exploration = exploration
+                    # 如果 Agent 识别了数据类型，更新 spec
+                    if exploration.get("data_type"):
+                        spec.data_type = exploration["data_type"]
+                    meta_path = DATA_DIR / f"{spec.dataset_id}_meta.json"
+                    with open(meta_path, 'w', encoding='utf-8') as f:
+                        json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
+                    data_manager.datasets[spec.dataset_id] = spec
+                
+            except Exception as e:
+                yield f"data: {json.dumps({'step': 'think', 'message': f'⚠️ Agent 遇到问题: {str(e)[:150]}', 'done': False}, ensure_ascii=False)}\n\n"
+        
+        # 最终结果
+        result = {
+            "step": "result",
+            "done": True,
+            "data": {
+                "dataset_id": spec.dataset_id,
+                "filename": spec.filename,
+                "n_rows": spec.n_rows,
+                "n_cols": spec.n_cols,
+                "data_type": spec.data_type,
+                "target_column": spec.target_column,
+                "file_scan": {
+                    "total_files": spec.file_scan.get("total_files", 0),
+                    "total_size_human": spec.file_scan.get("total_size_human", ""),
+                    "extensions": spec.file_scan.get("extensions", {}),
+                    "directory_tree": spec.file_scan.get("directory_tree", ""),
+                },
+                "exploration": exploration,
+            }
+        }
+        yield f"data: {json.dumps(result, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 # ---- Google Drive / 链接导入 API ----
@@ -954,11 +1142,14 @@ def clarify_intent(req: ClarifyRequest) -> ClarifyResponse:
             follow_up_questions=["请描述你的业务场景和数据，我来帮你设计训练方案。"],
         )
     
-    # LLM 判断：1) 是否是 ML 需求  2) 是否足够清晰
-    _debug_info = {"goal_len": len(req.user_goal.strip()), "deploy_tag": "20260408-v3"}
+    # LLM 判断：是否为 ML 需求 → 是则直接进方案生成
+    # 设计理念：LLM 判断 is_ml_request=true 就说明它理解了需求，
+    # 不需要再追问"缺少必须保留项"之类的表单字段。
+    # 方案生成阶段会在 needs_more_info 里标注真正需要补充的信息。
+    _debug_info = {"deploy_tag": "20260408-v5"}
     try:
         is_ambiguous, reasons, follow_ups = detect_ambiguity(req)
-        _debug_info["detect_result"] = {"is_ambiguous": is_ambiguous, "reasons": reasons[:2]}
+        _debug_info["detect_raw"] = {"is_ambiguous": is_ambiguous}
     except Exception as e:
         _debug_info["detect_error"] = str(e)[:200]
         is_ambiguous, reasons, follow_ups = False, [], []
@@ -973,42 +1164,73 @@ def clarify_intent(req: ClarifyRequest) -> ClarifyResponse:
                 from backend.llm_client import get_llm_client
                 client = get_llm_client()
                 
-                # 获取数据 schema（如果有）
-                data_schema = None
-                if req.dataset_id:
+                # 增加 httpx 超时（如果客户端超时太短）
+                if hasattr(client, 'client') and hasattr(client.client, '_transport'):
                     try:
-                        ds = data_manager.get_dataset(req.dataset_id)
-                        data_schema = {
-                            "columns": [
-                                {"name": c.name, "type": c.column_type.value,
-                                 "sample": c.sample_values[:3] if c.sample_values else []}
-                                for c in ds.columns
-                            ],
-                            "target_column": ds.target_column,
-                            "n_rows": ds.n_rows,
-                        }
+                        import httpx
+                        client.client = httpx.Client(
+                            base_url=client.config.base_url,
+                            headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
+                            timeout=180.0,
+                        )
                     except Exception:
                         pass
                 
+                # 获取数据 schema 和 Agent 探索的 insights
+                data_schema = None
+                data_insights = None
+                if req.dataset_id:
+                    try:
+                        ds = data_manager.get_dataset(req.dataset_id)
+                        if ds.columns:
+                            data_schema = {
+                                "columns": [
+                                    {"name": c.name, "type": c.column_type.value,
+                                     "sample": c.sample_values[:3] if c.sample_values else []}
+                                    for c in ds.columns
+                                ],
+                                "target_column": ds.target_column,
+                                "n_rows": ds.n_rows,
+                            }
+                        # 注入 Agent 探索的 insights（如果有）
+                        if ds.exploration:
+                            data_insights = {
+                                "data_type": ds.exploration.get("data_type", ds.data_type),
+                                "summary": ds.exploration.get("business_summary", ""),
+                                "training_implications": ds.exploration.get("training_implications", []),
+                                "statistics": ds.exploration.get("statistics", {}),
+                                "quality_issues": ds.exploration.get("quality_issues", []),
+                            }
+                    except Exception:
+                        pass
+                
+                # Agent 探索的 training_implications 直接影响方案生成
+                enriched_goal = req.user_goal
+                if data_insights and data_insights.get("training_implications"):
+                    implications = "\n".join(f"- {imp}" for imp in data_insights["training_implications"])
+                    enriched_goal += f"\n\n[数据探索 Agent 的发现]\n{implications}"
+                    if data_insights.get("summary"):
+                        enriched_goal += f"\n\n[数据概况] {data_insights['summary']}"
+                
                 personalized_plan = client.compile_personalized_plan(
-                    user_goal=req.user_goal,
+                    user_goal=enriched_goal,
                     must_keep=req.must_keep if req.must_keep else None,
                     worst_errors=req.worst_errors if req.worst_errors else None,
                     priority=req.priority,
                     data_schema=data_schema,
                 )
             except Exception as e:
-                # LLM 方案生成失败 → 标记需要更多信息
+                _debug_info["plan_error"] = str(e)[:300]
                 personalized_plan = {
                     "business_layer": {
-                        "understanding": "我理解了你的需求，但生成个性化方案时遇到了问题。",
-                        "personalized_approach": "请稍后重试，或提供更多细节。",
+                        "understanding": f"我理解了你的需求（{req.user_goal[:80]}...），正在生成个性化方案。",
+                        "personalized_approach": "方案生成需要较长时间，请稍后刷新或重新提交。如果问题持续，可以直接上传数据开始训练。",
                         "core_promises": [],
                         "vs_standard": "",
                     },
                     "technical_layer": {},
-                    "confidence": 0.2,
-                    "needs_more_info": [f"方案生成异常：{str(e)[:100]}"],
+                    "confidence": 0.3,
+                    "needs_more_info": [f"方案生成超时，请重试"],
                 }
     
     resp = ClarifyResponse(
