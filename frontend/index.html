@@ -247,9 +247,16 @@
       border: 1px solid var(--border-soft);
       border-radius: 16px; overflow: hidden;
       box-shadow: 0 25px 50px -12px rgba(8, 120, 90, 0.28);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
       backdrop-filter: blur(12px);
       position: relative;
       isolation: isolate;
+      --terminal-shift-x: 0px;
+      --terminal-shift-y: 0px;
+    }
+    .terminal:hover {
+      transform: translate3d(var(--terminal-shift-x), calc(var(--terminal-shift-y) - 3px), 0);
+      box-shadow: 0 30px 58px -14px rgba(8, 120, 90, 0.34);
     }
     .terminal::after {
       content: "";
@@ -692,7 +699,7 @@
       background: rgba(6, 182, 127, 0.16);
     }
     .models-section { margin-top: 48px; background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 16px; padding: 24px; backdrop-filter: blur(10px); }
-    .models-label { font-size: 14px; color: var(--gray-500); text-align: center; margin-bottom: 16px; }
+    .models-title { font-size: 24px; color: var(--gray-200); text-align: center; margin-bottom: 16px; font-weight: 600; letter-spacing: 0.01em; }
     .models-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
     .model-tag { font-size: 14px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 7px 14px; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
     .model-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: color-mix(in srgb, rgba(16, 202, 144, 0.22) 52%, var(--bg-tertiary)); }
@@ -1257,8 +1264,7 @@ validation → out_of_time_split</pre>
       </div>
 
       <div class="models-section">
-        <div class="models-label"><span class="brand-italic">VibeML</span>支持训练以下模型
-        </div>
+        <h3 class="models-title"><span class="brand-italic">VibeML</span> 支持训练以下模型</h3>
         <div class="models-list">
           <a class="model-tag" href="./model-detail.html?model=xgboost-lightgbm">XGBoost / LightGBM</a>
           <a class="model-tag" href="./model-detail.html?model=transformer">Transformer</a>
@@ -1529,6 +1535,40 @@ validation → out_of_time_split</pre>
         closeCapabilityDrawer();
       }
     });
+
+    // Hero terminal pointer-follow motion
+    const heroTerminal = document.querySelector('.hero-demo .terminal');
+    const canUseFinePointer = window.matchMedia('(pointer: fine)').matches;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (heroTerminal && canUseFinePointer && !prefersReducedMotion) {
+      const maxShift = 4;
+      let terminalRafId = null;
+
+      const setTerminalShift = (x, y) => {
+        heroTerminal.style.setProperty('--terminal-shift-x', `${x.toFixed(2)}px`);
+        heroTerminal.style.setProperty('--terminal-shift-y', `${y.toFixed(2)}px`);
+      };
+
+      heroTerminal.addEventListener('pointermove', (event) => {
+        const rect = heroTerminal.getBoundingClientRect();
+        const nx = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+        const ny = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+        const shiftX = Math.max(-maxShift, Math.min(maxShift, nx * maxShift));
+        const shiftY = Math.max(-maxShift, Math.min(maxShift, ny * maxShift));
+
+        if (terminalRafId) cancelAnimationFrame(terminalRafId);
+        terminalRafId = requestAnimationFrame(() => setTerminalShift(shiftX, shiftY));
+      }, { passive: true });
+
+      heroTerminal.addEventListener('pointerleave', () => {
+        if (terminalRafId) {
+          cancelAnimationFrame(terminalRafId);
+          terminalRafId = null;
+        }
+        setTerminalShift(0, 0);
+      });
+    }
 
     // Terminal typewriter animation
     const terminalBody = document.getElementById('terminalBody');
