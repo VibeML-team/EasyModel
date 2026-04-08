@@ -24,6 +24,7 @@
         displayMath: [['$$', '$$'], ['\\[', '\\]']]
       },
       svg: {
+        displayAlign: 'left',
         fontCache: 'global'
       }
     };
@@ -202,6 +203,9 @@
       padding: 24px;
       display: grid;
       gap: 18px;
+      transition: transform 0.18s ease-out;
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
     }
 
     .detail-head {
@@ -271,9 +275,15 @@
       color: var(--gray-300);
       line-height: 1.7;
       background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+      word-break: normal;
+      overflow-wrap: anywhere;
     }
     .principle p { margin-bottom: 12px; }
     .principle p:last-child { margin-bottom: 0; }
+    .principle mjx-container[display="true"] {
+      margin: 0.45em 0 !important;
+      text-align: left !important;
+    }
 
     @media (max-width: 1024px) {
       .layout { grid-template-columns: 1fr; }
@@ -293,7 +303,7 @@
       <nav id="modelNav" class="model-links"></nav>
     </aside>
 
-    <section class="panel detail">
+    <section id="detailPanel" class="panel detail">
       <div class="detail-head">
         <h1 id="modelTitle" class="title"></h1>
       </div>
@@ -331,7 +341,7 @@ LightGBM 的青出于蓝：彻底拥抱 Histogram 分桶，将连续特征离散
         ],
         principle: String.raw`背景与痛点：RNN/LSTM 的串行依赖导致训练慢，且长距离依赖在多步传递中容易衰减。
 
-Self-Attention 核心：$$ \mathrm{Attention}(Q,K,V)=\mathrm{softmax}(QK^T/\sqrt{d_k})V $$ 每个 token 可一步访问全序列信息，长程关系建模从链式传递变为全局并行交互，GPU 友好。
+Self-Attention 核心：$\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(QK^T/\sqrt{d_k})V$。每个 token 可一步访问全序列信息，长程关系建模从链式传递变为全局并行交互，GPU 友好。
 
 架构完善：Positional Encoding 补齐顺序信息；Multi-Head Attention 在不同子空间并行抽取关系；Residual + LayerNorm 保证深层训练稳定。这套设计奠定了 GPT、BERT、Llama 等主流基础模型底座。`
       },
@@ -383,16 +393,16 @@ FT-Transformer：先做 Feature Tokenizer，将数值与类别特征统一到同
         repos: [
           { name: 'Stable-Baselines3 (DLR-RM 官方标准)', url: 'https://github.com/DLR-RM/stable-baselines3' }
         ],
-        principle: String.raw`PPO：针对策略梯度更新不稳问题，引入 clipping 限制新旧策略比值偏离区间 [1-epsilon, 1+epsilon]，在稳定性与效率间取得极佳平衡，也是 RLHF 的关键算法之一。
+        principle: String.raw`PPO：针对策略梯度更新不稳问题，引入 clipping 限制新旧策略比值偏离区间 $[1-\epsilon,\,1+\epsilon]$，在稳定性与效率间取得极佳平衡，也是 RLHF 的关键算法之一。
 
-SAC：基于最大熵强化学习，在奖励目标中加入熵项 $$ J(\pi)=\mathbb{E}[R+\alpha H(\pi)] $$ 鼓励高回报同时保持探索多样性。作为 off-policy 方法，样本效率高、鲁棒性强，常用于连续控制与机器人任务。`
+SAC：基于最大熵强化学习，在奖励目标中加入熵项 $J(\pi)=\mathbb{E}[R+\alpha H(\pi)]$，鼓励高回报同时保持探索多样性。作为 off-policy 方法，样本效率高、鲁棒性强，常用于连续控制与机器人任务。`
       },
       'neural-ode': {
         title: 'Neural ODE',
         repos: [
           { name: 'torchdiffeq (原作者官方库)', url: 'https://github.com/rtqichen/torchdiffeq' }
         ],
-        principle: String.raw`Neural ODE 将离散层堆叠推广为连续动力系统：dh(t)/dt=f(h(t),t,theta)。前向不再固定过若干层，而是交给 ODE 求解器按精度自适应积分。
+        principle: String.raw`Neural ODE 将离散层堆叠推广为连续动力系统：$\frac{dh(t)}{dt}=f_{\theta}(h(t),t)$。前向不再固定过若干层，而是交给 ODE 求解器按精度自适应积分。
 
 关键优势：伴随灵敏度方法（Adjoint Method）让反向传播无需保存全部中间激活，内存可近似 $O(1)$。这使其在不规则采样时序、生理监测、物理系统辨识等任务中具备显著优势。`
       },
@@ -401,7 +411,7 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 $$ J(\pi)=\ma
         repos: [
           { name: 'Diffusers (Hugging Face 官方标准库)', url: 'https://github.com/huggingface/diffusers' }
         ],
-        principle: String.raw`扩散模型由两个马尔可夫过程构成：前向逐步加噪 q(x_t|x_t-1)，反向逐步去噪 p_theta(x_t-1|x_t)。训练时常让网络预测噪声本身，损失可简化为 MSE。
+        principle: String.raw`扩散模型由两个马尔可夫过程构成：前向逐步加噪 $q(x_t\mid x_{t-1})$，反向逐步去噪 $p_{\theta}(x_{t-1}\mid x_t)$。训练时常令网络预测噪声 $\epsilon$。经典简化目标可写为：$$\mathcal{L}_{\text{simple}}=\mathbb{E}_{t,x_0,\epsilon}\left[\|\epsilon-\epsilon_{\theta}(x_t,t)\|_2^2\right]$$
 
 相较 GAN，扩散模型训练更稳定、模式崩溃更少；相较 VAE，生成细节更强。尽管采样步数较多，但在图像/视频生成质量与可控性上已成为主流基础范式。`
       },
@@ -411,7 +421,7 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 $$ J(\pi)=\ma
           { name: 'CausalML (Uber 官方库)', url: 'https://github.com/uber/causalml' },
           { name: 'DoWhy (微软及 PyWhy 官方库)', url: 'https://github.com/py-why/dowhy' }
         ],
-        principle: String.raw`传统 ML 估计的是相关关系 P(Y|X)，而因果 ML 关注干预效应 P(Y|do(X))，核心目标是回答“做了这个动作是否真的引发变化”。
+        principle: String.raw`传统 ML 估计的是相关关系 $P(Y\mid X)$，而因果 ML 关注干预效应 $P(Y\mid do(X))$，核心目标是回答“做了这个动作是否真的引发变化”。
 
 工程上常见 Uplift/CATE 估计与 Meta-learners（T-learner 等）。DoWhy 强调因果图建模、效应识别、估计与反驳检验的完整闭环，适合高风险决策场景。CausalML 则在增益建模与营销干预上提供更直接可用的工业工具。`
       },
@@ -480,7 +490,7 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 $$ J(\pi)=\ma
     function principleToHtml(text) {
       return text
         .split('\n\n')
-        .map((block) => `<p>${block}</p>`)
+        .map((block) => `<p>${block.trim().replace(/\n/g, '<br>')}</p>`)
         .join('');
     }
 
@@ -545,6 +555,43 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 $$ J(\pi)=\ma
       });
     }
     ensureMathRender();
+
+    const detailPanel = document.getElementById('detailPanel');
+    const canUsePointerMotion = window.matchMedia('(pointer: fine)').matches;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (detailPanel && canUsePointerMotion && !reduceMotion) {
+      const maxShift = 6;
+      let rafId = null;
+
+      const applyShift = (x, y) => {
+        detailPanel.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      };
+
+      const onPointerMove = (event) => {
+        const rect = detailPanel.getBoundingClientRect();
+        const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+        const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+        const nextX = Math.max(-maxShift, Math.min(maxShift, offsetX * maxShift));
+        const nextY = Math.max(-maxShift, Math.min(maxShift, offsetY * maxShift));
+
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+        }
+        rafId = requestAnimationFrame(() => applyShift(nextX, nextY));
+      };
+
+      const onPointerLeave = () => {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        applyShift(0, 0);
+      };
+
+      detailPanel.addEventListener('pointermove', onPointerMove, { passive: true });
+      detailPanel.addEventListener('pointerleave', onPointerLeave);
+    }
 
     const root = document.documentElement;
     const themeToggle = document.getElementById('themeToggle');

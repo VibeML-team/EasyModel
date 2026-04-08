@@ -247,9 +247,16 @@
       border: 1px solid var(--border-soft);
       border-radius: 16px; overflow: hidden;
       box-shadow: 0 25px 50px -12px rgba(8, 120, 90, 0.28);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
       backdrop-filter: blur(12px);
       position: relative;
       isolation: isolate;
+      --terminal-shift-x: 0px;
+      --terminal-shift-y: 0px;
+    }
+    .terminal:hover {
+      transform: translate3d(var(--terminal-shift-x), calc(var(--terminal-shift-y) - 3px), 0);
+      box-shadow: 0 30px 58px -14px rgba(8, 120, 90, 0.34);
     }
     .terminal::after {
       content: "";
@@ -542,10 +549,14 @@
       box-shadow: inset 0 0 0 1px rgba(136, 255, 216, 0.16), 0 0 24px rgba(16, 202, 144, 0.2);
     }
     .usecase-panel { padding: 28px 30px; min-height: 400px; position: relative; }
-    .usecase-pane { display: none; animation: fadeSlide 0.35s ease; }
+    .usecase-pane { display: none; animation-duration: 0.42s; animation-timing-function: ease; animation-fill-mode: both; }
     .usecase-pane.active { display: block; }
-    @keyframes fadeSlide {
+    @keyframes fadeSlideDown {
       from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(-10px); }
       to { opacity: 1; transform: translateY(0); }
     }
     .usecase-meta { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border-soft); padding: 5px 10px; border-radius: 999px; font-size: 12px; color: var(--gray-500); margin-bottom: 16px; }
@@ -692,10 +703,38 @@
       background: rgba(6, 182, 127, 0.16);
     }
     .models-section { margin-top: 48px; background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 16px; padding: 24px; backdrop-filter: blur(10px); }
-    .models-label { font-size: 14px; color: var(--gray-500); text-align: center; margin-bottom: 16px; }
-    .models-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-    .model-tag { font-size: 14px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 7px 14px; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
+    .models-title { font-size: 34px; color: var(--gray-200); text-align: center; margin-bottom: 16px; font-weight: 600; letter-spacing: 0.01em; }
+    .models-marquee {
+      overflow: hidden;
+      position: relative;
+      padding: 2px 0;
+      mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+    }
+    .models-track {
+      width: max-content;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      animation: models-scroll 32s linear infinite;
+    }
+    .models-marquee:hover .models-track {
+      animation-play-state: paused;
+    }
+    .models-list {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+      justify-content: flex-start;
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+    .model-tag { font-size: 17px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 18px; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
     .model-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: color-mix(in srgb, rgba(16, 202, 144, 0.22) 52%, var(--bg-tertiary)); }
+    @keyframes models-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(calc(-50% - 7px)); }
+    }
 
     /* Footer */
     footer { background: color-mix(in srgb, var(--bg-primary) 86%, #000 14%); border-top: 1px solid var(--border-soft); padding: 64px 24px 32px; }
@@ -764,6 +803,10 @@
       .nav-links { display: none; }
       .nav-cta a:first-child { display: none; }
       .theme-toggle { width: 34px; height: 34px; }
+      .section-desc,
+      .problem-lead { max-width: 100%; }
+      .section-header .section-desc br,
+      .problem-lead br { display: none; }
       .usecase-panel { padding: 20px; }
       .usecase-pane-desc { font-size: 14px; }
       .capabilities-grid { grid-template-columns: 1fr; }
@@ -889,7 +932,8 @@
         </h2>
         <p class="section-desc problem-lead">
           AI Coding 让软件开发门槛更低，机器学习全链路仍需专家深耕。<br>
-          以数据与标准化流程为始，Vibe ML 重构机器学习效率，击穿 AI-Driven Machine Learning 的技术壁垒。
+          以数据与标准化流程为始，Vibe ML 重构机器学习效率。<br>
+          击穿 AI-Driven Machine Learning 的技术壁垒。
         </p>
       </div>
 
@@ -967,12 +1011,12 @@
               <div class="quote-metric-label">模板可覆盖</div>
             </div>
             <div class="quote-metric">
-              <div class="quote-metric-value">20%</div>
-              <div class="quote-metric-label">关键定制决策</div>
-            </div>
-            <div class="quote-metric">
               <div class="quote-metric-value">Top 1%</div>
               <div class="quote-metric-label">可落地专家密度</div>
+            </div>
+            <div class="quote-metric">
+              <div class="quote-metric-value">20%</div>
+              <div class="quote-metric-label">关键定制决策</div>
             </div>
           </div>
         </div>
@@ -988,7 +1032,8 @@
         <div class="section-label">工作原理</div>
         <h2 class="section-title">三步从人话需求到可交付产品</h2>
         <p class="section-desc">
-          <span class="brand-italic">VibeML</span> 不是帮你写训练代码，而是自动做三件传统上必须由算法工程师完成的高价值判断。
+          <span class="brand-italic">VibeML</span> 不是帮你写训练代码，<br>
+          而是自动做三件传统上必须由算法工程师完成的高价值判断。
         </p>
       </div>
 
@@ -1138,7 +1183,8 @@ validation → out_of_time_split</pre>
         <div class="section-label">能力全览</div>
         <h2 class="section-title">不只是功能堆料，而是不可替代的能力</h2>
         <p class="section-desc">
-          <span class="brand-italic">VibeML</span> 自动完成三件传统上必须由算法工程师完成的高价值判断：问题建模、约束下的方案选择、结果可交付化。
+          <span class="brand-italic">VibeML</span> 自动完成三件传统上必须由算法工程师完成的高价值判断：<br>
+          问题建模、约束下的方案选择、结果可交付化。
         </p>
       </div>
 
@@ -1257,21 +1303,38 @@ validation → out_of_time_split</pre>
       </div>
 
       <div class="models-section">
-        <div class="models-label"><span class="brand-italic">VibeML</span>支持训练以下模型
-        </div>
-        <div class="models-list">
-          <a class="model-tag" href="./model-detail.html?model=xgboost-lightgbm">XGBoost / LightGBM</a>
-          <a class="model-tag" href="./model-detail.html?model=transformer">Transformer</a>
-          <a class="model-tag" href="./model-detail.html?model=lstm-tcn">LSTM / TCN</a>
-          <a class="model-tag" href="./model-detail.html?model=gnn-graph-transformer">GNN / Graph Transformer</a>
-          <a class="model-tag" href="./model-detail.html?model=tabular-dnn">Tabular DNN</a>
-          <a class="model-tag" href="./model-detail.html?model=random-forest">Random Forest</a>
-          <a class="model-tag" href="./model-detail.html?model=ppo-sac-rl">PPO / SAC (RL)</a>
-          <a class="model-tag" href="./model-detail.html?model=neural-ode">Neural ODE</a>
-          <a class="model-tag" href="./model-detail.html?model=diffusion-model">Diffusion Model</a>
-          <a class="model-tag" href="./model-detail.html?model=causal-ml">Causal ML</a>
-          <a class="model-tag" href="./model-detail.html?model=conformal-prediction">Conformal Prediction</a>
-          <a class="model-tag" href="./model-detail.html?model=automl-pipeline">AutoML Pipeline</a>
+        <h3 class="models-title"><span class="brand-italic">VibeML</span> 支持训练以下模型</h3>
+        <div class="models-marquee" aria-label="模型轮播条">
+          <div class="models-track">
+            <div class="models-list">
+              <a class="model-tag" href="./model-detail.html?model=xgboost-lightgbm">XGBoost / LightGBM</a>
+              <a class="model-tag" href="./model-detail.html?model=transformer">Transformer</a>
+              <a class="model-tag" href="./model-detail.html?model=lstm-tcn">LSTM / TCN</a>
+              <a class="model-tag" href="./model-detail.html?model=gnn-graph-transformer">GNN / Graph Transformer</a>
+              <a class="model-tag" href="./model-detail.html?model=tabular-dnn">Tabular DNN</a>
+              <a class="model-tag" href="./model-detail.html?model=random-forest">Random Forest</a>
+              <a class="model-tag" href="./model-detail.html?model=ppo-sac-rl">PPO / SAC (RL)</a>
+              <a class="model-tag" href="./model-detail.html?model=neural-ode">Neural ODE</a>
+              <a class="model-tag" href="./model-detail.html?model=diffusion-model">Diffusion Model</a>
+              <a class="model-tag" href="./model-detail.html?model=causal-ml">Causal ML</a>
+              <a class="model-tag" href="./model-detail.html?model=conformal-prediction">Conformal Prediction</a>
+              <a class="model-tag" href="./model-detail.html?model=automl-pipeline">AutoML Pipeline</a>
+            </div>
+            <div class="models-list" aria-hidden="true">
+              <a class="model-tag" href="./model-detail.html?model=xgboost-lightgbm">XGBoost / LightGBM</a>
+              <a class="model-tag" href="./model-detail.html?model=transformer">Transformer</a>
+              <a class="model-tag" href="./model-detail.html?model=lstm-tcn">LSTM / TCN</a>
+              <a class="model-tag" href="./model-detail.html?model=gnn-graph-transformer">GNN / Graph Transformer</a>
+              <a class="model-tag" href="./model-detail.html?model=tabular-dnn">Tabular DNN</a>
+              <a class="model-tag" href="./model-detail.html?model=random-forest">Random Forest</a>
+              <a class="model-tag" href="./model-detail.html?model=ppo-sac-rl">PPO / SAC (RL)</a>
+              <a class="model-tag" href="./model-detail.html?model=neural-ode">Neural ODE</a>
+              <a class="model-tag" href="./model-detail.html?model=diffusion-model">Diffusion Model</a>
+              <a class="model-tag" href="./model-detail.html?model=causal-ml">Causal ML</a>
+              <a class="model-tag" href="./model-detail.html?model=conformal-prediction">Conformal Prediction</a>
+              <a class="model-tag" href="./model-detail.html?model=automl-pipeline">AutoML Pipeline</a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1378,8 +1441,17 @@ validation → out_of_time_split</pre>
     // Use-case drawer interaction
     const caseTabs = Array.from(document.querySelectorAll('.usecase-tab'));
     const casePanes = document.querySelectorAll('.usecase-pane');
+    const usecaseDrawer = document.querySelector('.usecase-drawer');
+    const usecaseRail = document.querySelector('.usecase-rail');
+    const usecasePanel = document.querySelector('.usecase-panel');
+    let activeUsecase = caseTabs.find((btn) => btn.classList.contains('active'))?.dataset.case || caseTabs[0]?.dataset.case || null;
+    let usecaseAutoIndex = Math.max(0, caseTabs.findIndex((btn) => btn.dataset.case === activeUsecase));
+    let usecaseAutoTimer = null;
+    let usecaseAutoPaused = false;
+    const usecaseAutoDelay = 3200;
 
-    function activateCase(target) {
+    function activateCase(target, direction = 'down') {
+      activeUsecase = target;
       caseTabs.forEach((btn) => {
         const isActive = btn.dataset.case === target;
         btn.classList.toggle('active', isActive);
@@ -1387,21 +1459,63 @@ validation → out_of_time_split</pre>
       });
 
       casePanes.forEach((pane) => {
-        pane.classList.toggle('active', pane.dataset.casePane === target);
+        const isActive = pane.dataset.casePane === target;
+        pane.classList.toggle('active', isActive);
+        if (isActive) {
+          pane.style.animationName = direction === 'up' ? 'fadeSlideUp' : 'fadeSlideDown';
+        }
       });
+    }
+
+    function startUsecaseAutoplay() {
+      if (!caseTabs.length || usecaseAutoPaused) return;
+      stopUsecaseAutoplay();
+
+      const tick = () => {
+        if (usecaseAutoPaused) {
+          usecaseAutoTimer = window.setTimeout(tick, usecaseAutoDelay);
+          return;
+        }
+
+        usecaseAutoIndex = (usecaseAutoIndex + 1) % caseTabs.length;
+        const nextTab = caseTabs[usecaseAutoIndex];
+        if (nextTab) {
+          activateCase(nextTab.dataset.case, 'down');
+        }
+        usecaseAutoTimer = window.setTimeout(tick, usecaseAutoDelay);
+      };
+
+      usecaseAutoTimer = window.setTimeout(tick, usecaseAutoDelay);
+    }
+
+    function stopUsecaseAutoplay() {
+      if (usecaseAutoTimer) {
+        clearTimeout(usecaseAutoTimer);
+        usecaseAutoTimer = null;
+      }
     }
 
     caseTabs.forEach((tab, index) => {
       tab.setAttribute('aria-selected', tab.classList.contains('active') ? 'true' : 'false');
 
       tab.addEventListener('click', () => {
-        activateCase(tab.dataset.case);
+        const currentIndex = Math.max(0, caseTabs.findIndex((btn) => btn.dataset.case === activeUsecase));
+        const targetIndex = caseTabs.findIndex((btn) => btn === tab);
+        const direction = targetIndex >= currentIndex ? 'down' : 'up';
+        activateCase(tab.dataset.case, direction);
+        usecaseAutoIndex = Math.max(0, targetIndex);
+        startUsecaseAutoplay();
       });
 
       tab.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          activateCase(tab.dataset.case);
+          const currentIndex = Math.max(0, caseTabs.findIndex((btn) => btn.dataset.case === activeUsecase));
+          const targetIndex = caseTabs.findIndex((btn) => btn === tab);
+          const direction = targetIndex >= currentIndex ? 'down' : 'up';
+          activateCase(tab.dataset.case, direction);
+          usecaseAutoIndex = Math.max(0, targetIndex);
+          startUsecaseAutoplay();
           return;
         }
 
@@ -1416,6 +1530,38 @@ validation → out_of_time_split</pre>
         }
       });
     });
+
+    const bindUsecaseHoverPause = (el) => {
+      if (!el) return;
+      el.addEventListener('pointerenter', () => {
+        usecaseAutoPaused = true;
+        stopUsecaseAutoplay();
+      });
+
+      el.addEventListener('pointerleave', () => {
+        usecaseAutoPaused = false;
+        startUsecaseAutoplay();
+      });
+    };
+
+    bindUsecaseHoverPause(usecaseRail);
+    bindUsecaseHoverPause(usecasePanel);
+
+    if (usecaseDrawer) {
+      usecaseDrawer.addEventListener('focusin', () => {
+        usecaseAutoPaused = true;
+        stopUsecaseAutoplay();
+      });
+
+      usecaseDrawer.addEventListener('focusout', () => {
+        if (!usecaseDrawer.contains(document.activeElement)) {
+          usecaseAutoPaused = false;
+          startUsecaseAutoplay();
+        }
+      });
+    }
+
+    setTimeout(startUsecaseAutoplay, 500);
 
     // Capability hand-draw interaction
     const capabilityGrid = document.querySelector('.capabilities-grid');
@@ -1529,6 +1675,40 @@ validation → out_of_time_split</pre>
         closeCapabilityDrawer();
       }
     });
+
+    // Hero terminal pointer-follow motion
+    const heroTerminal = document.querySelector('.hero-demo .terminal');
+    const canUseFinePointer = window.matchMedia('(pointer: fine)').matches;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (heroTerminal && canUseFinePointer && !prefersReducedMotion) {
+      const maxShift = 4;
+      let terminalRafId = null;
+
+      const setTerminalShift = (x, y) => {
+        heroTerminal.style.setProperty('--terminal-shift-x', `${x.toFixed(2)}px`);
+        heroTerminal.style.setProperty('--terminal-shift-y', `${y.toFixed(2)}px`);
+      };
+
+      heroTerminal.addEventListener('pointermove', (event) => {
+        const rect = heroTerminal.getBoundingClientRect();
+        const nx = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+        const ny = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+        const shiftX = Math.max(-maxShift, Math.min(maxShift, nx * maxShift));
+        const shiftY = Math.max(-maxShift, Math.min(maxShift, ny * maxShift));
+
+        if (terminalRafId) cancelAnimationFrame(terminalRafId);
+        terminalRafId = requestAnimationFrame(() => setTerminalShift(shiftX, shiftY));
+      }, { passive: true });
+
+      heroTerminal.addEventListener('pointerleave', () => {
+        if (terminalRafId) {
+          cancelAnimationFrame(terminalRafId);
+          terminalRafId = null;
+        }
+        setTerminalShift(0, 0);
+      });
+    }
 
     // Terminal typewriter animation
     const terminalBody = document.getElementById('terminalBody');
