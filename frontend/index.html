@@ -3,85 +3,319 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeML Agent 控制台</title>
+  <title>VibeML Agent - 全自动炼丹平台</title>
   <style>
-    :root { color-scheme: dark; }
-    body { font-family: Inter, Arial, sans-serif; margin: 0; padding: 20px; background: #0b1020; color: #edf2ff; }
-    .wrap { max-width: 1200px; margin: 0 auto; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap: 14px; }
-    .card { background: #151d34; border: 1px solid #293a6f; border-radius: 12px; padding: 16px; }
-    h1 { margin: 0 0 8px; }
-    h2 { margin: 0 0 10px; font-size: 18px; }
-    label { display: block; margin-top: 8px; font-size: 14px; }
-    input, textarea, select, button { width: 100%; margin-top: 6px; padding: 10px; border-radius: 8px; border: 1px solid #3b4f89; background: #0d1530; color: #fff; }
-    .row { display: flex; gap: 8px; margin-top: 8px; }
+    :root { 
+      color-scheme: dark; 
+      --primary: #4f66ff;
+      --primary-hover: #3b52e0;
+      --success: #77f2a0;
+      --warning: #ffd166;
+      --error: #ff6b6b;
+      --bg: #0b1020;
+      --card-bg: #151d34;
+      --border: #293a6f;
+    }
+    body { 
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background: var(--bg); 
+      color: #edf2ff; 
+      line-height: 1.6;
+    }
+    .wrap { max-width: 1400px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { margin: 0; font-size: 2.5rem; background: linear-gradient(135deg, #4f66ff 0%, #9d4edd 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: #8b9dc3; margin-top: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(400px,1fr)); gap: 16px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; }
+    .card:hover { border-color: #4f66ff; }
+    h2 { margin: 0 0 15px; font-size: 18px; color: #fff; display: flex; align-items: center; gap: 8px; }
+    h2 .step { background: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    label { display: block; margin-top: 12px; font-size: 14px; color: #b9c4ef; }
+    input, textarea, select, button { 
+      width: 100%; 
+      margin-top: 6px; 
+      padding: 10px 14px; 
+      border-radius: 8px; 
+      border: 1px solid #3b4f89; 
+      background: #0d1530; 
+      color: #fff; 
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
     .row button { flex: 1; }
-    .btn { cursor: pointer; font-weight: 700; background: #4f66ff; border: 0; }
+    .btn { 
+      cursor: pointer; 
+      font-weight: 600; 
+      background: var(--primary); 
+      border: 0; 
+      transition: all 0.2s;
+    }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
     .btn.secondary { background: #2b3d78; }
-    pre { background: #0c142a; border: 1px solid #2d3f73; border-radius: 8px; padding: 10px; min-height: 120px; white-space: pre-wrap; }
-    .ok { color: #77f2a0; }
-    .warn { color: #ffd166; }
-    .muted { color: #b9c4ef; font-size: 13px; }
+    .btn.secondary:hover { background: #364a94; }
+    .btn.success { background: #2d6a4f; }
+    .btn.success:hover { background: #3a8c66; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    pre { 
+      background: #0c142a; 
+      border: 1px solid #2d3f73; 
+      border-radius: 8px; 
+      padding: 12px; 
+      min-height: 100px; 
+      white-space: pre-wrap; 
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+    .ok { color: var(--success); }
+    .warn { color: var(--warning); }
+    .error { color: var(--error); }
+    .muted { color: #8b9dc3; font-size: 13px; }
+    
+    /* 进度条 */
+    .progress-container { margin-top: 15px; }
+    .progress-bar { height: 8px; background: #1a2542; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #9d4edd); transition: width 0.3s; }
+    .progress-text { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: #8b9dc3; }
+    
+    /* 数据预览 */
+    .data-preview { max-height: 200px; overflow: auto; }
+    .data-preview table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .data-preview th, .data-preview td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #2d3f73; }
+    .data-preview th { background: #0c142a; position: sticky; top: 0; }
+    
+    /* 标签 */
+    .tag { 
+      display: inline-block; 
+      padding: 2px 8px; 
+      border-radius: 4px; 
+      font-size: 11px; 
+      margin-right: 4px;
+    }
+    .tag-primary { background: rgba(79, 102, 255, 0.2); color: #4f66ff; }
+    .tag-success { background: rgba(119, 242, 160, 0.2); color: #77f2a0; }
+    .tag-warning { background: rgba(255, 209, 102, 0.2); color: #ffd166; }
+    
+    /* 指标卡片 */
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+    .metric { background: #0c142a; padding: 12px; border-radius: 8px; text-align: center; }
+    .metric-value { font-size: 24px; font-weight: bold; color: var(--success); }
+    .metric-label { font-size: 11px; color: #8b9dc3; margin-top: 4px; }
+    
+    /* 下载按钮组 */
+    .downloads { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .downloads .btn { flex: none; width: auto; padding: 8px 16px; font-size: 12px; }
+    
+    /* 折叠面板 */
+    .collapsible { margin-top: 10px; }
+    .collapsible-header { 
+      cursor: pointer; 
+      padding: 10px; 
+      background: #0c142a; 
+      border-radius: 8px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+    }
+    .collapsible-content { display: none; padding: 10px; }
+    .collapsible-content.active { display: block; }
+    
+    /* 状态指示器 */
+    .status-indicator { 
+      display: inline-block; 
+      width: 8px; 
+      height: 8px; 
+      border-radius: 50%; 
+      margin-right: 6px; 
+    }
+    .status-running { background: var(--warning); animation: pulse 1.5s infinite; }
+    .status-completed { background: var(--success); }
+    .status-failed { background: var(--error); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    
+    /* 文件上传 */
+    .file-drop { 
+      border: 2px dashed #3b4f89; 
+      border-radius: 8px; 
+      padding: 30px; 
+      text-align: center; 
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .file-drop:hover { border-color: var(--primary); background: rgba(79, 102, 255, 0.05); }
+    .file-drop.dragover { border-color: var(--primary); background: rgba(79, 102, 255, 0.1); }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>VibeML Agent（可用版）</h1>
-    <p class="muted">入口先澄清意图，训练中可随时暂停并下载 checkpoint。</p>
+    <div class="header">
+      <h1>🧪 VibeML Agent</h1>
+      <p>从自然语言需求到可部署模型权重的全自动 ML 平台</p>
+    </div>
 
     <div class="grid">
+      <!-- 1. 数据上传 -->
       <section class="card">
-        <h2>1) 意图澄清</h2>
-        <label>目标一句话<input id="goal" value="将客服工单转成稳定 JSON，优先保证结构正确" /></label>
-        <label>必须保留（逗号分隔）<input id="mustKeep" value="JSON结构完整,优先级准确" /></label>
-        <label>允许变化（逗号分隔）<input id="canChange" value="措辞风格,解释长度" /></label>
-        <label>不可接受错误（逗号分隔）<input id="worstErrors" value="格式错误,漏掉退款判断" /></label>
-        <label>优化优先级
-          <select id="priority">
-            <option value="quality">质量</option>
-            <option value="latency">速度</option>
-            <option value="cost">成本</option>
-          </select>
-        </label>
-        <label>训练策略
-          <select id="mode">
-            <option value="conservative">保守</option>
-            <option value="standard" selected>标准</option>
-            <option value="aggressive">激进</option>
-          </select>
-        </label>
-        <button class="btn" onclick="clarifyIntent()">检查模糊并生成意图卡</button>
-        <pre id="clarifyResult">等待检查...</pre>
+        <h2><span class="step">1</span> 数据上传</h2>
+        <p class="muted">上传 CSV 文件，支持自动类型推断和目标列识别</p>
+        
+        <div class="file-drop" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <p>📁 点击或拖拽 CSV 文件到此处</p>
+          <p class="muted">支持 .csv 格式，最大 100MB</p>
+        </div>
+        <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleFileSelect(this.files[0])">
+        
+        <label>目标列提示（可选）<input id="targetHint" placeholder="如：churn, target, label" /></label>
+        
+        <div id="uploadResult" style="margin-top:15px;"></div>
       </section>
 
+      <!-- 2. 意图澄清 -->
       <section class="card">
-        <h2>2) 训练控制</h2>
-        <label>样本备注<textarea id="sampleNotes" rows="2" placeholder="例如：A类样本最重要，B类不能学坏"></textarea></label>
-        <button class="btn" onclick="startTraining()">开始训练</button>
+        <h2><span class="step">2</span> 意图澄清</h2>
+        <p class="muted">描述你的业务目标，系统自动编译为优化任务</p>
+        
+        <label>目标一句话
+          <input id="goal" value="预测用户是否会流失，预算有限每天只能处理200个" />
+        </label>
+        
+        <label>必须保留（逗号分隔）
+          <input id="mustKeep" value="高价值客户优先,不能漏掉即将流失的用户" />
+        </label>
+        
+        <label>允许变化（逗号分隔）
+          <input id="canChange" value="模型类型,训练时间" />
+        </label>
+        
+        <label>不可接受错误（逗号分隔）
+          <input id="worstErrors" value="漏报比误报更糟,不能错杀忠实用户" />
+        </label>
+        
         <div class="row">
-          <button class="btn secondary" onclick="pauseTraining()">暂停并保存 checkpoint</button>
-          <button class="btn secondary" onclick="resumeTraining()">继续</button>
+          <div style="flex:1">
+            <label>优化优先级
+              <select id="priority">
+                <option value="quality">质量优先</option>
+                <option value="latency">速度优先</option>
+                <option value="cost">成本优先</option>
+              </select>
+            </label>
+          </div>
+          <div style="flex:1">
+            <label>训练策略
+              <select id="mode">
+                <option value="conservative">保守</option>
+                <option value="standard" selected>标准</option>
+                <option value="aggressive">激进</option>
+              </select>
+            </label>
+          </div>
         </div>
-        <div class="row">
-          <button class="btn secondary" onclick="refreshStatus()">刷新状态</button>
-          <button class="btn secondary" onclick="stopTraining()">停止训练</button>
-        </div>
-        <div class="row">
-          <button class="btn secondary" onclick="toggleAutoRefresh()" id="autoBtn">开启自动刷新</button>
-        </div>
-        <p id="jobInfo" class="muted">尚未启动任务。</p>
-        <pre id="jobStatus">等待任务...</pre>
+        
+        <button class="btn" onclick="compileObjective()">🎯 编译意图为 ObjectiveSpec</button>
+        
+        <div id="compileResult" style="margin-top:15px;"></div>
       </section>
 
+      <!-- 3. 训练控制 -->
       <section class="card">
-        <h2>3) Checkpoint 下载</h2>
+        <h2><span class="step">3</span> 训练控制</h2>
+        <p class="muted">AutoML 自动搜索最佳模型和超参数</p>
+        
         <div class="row">
-          <button class="btn secondary" onclick="listCheckpoints()">刷新列表</button>
-          <button class="btn secondary" onclick="downloadLatest()">下载最新</button>
+          <div style="flex:1">
+            <label>最大训练时间（秒）<input id="maxTime" type="number" value="120" /></label>
+          </div>
+          <div style="flex:1">
+            <label>最大试验次数<input id="maxTrials" type="number" value="20" /></label>
+          </div>
         </div>
-        <label>指定文件名<input id="downloadName" placeholder="例如 123abc_step_10.json" /></label>
-        <button class="btn secondary" onclick="downloadCheckpointByName()">下载指定 checkpoint</button>
-        <pre id="checkpointList">等待任务...</pre>
+        
+        <label>样本备注<textarea id="sampleNotes" rows="2" placeholder="例如：A类样本最重要，高价值用户数据更可信"></textarea></label>
+        
+        <button class="btn" id="startBtn" onclick="startTraining()">🚀 开始 AutoML 训练</button>
+        
+        <div class="row">
+          <button class="btn secondary" onclick="pauseTraining()">⏸️ 暂停</button>
+          <button class="btn secondary" onclick="resumeTraining()">▶️ 继续</button>
+          <button class="btn secondary" onclick="stopTraining()">⏹️ 停止</button>
+        </div>
+        
+        <div class="progress-container" id="progressContainer" style="display:none;">
+          <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+          <div class="progress-text">
+            <span id="progressMessage">等待开始...</span>
+            <span id="progressPercent">0%</span>
+          </div>
+        </div>
+        
+        <div id="trainingStatus" style="margin-top:15px;"></div>
+      </section>
+
+      <!-- 4. 训练结果 -->
+      <section class="card">
+        <h2><span class="step">4</span> 模型产物</h2>
+        <p class="muted">下载训练好的模型权重和预处理管道</p>
+        
+        <div id="resultContainer" style="display:none;">
+          <div class="metrics" id="metricsContainer"></div>
+          
+          <div class="collapsible">
+            <div class="collapsible-header" onclick="toggleCollapse(this)">
+              <span>📊 特征重要性</span>
+              <span>▼</span>
+            </div>
+            <div class="collapsible-content" id="featureImportance"></div>
+          </div>
+          
+          <div class="collapsible">
+            <div class="collapsible-header" onclick="toggleCollapse(this)">
+              <span>📋 训练日志</span>
+              <span>▼</span>
+            </div>
+            <div class="collapsible-content active">
+              <pre id="resultDetails"></pre>
+            </div>
+          </div>
+          
+          <div style="margin-top:15px;">
+            <p class="muted">下载产物：</p>
+            <div class="downloads" id="downloadsContainer"></div>
+          </div>
+        </div>
+        
+        <div id="noResult" class="muted" style="text-align:center; padding:40px;">
+          训练完成后将显示模型结果
+        </div>
+      </section>
+
+      <!-- 5. 预测服务 -->
+      <section class="card">
+        <h2><span class="step">5</span> 批量预测</h2>
+        <p class="muted">使用训练好的模型对新数据进行预测</p>
+        
+        <div class="file-drop" id="predictDropZone" onclick="document.getElementById('predictFile').click()">
+          <p>📁 上传待预测数据（CSV）</p>
+          <p class="muted">格式需与训练数据一致</p>
+        </div>
+        <input type="file" id="predictFile" accept=".csv" style="display:none" onchange="handlePredictFile(this.files[0])">
+        
+        <div id="predictResult" style="margin-top:15px;"></div>
+      </section>
+
+      <!-- 数据集列表 -->
+      <section class="card">
+        <h2><span class="step">📦</span> 我的数据集</h2>
+        <p class="muted">已上传的数据集列表</p>
+        <button class="btn secondary" onclick="listDatasets()">🔄 刷新列表</button>
+        <div id="datasetList" style="margin-top:10px;">
+          <pre>点击刷新获取列表</pre>
+        </div>
       </section>
     </div>
   </div>
@@ -89,124 +323,374 @@
   <script>
     const API = "/api";
     let currentJobId = "";
-    let timer = null;
+    let currentDatasetId = "";
+    let refreshTimer = null;
+    let objectiveSpec = null;
 
     const byId = (id) => document.getElementById(id);
     const parseList = (v) => v.split(',').map(s => s.trim()).filter(Boolean);
 
-    function payload() {
-      return {
-        objective: byId("goal").value,
-        user_goal: byId("goal").value,
-        must_keep: parseList(byId("mustKeep").value),
-        can_change: parseList(byId("canChange").value),
-        worst_errors: parseList(byId("worstErrors").value),
-        priority: byId("priority").value,
-        mode: byId("mode").value,
-        sample_notes: byId("sampleNotes").value,
-      }
-    }
-
-    async function api(url, method = "GET", body = null) {
-      const res = await fetch(`${API}${url}`, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: body ? JSON.stringify(body) : null,
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`${res.status} ${text}`);
-      }
-      return res.json();
-    }
-
-    async function clarifyIntent() {
+    // ============ 数据上传 ============
+    async function handleFileSelect(file) {
+      if (!file) return;
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('target_hint', byId('targetHint').value);
+      
+      byId('uploadResult').innerHTML = '<p class="muted">上传中...</p>';
+      
       try {
-        const data = await api("/intent/clarify", "POST", {
-          user_goal: payload().user_goal,
-          must_keep: payload().must_keep,
-          can_change: payload().can_change,
-          worst_errors: payload().worst_errors,
-          priority: payload().priority,
+        const res = await fetch(`${API}/data/upload`, {
+          method: 'POST',
+          body: formData,
         });
-        byId("clarifyResult").textContent = JSON.stringify(data, null, 2);
+        
+        if (!res.ok) throw new Error(await res.text());
+        
+        const data = await res.json();
+        currentDatasetId = data.dataset_id;
+        
+        let colsHtml = '<table><tr><th>列名</th><th>类型</th><th>缺失值</th><th>唯一值</th></tr>';
+        data.columns.forEach(c => {
+          colsHtml += `<tr>
+            <td>${c.name} ${c.name === data.target_column ? '<span class="tag tag-success">目标</span>' : ''}</td>
+            <td><span class="tag tag-primary">${c.column_type}</span></td>
+            <td>${c.missing_count}</td>
+            <td>${c.unique_count}</td>
+          </tr>`;
+        });
+        colsHtml += '</table>';
+        
+        byId('uploadResult').innerHTML = `
+          <p class="ok">✅ 上传成功！数据集 ID: ${data.dataset_id}</p>
+          <p class="muted">${data.n_rows} 行 × ${data.n_cols} 列 | 目标列: ${data.target_column || '未识别'}</p>
+          <div class="data-preview">${colsHtml}</div>
+        `;
+        
+        // 自动填充目标列提示
+        if (data.target_column) {
+          byId('targetHint').value = data.target_column;
+        }
+        
       } catch (e) {
-        byId("clarifyResult").textContent = `错误: ${e.message}`;
+        byId('uploadResult').innerHTML = `<p class="error">❌ 上传失败: ${e.message}</p>`;
       }
     }
 
-    async function startTraining() {
+    // 拖拽上传
+    const dropZone = byId('dropZone');
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.csv')) handleFileSelect(file);
+    });
+
+    // ============ 意图编译 ============
+    async function compileObjective() {
+      if (!currentDatasetId) {
+        alert('请先上传数据集');
+        return;
+      }
+      
+      const payload = {
+        user_goal: byId('goal').value,
+        must_keep: parseList(byId('mustKeep').value),
+        can_change: parseList(byId('canChange').value),
+        worst_errors: parseList(byId('worstErrors').value),
+        priority: byId('priority').value,
+        dataset_id: currentDatasetId,
+      };
+      
+      byId('compileResult').innerHTML = '<p class="muted">编译中...</p>';
+      
       try {
-        const data = await api("/training/start", "POST", payload());
-        currentJobId = data.job_id;
-        byId("jobInfo").innerHTML = `<span class='ok'>任务已启动</span> Job ID: ${currentJobId}`;
-        await refreshStatus();
+        const res = await fetch(`${API}/intent/compile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        
+        if (!res.ok) throw new Error(await res.text());
+        
+        const data = await res.json();
+        objectiveSpec = data.objective_spec;
+        
+        const spec = data.objective_spec;
+        const interp = data.interpretation;
+        
+        byId('compileResult').innerHTML = `
+          <p class="ok">✅ 编译成功！</p>
+          <div style="background:#0c142a; padding:12px; border-radius:8px; margin-top:10px;">
+            <p><strong>任务类型:</strong> <span class="tag tag-primary">${interp.task_type}</span></p>
+            <p><strong>目标列:</strong> ${interp.target_column || '自动识别'}</p>
+            <p><strong>评估指标:</strong> ${interp.primary_metric}</p>
+            <p><strong>验证策略:</strong> ${interp.validation_strategy}</p>
+            <p><strong>推荐模型:</strong> ${interp.recommended_models.map(m => `<span class="tag tag-warning">${m}</span>`).join(' ')}</p>
+          </div>
+        `;
+        
       } catch (e) {
-        byId("jobInfo").innerHTML = `<span class='warn'>启动失败</span> ${e.message}`;
+        byId('compileResult').innerHTML = `<p class="error">❌ 编译失败: ${e.message}</p>`;
+      }
+    }
+
+    // ============ 训练控制 ============
+    async function startTraining() {
+      if (!currentDatasetId) {
+        alert('请先上传数据集');
+        return;
+      }
+      
+      const payload = {
+        objective: byId('goal').value,
+        must_keep: parseList(byId('mustKeep').value),
+        can_change: parseList(byId('canChange').value),
+        worst_errors: parseList(byId('worstErrors').value),
+        priority: byId('priority').value,
+        mode: byId('mode').value,
+        sample_notes: byId('sampleNotes').value,
+        dataset_id: currentDatasetId,
+        target_column: byId('targetHint').value || null,
+        max_training_time: parseInt(byId('maxTime').value) || 120,
+        max_trials: parseInt(byId('maxTrials').value) || 20,
+      };
+      
+      try {
+        byId('startBtn').disabled = true;
+        byId('progressContainer').style.display = 'block';
+        byId('trainingStatus').innerHTML = '<p class="muted">启动中...</p>';
+        
+        const res = await fetch(`${API}/training/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        
+        if (!res.ok) throw new Error(await res.text());
+        
+        const data = await res.json();
+        currentJobId = data.job_id;
+        objectiveSpec = data.objective_spec;
+        
+        byId('trainingStatus').innerHTML = `<p class="ok">✅ 任务已启动: ${currentJobId}</p>`;
+        
+        // 开始轮询
+        startAutoRefresh();
+        
+      } catch (e) {
+        byId('trainingStatus').innerHTML = `<p class="error">❌ 启动失败: ${e.message}</p>`;
+        byId('startBtn').disabled = false;
       }
     }
 
     async function refreshStatus() {
       if (!currentJobId) return;
+      
       try {
-        const data = await api(`/training/${currentJobId}`);
-        byId("jobStatus").textContent = JSON.stringify(data, null, 2);
-        if (data.latest_checkpoints?.length) {
-          byId("downloadName").value = data.latest_checkpoints[data.latest_checkpoints.length - 1].file;
+        const res = await fetch(`${API}/training/${currentJobId}`);
+        if (!res.ok) throw new Error(await res.text());
+        
+        const data = await res.json();
+        
+        // 更新进度条
+        byId('progressBar').style.width = `${data.progress}%`;
+        byId('progressPercent').textContent = `${Math.round(data.progress)}%`;
+        byId('progressMessage').innerHTML = `<span class="status-indicator status-${data.status}"></span>${data.message}`;
+        
+        // 如果完成或失败，停止轮询
+        if (['completed', 'failed', 'stopped'].includes(data.status)) {
+          stopAutoRefresh();
+          byId('startBtn').disabled = false;
+          
+          if (data.status === 'completed') {
+            loadTrainingResult();
+          }
         }
+        
       } catch (e) {
-        byId("jobStatus").textContent = `刷新失败: ${e.message}`;
+        console.error('刷新失败:', e);
       }
     }
 
     async function pauseTraining() {
       if (!currentJobId) return;
-      await api(`/training/${currentJobId}/pause`, "POST");
+      await fetch(`${API}/training/${currentJobId}/pause`, { method: 'POST' });
       await refreshStatus();
-      await listCheckpoints();
     }
 
     async function resumeTraining() {
       if (!currentJobId) return;
-      await api(`/training/${currentJobId}/resume`, "POST");
+      await fetch(`${API}/training/${currentJobId}/resume`, { method: 'POST' });
       await refreshStatus();
     }
 
     async function stopTraining() {
       if (!currentJobId) return;
-      await api(`/training/${currentJobId}/stop`, "POST");
+      await fetch(`${API}/training/${currentJobId}/stop`, { method: 'POST' });
+      stopAutoRefresh();
       await refreshStatus();
-      await listCheckpoints();
+      byId('startBtn').disabled = false;
     }
 
-    async function listCheckpoints() {
+    function startAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(refreshStatus, 2000);
+    }
+
+    function stopAutoRefresh() {
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+    }
+
+    // ============ 训练结果 ============
+    async function loadTrainingResult() {
       if (!currentJobId) return;
-      const data = await api(`/training/${currentJobId}/checkpoints`);
-      byId("checkpointList").textContent = JSON.stringify(data, null, 2);
+      
+      try {
+        const res = await fetch(`${API}/training/${currentJobId}/result`);
+        if (!res.ok) throw new Error(await res.text());
+        
+        const data = await res.json();
+        
+        byId('noResult').style.display = 'none';
+        byId('resultContainer').style.display = 'block';
+        
+        // 指标卡片
+        const metricsHtml = Object.entries(data.val_metrics).map(([k, v]) => `
+          <div class="metric">
+            <div class="metric-value">${typeof v === 'number' ? v.toFixed(4) : v}</div>
+            <div class="metric-label">${k.toUpperCase()}</div>
+          </div>
+        `).join('');
+        byId('metricsContainer').innerHTML = metricsHtml;
+        
+        // 特征重要性
+        const fi = data.feature_importance || {};
+        const fiHtml = Object.entries(fi).slice(0, 10).map(([name, val], i) => `
+          <div style="display:flex; align-items:center; margin:6px 0;">
+            <span style="width:30px; color:#8b9dc3;">#${i+1}</span>
+            <span style="flex:1; font-size:12px;">${name}</span>
+            <div style="width:100px; height:6px; background:#1a2542; border-radius:3px; overflow:hidden;">
+              <div style="width:${Math.min(val * 100, 100)}%; height:100%; background:var(--primary);"></div>
+            </div>
+            <span style="width:60px; text-align:right; font-size:11px; color:#8b9dc3;">${val.toFixed(3)}</span>
+          </div>
+        `).join('');
+        byId('featureImportance').innerHTML = fiHtml || '<p class="muted">无特征重要性数据</p>';
+        
+        // 详情
+        byId('resultDetails').textContent = JSON.stringify(data, null, 2);
+        
+        // 下载链接
+        byId('downloadsContainer').innerHTML = `
+          <a class="btn" href="${API}/training/${currentJobId}/download/model" download>⬇️ 模型权重 (.pkl)</a>
+          <a class="btn secondary" href="${API}/training/${currentJobId}/download/preprocessor" download>⬇️ 预处理器</a>
+          <a class="btn secondary" href="${API}/training/${currentJobId}/download/metadata" download>⬇️ 元数据 (JSON)</a>
+        `;
+        
+      } catch (e) {
+        console.error('加载结果失败:', e);
+      }
     }
 
-    function downloadLatest() {
-      if (!currentJobId) return;
-      window.open(`${API}/training/${currentJobId}/download/latest`, "_blank");
-    }
-
-    function downloadCheckpointByName() {
-      if (!currentJobId) return;
-      const name = byId("downloadName").value.trim();
-      if (!name) return;
-      window.open(`${API}/training/${currentJobId}/download/${name}`, "_blank");
-    }
-
-    function toggleAutoRefresh() {
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
-        byId("autoBtn").textContent = "开启自动刷新";
+    // ============ 预测 ============
+    async function handlePredictFile(file) {
+      if (!currentJobId) {
+        alert('请先完成训练');
         return;
       }
-      timer = setInterval(refreshStatus, 2000);
-      byId("autoBtn").textContent = "关闭自动刷新";
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      byId('predictResult').innerHTML = '<p class="muted">预测中...</p>';
+      
+      try {
+        const res = await fetch(`${API}/predict/${currentJobId}`, {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!res.ok) throw new Error(await res.text());
+        
+        const data = await res.json();
+        
+        let preview = '';
+        if (data.probabilities) {
+          preview = data.probabilities.slice(0, 5).map((p, i) => 
+            `样本 ${i+1}: 预测=${data.predictions[i]}, 置信度=${(p*100).toFixed(1)}%`
+          ).join('<br>');
+        } else {
+          preview = data.predictions.slice(0, 5).map((p, i) => 
+            `样本 ${i+1}: 预测=${p}`
+          ).join('<br>');
+        }
+        
+        byId('predictResult').innerHTML = `
+          <p class="ok">✅ 预测完成！共 ${data.n_predictions} 条结果</p>
+          <p class="muted">使用模型: ${data.model_used}</p>
+          <div style="background:#0c142a; padding:12px; border-radius:8px; margin-top:10px; font-size:12px;">
+            <strong>预览（前5条）:</strong><br>${preview}
+          </div>
+        `;
+        
+      } catch (e) {
+        byId('predictResult').innerHTML = `<p class="error">❌ 预测失败: ${e.message}</p>`;
+      }
     }
+
+    // ============ 数据集列表 ============
+    async function listDatasets() {
+      try {
+        const res = await fetch(`${API}/data/list`);
+        const data = await res.json();
+        
+        if (data.datasets.length === 0) {
+          byId('datasetList').innerHTML = '<pre class="muted">暂无数据集</pre>';
+          return;
+        }
+        
+        let html = '<table style="width:100%; font-size:12px;"><tr><th>ID</th><th>文件名</th><th>行数</th><th>目标列</th><th>操作</th></tr>';
+        data.datasets.forEach(ds => {
+          html += `<tr>
+            <td>${ds.dataset_id}</td>
+            <td>${ds.filename}</td>
+            <td>${ds.n_rows}</td>
+            <td>${ds.target_column || '-'}</td>
+            <td><button class="btn secondary" style="padding:4px 8px; font-size:11px;" onclick="selectDataset('${ds.dataset_id}', '${ds.target_column || ''}')">选择</button></td>
+          </tr>`;
+        });
+        html += '</table>';
+        
+        byId('datasetList').innerHTML = html;
+        
+      } catch (e) {
+        byId('datasetList').innerHTML = `<pre class="error">加载失败: ${e.message}</pre>`;
+      }
+    }
+
+    function selectDataset(id, target) {
+      currentDatasetId = id;
+      if (target) byId('targetHint').value = target;
+      alert(`已选择数据集: ${id}`);
+    }
+
+    // ============ 工具函数 ============
+    function toggleCollapse(header) {
+      const content = header.nextElementSibling;
+      content.classList.toggle('active');
+      header.querySelector('span:last-child').textContent = 
+        content.classList.contains('active') ? '▼' : '▶';
+    }
+
+    // 初始化
+    listDatasets();
   </script>
 </body>
 </html>

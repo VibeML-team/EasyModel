@@ -1,4 +1,54 @@
+# Python
 __pycache__/
-*.pyc
-.venv/
-backend/checkpoints/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+
+# Test data and outputs
+backend/data/
+outputs/
+checkpoints/
+*.pkl
+*.pt
+*.pth
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
