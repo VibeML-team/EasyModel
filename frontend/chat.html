@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeML Chat - AI 算法专家</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #07070f;
+      --bg-secondary: #0d0d1a;
+      --bg-tertiary: #05050a;
+      --border: rgba(255, 255, 255, 0.1);
+      --text-primary: #e6edf3;
+      --text-secondary: #7d8590;
+      --violet-400: #a78bfa;
+      --violet-500: #8b5cf6;
+      --violet-600: #7c3aed;
+      --cyan-400: #22d3ee;
+      --cyan-500: #06b6d4;
+      --blue-400: #60a5fa;
+      --blue-500: #3b82f6;
+      --emerald-400: #34d399;
+      --emerald-500: #10b981;
+      --rose-400: #fb7185;
+      --amber-400: #fbbf24;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 60px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--violet-500), var(--cyan-500));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-text { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+    .logo-text span { color: var(--violet-400); }
+
+    .header-divider {
+      width: 1px; height: 24px;
+      background: var(--border);
+    }
+
+    .header-title {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .header-btn:hover {
+      border-color: var(--violet-500);
+      color: var(--text-primary);
+    }
+
+    .header-btn.primary {
+      background: var(--violet-600);
+      border-color: var(--violet-600);
+      color: white;
+    }
+
+    .header-btn.primary:hover {
+      background: var(--violet-500);
+    }
+
+    /* Main Layout */
+    .main {
+      padding-top: 60px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Messages Area */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .message {
+      max-width: 900px;
+      margin: 0 auto 24px;
+      display: flex;
+      gap: 16px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .avatar {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .avatar.user {
+      background: var(--violet-500);
+    }
+
+    .avatar.assistant {
+      background: linear-gradient(135deg, var(--violet-500), var(--cyan-500));
+    }
+
+    .message-content {
+      flex: 1;
+      padding-top: 6px;
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .message-author {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .message-time {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .message-text {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-primary);
+    }
+
+    .message-text p { margin-bottom: 12px; }
+    .message-text p:last-child { margin-bottom: 0; }
+
+    /* Cards */
+    .card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      margin: -16px -16px 16px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .card-violet { border-color: rgba(139, 92, 246, 0.3); }
+    .card-violet .card-header { background: rgba(139, 92, 246, 0.1); color: var(--violet-400); }
+
+    .card-cyan { border-color: rgba(34, 211, 238, 0.3); }
+    .card-cyan .card-header { background: rgba(34, 211, 238, 0.1); color: var(--cyan-400); }
+
+    .card-blue { border-color: rgba(59, 130, 246, 0.3); }
+    .card-blue .card-header { background: rgba(59, 130, 246, 0.1); color: var(--blue-400); }
+
+    .card-emerald { border-color: rgba(16, 185, 129, 0.3); }
+    .card-emerald .card-header { background: rgba(16, 185, 129, 0.1); color: var(--emerald-400); }
+
+    /* Setup Cards */
+    .setup-cards { margin-top: 16px; }
+
+    .setup-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .setup-row:last-child { border-bottom: none; }
+
+    .setup-label { color: var(--text-secondary); font-size: 12px; }
+    .setup-value { color: var(--text-primary); }
+    .setup-value.rose { color: var(--rose-400); }
+    .setup-value.emerald { color: var(--emerald-400); }
+    .setup-value.blue { color: var(--blue-400); }
+
+    .setup-options {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .option-btn {
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .option-btn:hover { border-color: var(--violet-500); color: var(--text-primary); }
+    .option-btn.selected {
+      background: var(--violet-600);
+      border-color: var(--violet-600);
+      color: white;
+    }
+
+    .confirm-btn {
+      width: 100%;
+      margin-top: 16px;
+      padding: 12px;
+      background: var(--violet-600);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .confirm-btn:hover { background: var(--violet-500); }
+
+    .confirm-btn:disabled {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+
+    /* Progress Card */
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .progress-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--emerald-500);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .metric-box {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 14px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Input Area */
+    .input-area {
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      background: var(--bg-primary);
+    }
+
+    .input-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .input-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .toolbar-btn {
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .toolbar-btn:hover {
+      border-color: var(--violet-500);
+      color: var(--text-primary);
+    }
+
+    .input-box {
+      display: flex;
+      gap: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      align-items: flex-end;
+    }
+
+    .input-box:focus-within { border-color: var(--violet-500); }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 15px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      min-height: 24px;
+      max-height: 200px;
+      font-family: inherit;
+    }
+
+    textarea::placeholder { color: var(--text-secondary); }
+
+    .send-btn {
+      width: 36px; height: 36px;
+      background: var(--violet-600);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover { background: var(--violet-500); }
+    .send-btn:disabled { background: rgba(255, 255, 255, 0.1); cursor: not-allowed; }
+
+    /* File Upload */
+    .upload-area {
+      background: var(--bg-secondary);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      margin-top: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .upload-area:hover { border-color: var(--cyan-500); }
+
+    .upload-icon { font-size: 32px; margin-bottom: 8px; }
+    .upload-text { font-size: 14px; color: var(--text-secondary); }
+    .upload-hint { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* File Preview */
+    .file-preview {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(34, 211, 238, 0.1);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    .file-icon { font-size: 20px; }
+    .file-info { flex: 1; }
+    .file-name { font-size: 14px; font-weight: 500; }
+    .file-size { font-size: 12px; color: var(--text-secondary); }
+
+    .file-remove {
+      width: 24px; height: 24px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-remove:hover { color: var(--rose-400); }
+
+    /* Loading Animation */
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .loading-dot {
+      width: 6px; height: 6px;
+      background: var(--violet-400);
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+    .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
+    /* Utility */
+    .hidden { display: none !important; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-title { display: none; }
+      .header-divider { display: none; }
+      .messages { padding: 16px; }
+      .input-area { padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <a href="/" class="logo">
+        <div class="logo-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
+            <circle cx="9" cy="9" r="2" fill="white"/>
+          </svg>
+        </div>
+        <span class="logo-text">Vibe<span>ML</span></span>
+      </a>
+      <div class="header-divider"></div>
+      <span class="header-title">Chat / 新对话</span>
+    </div>
+    <div class="header-actions">
+      <a href="/" class="header-btn">返回首页</a>
+      <button class="header-btn primary" onclick="startNewChat()">+ 新对话</button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main">
+    <!-- Messages -->
+    <div class="messages" id="messages">
+      <!-- Welcome Message -->
+      <div class="message">
+        <div class="avatar assistant">🤖</div>
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-author">VibeML Assistant</span>
+            <span class="message-time">刚刚</span>
+          </div>
+          <div class="message-text">
+            <p>👋 欢迎使用 VibeML！我是你的专属 AI 算法专家。</p>
+            <p>我可以帮你：</p>
+            <ul style="margin: 8px 0; padding-left: 20px;">
+              <li>分析业务需求并编译为训练方案</li>
+              <li>自动完成数据预处理、特征工程</li>
+              <li>搜索最优超参数和模型架构</li>
+              <li>提供可部署的模型权重</li>
+            </ul>
+            <p>你可以用最自然的语言描述你的精细业务需求，并上传数据（CSV、Excel、ZIP 等）。我会将你模糊的业务语言，精准编译为包含特制数据处理、专属损失函数和定制模型架构的端到端训练流。</p>
+          </div>
+
+          <!-- Upload Area -->
+          <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">点击或拖拽上传数据集</div>
+            <div class="upload-hint">支持 CSV, XLSX, ZIP, 7Z 格式</div>
+          </div>
+          <input type="file" id="fileInput" class="hidden" accept=".csv,.xlsx,.xls,.zip,.7z" onchange="handleFileSelect(event)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="input-container">
+        <div class="input-toolbar">
+          <button class="toolbar-btn" onclick="document.getElementById('fileInput').click()">
+            📎 上传文件
+          </button>
+          <button class="toolbar-btn" onclick="showHelp()">
+            ❓ 帮助
+          </button>
+          <button class="toolbar-btn" onclick="clearContext()">
+            🗑️ 清空
+          </button>
+        </div>
+        <div class="input-box">
+          <textarea id="messageInput" placeholder="描述你的精细业务需求，例如：我有一份电商记录，想找出快流失的高价值用户，宁可误报也别漏报..." rows="1"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API = '/api';
+    let currentSessionId = null;
+    let currentFile = null;
+    let isWaitingResponse = false;
+    let currentDatasetId = null;
+    let currentJobId = null;
+    let selectedPriority = 'quality';
+    let selectedAugStrength = 'standard';
+
+    // Auto-resize textarea
+    const textarea = document.getElementById('messageInput');
+    textarea.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+    });
+
+    // Enter to send
+    textarea.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) handleFile(file);
+    }
+
+    function handleFile(file) {
+      currentFile = file;
+
+      const filePreview = document.createElement('div');
+      filePreview.className = 'file-preview';
+      filePreview.id = 'filePreview';
+      filePreview.innerHTML = `
+        <div class="file-icon">📊</div>
+        <div class="file-info">
+          <div class="file-name">${file.name}</div>
+          <div class="file-size">${formatFileSize(file.size)}</div>
+        </div>
+        <button class="file-remove" onclick="removeFile()">✕</button>
+      `;
+
+      const existingPreview = document.getElementById('filePreview');
+      if (existingPreview) existingPreview.remove();
+
+      const uploadArea = document.getElementById('uploadArea');
+      if (uploadArea) uploadArea.style.display = 'none';
+
+      const lastMessage = document.querySelector('.message:last-child .message-content');
+      if (lastMessage) lastMessage.appendChild(filePreview);
+
+      addMessage('user', `我准备了一个数据集：${file.name}`);
+      uploadFile(file);
+    }
+
+    function removeFile() {
+      currentFile = null;
+      const preview = document.getElementById('filePreview');
+      if (preview) preview.remove();
+      const uploadArea = document.getElementById('uploadArea');
+      if (uploadArea) uploadArea.style.display = 'block';
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async function uploadFile(file) {
+      showLoading();
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch(`${API}/data/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success || data.dataset_id) {
+          hideLoading();
+          currentDatasetId = data.dataset_id;
+          addMessage('assistant', `
+            <p>✅ 数据上传成功！</p>
+            <div class="card">
+              <div class="card-header">📊 数据概览</div>
+              <div style="padding: 0 4px;">
+                <div class="setup-row">
+                  <span class="setup-label">数据集 ID</span>
+                  <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">${data.dataset_id}</code>
+                </div>
+                <div class="setup-row">
+                  <span class="setup-label">数据规模</span>
+                  <span>${data.n_rows} 行 × ${data.n_cols} 列</span>
+                </div>
+                <div class="setup-row">
+                  <span class="setup-label">目标列</span>
+                  <span class="setup-value ${data.target_column ? 'emerald' : 'rose'}">${data.target_column || '未自动识别'}</span>
+                </div>
+              </div>
+            </div>
+            <p style="margin-top: 12px;">请描述你的预测目标和业务约束，例如：</p>
+            <ul style="margin: 8px 0; padding-left: 20px; color: var(--text-secondary);">
+              <li>"预测用户是否会流失，宁可误报也别漏报"</li>
+              <li>"预测房价，避免高估"</li>
+              <li>"判断是否为欺诈交易，误报成本很高"</li>
+            </ul>
+          `);
+        } else {
+          throw new Error(data.message || '上传失败');
+        }
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>❌ 上传失败: ${e.message}</p>`);
+      }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+
+      if (!text || isWaitingResponse) return;
+
+      addMessage('user', text);
+      input.value = '';
+      input.style.height = 'auto';
+
+      showLoading();
+      isWaitingResponse = true;
+
+      try {
+        // Use the legacy API for now
+        const response = await fetch(`${API}/intent/clarify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_goal: text,
+            must_keep: [],
+            can_change: [],
+            worst_errors: [],
+            priority: 'quality',
+            dataset_id: currentDatasetId
+          })
+        });
+
+        const data = await response.json();
+
+        hideLoading();
+
+        if (data.is_ambiguous) {
+          showClarification(data);
+        } else {
+          showSetupCards(data);
+        }
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>❌ 处理失败: ${e.message}</p>`);
+      }
+
+      isWaitingResponse = false;
+    }
+
+    function showClarification(data) {
+      let html = '<p>🤔 我需要更多信息来准确理解你的需求：</p>';
+      data.follow_up_questions.forEach((q, idx) => {
+        html += `<div style="margin: 8px 0; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border);">
+          <div style="font-size: 14px; margin-bottom: 8px;">${idx + 1}. ${q}</div>
+          <input type="text" placeholder="请输入你的回答..." style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary);">
+        </div>`;
+      });
+      html += '<button class="confirm-btn" onclick="submitClarification()">提交回答</button>';
+      addMessage('assistant', html);
+    }
+
+    function showSetupCards(data) {
+      const spec = data.objective_spec || {};
+
+      let html = `
+        <p>✅ 我已理解你的需求，这是编译后的训练方案：</p>
+        <div class="setup-cards">
+          <!-- Intent Card -->
+          <div class="card card-violet">
+            <div class="card-header">
+              <span>⚙️</span>
+              <span>需求编译卡（Intent Compilation）</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">任务定义</span>
+              <span>${spec.task_family || '自动检测'}</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">最痛的错误</span>
+              <span class="setup-value rose">${spec.error_preference || '待确认'}</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">核心约束</span>
+              <span class="setup-value emerald">${spec.constraints ? '已设置' : '待确认'}</span>
+            </div>
+            <div style="margin-top: 12px;">
+              <span class="setup-label" style="display: block; margin-bottom: 8px;">方案偏好</span>
+              <div class="setup-options">
+                <button class="option-btn ${selectedPriority === 'quality' ? 'selected' : ''}" onclick="selectPriority('quality', this)">质量优先</button>
+                <button class="option-btn ${selectedPriority === 'speed' ? 'selected' : ''}" onclick="selectPriority('speed', this)">速度优先</button>
+                <button class="option-btn ${selectedPriority === 'cost' ? 'selected' : ''}" onclick="selectPriority('cost', this)">成本优先</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Card -->
+          <div class="card card-cyan" style="margin-top: 12px;">
+            <div class="card-header">
+              <span>🗄️</span>
+              <span>数据与样本构造卡</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">允许变化</span>
+              <span>时间特征微小波动</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">绝不可变</span>
+              <span class="setup-value rose">标签反转，序列顺序打乱</span>
+            </div>
+            <div style="margin-top: 12px;">
+              <span class="setup-label" style="display: block; margin-bottom: 8px;">数据增强偏好</span>
+              <div class="setup-options">
+                <button class="option-btn ${selectedAugStrength === 'conservative' ? 'selected' : ''}" onclick="selectAugStrength('conservative', this)">保守</button>
+                <button class="option-btn ${selectedAugStrength === 'standard' ? 'selected' : ''}" onclick="selectAugStrength('standard', this)">标准</button>
+                <button class="option-btn ${selectedAugStrength === 'aggressive' ? 'selected' : ''}" onclick="selectAugStrength('aggressive', this)">激进</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Training Card -->
+          <div class="card card-blue" style="margin-top: 12px;">
+            <div class="card-header">
+              <span>🔧</span>
+              <span>训练方案卡</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">基础模型架构</span>
+              <span>${spec.recommended_models ? spec.recommended_models[0] : 'AutoML'}</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">定制损失函数</span>
+              <span class="setup-value emerald">${spec.surrogate_loss || 'Weighted BCE'}</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">验收指标</span>
+              <span class="setup-value blue">${spec.primary_metric || 'Accuracy'}</span>
+            </div>
+          </div>
+        </div>
+        <button class="confirm-btn" onclick="confirmAndStartTraining()" style="margin-top: 16px;">
+          <span>✓</span>
+          <span>方案确认无误，开始训练</span>
+        </button>
+      `;
+
+      addMessage('assistant', html);
+    }
+
+    function selectPriority(value, btn) {
+      selectedPriority = value;
+      document.querySelectorAll('.option-btn').forEach(b => {
+        if (b.textContent.includes('优先')) b.classList.remove('selected');
+      });
+      btn.classList.add('selected');
+    }
+
+    function selectAugStrength(value, btn) {
+      selectedAugStrength = value;
+      document.querySelectorAll('.option-btn').forEach(b => {
+        if (['保守', '标准', '激进'].includes(b.textContent)) b.classList.remove('selected');
+      });
+      btn.classList.add('selected');
+    }
+
+    async function confirmAndStartTraining() {
+      if (!currentDatasetId) {
+        addMessage('assistant', '<p>❌ 请先上传数据集</p>');
+        return;
+      }
+
+      showLoading();
+
+      try {
+        const response = await fetch(`${API}/training/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            objective: '用户定义目标',
+            must_keep: [],
+            can_change: [],
+            worst_errors: [],
+            priority: selectedPriority,
+            mode: selectedAugStrength,
+            dataset_id: currentDatasetId,
+            max_training_time: 300,
+            max_trials: 30
+          })
+        });
+
+        const data = await response.json();
+
+        hideLoading();
+
+        if (data.job_id) {
+          currentJobId = data.job_id;
+          addMessage('assistant', `
+            <p>🚀 训练已启动！</p>
+            <div class="card card-emerald">
+              <div class="card-header" style="color: var(--emerald-400);">
+                <span>📊</span>
+                <span>训练进度监测</span>
+              </div>
+              <div id="trainingProgress">
+                <div class="progress-info">
+                  <span>正在初始化...</span>
+                  <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="metrics-grid">
+                  <div class="metric-box">
+                    <div class="metric-label">当前 Trial</div>
+                    <div class="metric-value" id="currentTrial">-</div>
+                  </div>
+                  <div class="metric-box">
+                    <div class="metric-label">最佳得分</div>
+                    <div class="metric-value" id="bestScore">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p style="margin-top: 12px; color: var(--text-secondary);">
+              你可以继续与我对话，或等待训练完成。训练过程中我会自动报告进度。
+            </p>
+          `);
+
+          startProgressPolling(data.job_id);
+        }
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>❌ 启动失败: ${e.message}</p>`);
+      }
+    }
+
+    function startProgressPolling(jobId) {
+      const pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(`${API}/training/${jobId}`);
+          const data = await response.json();
+
+          const progressFill = document.getElementById('progressFill');
+          const progressPercent = document.getElementById('progressPercent');
+          const currentTrial = document.getElementById('currentTrial');
+          const bestScore = document.getElementById('bestScore');
+
+          if (progressFill) progressFill.style.width = `${data.progress}%`;
+          if (progressPercent) progressPercent.textContent = `${Math.round(data.progress)}%`;
+          if (currentTrial && data.train_metrics) currentTrial.textContent = data.train_metrics.best_cv_score ? 'Running' : '-';
+          if (bestScore && data.best_score) bestScore.textContent = data.best_score.toFixed(4);
+
+          if (data.status === 'completed' || data.progress >= 100) {
+            clearInterval(pollInterval);
+            showTrainingComplete(jobId);
+          }
+        } catch (e) {
+          console.error('获取进度失败:', e);
+        }
+      }, 3000);
+    }
+
+    async function showTrainingComplete(jobId) {
+      try {
+        const response = await fetch(`${API}/training/${jobId}/result`);
+        const data = await response.json();
+
+        let html = `
+          <p>🎉 训练完成！</p>
+          <div class="card card-emerald">
+            <div class="card-header" style="color: var(--emerald-400);">
+              <span>🏆</span>
+              <span>训练结果</span>
+            </div>
+            <div style="padding: 0 4px;">
+              <div class="setup-row">
+                <span class="setup-label">最佳模型</span>
+                <span>${data.best_model_name}</span>
+              </div>
+              <div class="setup-row">
+                <span class="setup-label">验证得分</span>
+                <span class="setup-value emerald">${data.best_metric_score.toFixed(4)}</span>
+              </div>
+              <div class="setup-row">
+                <span class="setup-label">训练时长</span>
+                <span>${(data.training_duration / 60).toFixed(1)} 分钟</span>
+              </div>
+              <div class="setup-row">
+                <span class="setup-label">搜索次数</span>
+                <span>${data.n_trials} trials</span>
+              </div>
+            </div>
+          </div>
+          <p style="margin-top: 12px;">下载模型产物：</p>
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <a href="${API}/training/${jobId}/download/model" class="header-btn primary" download>⬇️ 模型权重</a>
+            <a href="${API}/training/${jobId}/download/preprocessor" class="header-btn" download>⬇️ 预处理器</a>
+            <a href="${API}/training/${jobId}/download/metadata" class="header-btn" download>⬇️ 元数据</a>
+          </div>
+        `;
+
+        addMessage('assistant', html);
+      } catch (e) {
+        addMessage('assistant', `<p>❌ 获取结果失败: ${e.message}</p>`);
+      }
+    }
+
+    function addMessage(role, content) {
+      const messagesDiv = document.getElementById('messages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message';
+
+      const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+      messageDiv.innerHTML = `
+        <div class="avatar ${role}">${role === 'user' ? '👤' : '🤖'}</div>
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-author">${role === 'user' ? 'You' : 'VibeML Assistant'}</span>
+            <span class="message-time">${time}</span>
+          </div>
+          <div class="message-text">${content}</div>
+        </div>
+      `;
+
+      messagesDiv.appendChild(messageDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function showLoading() {
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>';
+    }
+
+    function hideLoading() {
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+
+    function startNewChat() {
+      location.reload();
+    }
+
+    function showHelp() {
+      addMessage('assistant', `
+        <p>📖 <strong>使用帮助</strong></p>
+        <p><strong>1. 上传数据:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>支持 CSV, XLSX, ZIP, 7Z 格式</li>
+          <li>系统会自动识别目标列</li>
+        </ul>
+        <p><strong>2. 描述需求:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>告诉我想预测什么目标</li>
+          <li>说明错误偏好（宁可误报/漏报）</li>
+          <li>提及必须保留的业务约束</li>
+        </ul>
+        <p><strong>3. 训练控制:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>系统会自动编译意图并推荐方案</li>
+          <li>确认方案后开始训练</li>
+          <li>训练完成后可下载模型产物</li>
+        </ul>
+      `);
+    }
+
+    function clearContext() {
+      if (confirm('确定要清空当前对话吗？')) {
+        location.reload();
+      }
+    }
+
+    function submitClarification() {
+      // Simplified - just acknowledge
+      addMessage('assistant', '<p>感谢你的补充！让我重新编译意图...</p>');
+    }
+  </script>
+</body>
+</html>

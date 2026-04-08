@@ -1,696 +1,838 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeML Agent - 全自动炼丹平台</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeML - 将模糊业务语言编译成专属训练流</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    :root { 
-      color-scheme: dark; 
-      --primary: #4f66ff;
-      --primary-hover: #3b52e0;
-      --success: #77f2a0;
-      --warning: #ffd166;
-      --error: #ff6b6b;
-      --bg: #0b1020;
-      --card-bg: #151d34;
-      --border: #293a6f;
+    :root {
+      --bg-primary: #07070f;
+      --bg-secondary: #0d0d1a;
+      --bg-tertiary: #10101f;
+      --violet-400: #a78bfa;
+      --violet-500: #8b5cf6;
+      --violet-600: #7c3aed;
+      --blue-400: #60a5fa;
+      --blue-500: #3b82f6;
+      --emerald-400: #34d399;
+      --emerald-500: #10b981;
+      --cyan-400: #22d3ee;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --white: #ffffff;
     }
-    body { 
-      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-      margin: 0; 
-      padding: 20px; 
-      background: var(--bg); 
-      color: #edf2ff; 
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--white);
       line-height: 1.6;
+      overflow-x: hidden;
     }
-    .wrap { max-width: 1400px; margin: 0 auto; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .header h1 { margin: 0; font-size: 2.5rem; background: linear-gradient(135deg, #4f66ff 0%, #9d4edd 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .header p { color: #8b9dc3; margin-top: 8px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(400px,1fr)); gap: 16px; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; }
-    .card:hover { border-color: #4f66ff; }
-    h2 { margin: 0 0 15px; font-size: 18px; color: #fff; display: flex; align-items: center; gap: 8px; }
-    h2 .step { background: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
-    label { display: block; margin-top: 12px; font-size: 14px; color: #b9c4ef; }
-    input, textarea, select, button { 
-      width: 100%; 
-      margin-top: 6px; 
-      padding: 10px 14px; 
-      border-radius: 8px; 
-      border: 1px solid #3b4f89; 
-      background: #0d1530; 
-      color: #fff; 
-      font-size: 14px;
-      box-sizing: border-box;
+
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: var(--gray-700); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gray-600); }
+
+    /* Navigation */
+    .navbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      transition: all 0.3s ease;
+      background: transparent;
     }
-    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
-    .row { display: flex; gap: 8px; margin-top: 12px; }
-    .row button { flex: 1; }
-    .btn { 
-      cursor: pointer; 
-      font-weight: 600; 
-      background: var(--primary); 
-      border: 0; 
-      transition: all 0.2s;
+    .navbar.scrolled {
+      background: rgba(7, 7, 15, 0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
-    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
-    .btn.secondary { background: #2b3d78; }
-    .btn.secondary:hover { background: #364a94; }
-    .btn.success { background: #2d6a4f; }
-    .btn.success:hover { background: #3a8c66; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    pre { 
-      background: #0c142a; 
-      border: 1px solid #2d3f73; 
-      border-radius: 8px; 
-      padding: 12px; 
-      min-height: 100px; 
-      white-space: pre-wrap; 
-      font-family: 'Fira Code', monospace;
-      font-size: 12px;
-      overflow-x: auto;
-    }
-    .ok { color: var(--success); }
-    .warn { color: var(--warning); }
-    .error { color: var(--error); }
-    .muted { color: #8b9dc3; font-size: 13px; }
-    
-    /* 进度条 */
-    .progress-container { margin-top: 15px; }
-    .progress-bar { height: 8px; background: #1a2542; border-radius: 4px; overflow: hidden; }
-    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #9d4edd); transition: width 0.3s; }
-    .progress-text { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: #8b9dc3; }
-    
-    /* 数据预览 */
-    .data-preview { max-height: 200px; overflow: auto; }
-    .data-preview table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .data-preview th, .data-preview td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #2d3f73; }
-    .data-preview th { background: #0c142a; position: sticky; top: 0; }
-    
-    /* 标签 */
-    .tag { 
-      display: inline-block; 
-      padding: 2px 8px; 
-      border-radius: 4px; 
-      font-size: 11px; 
-      margin-right: 4px;
-    }
-    .tag-primary { background: rgba(79, 102, 255, 0.2); color: #4f66ff; }
-    .tag-success { background: rgba(119, 242, 160, 0.2); color: #77f2a0; }
-    .tag-warning { background: rgba(255, 209, 102, 0.2); color: #ffd166; }
-    
-    /* 指标卡片 */
-    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
-    .metric { background: #0c142a; padding: 12px; border-radius: 8px; text-align: center; }
-    .metric-value { font-size: 24px; font-weight: bold; color: var(--success); }
-    .metric-label { font-size: 11px; color: #8b9dc3; margin-top: 4px; }
-    
-    /* 下载按钮组 */
-    .downloads { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-    .downloads .btn { flex: none; width: auto; padding: 8px 16px; font-size: 12px; }
-    
-    /* 折叠面板 */
-    .collapsible { margin-top: 10px; }
-    .collapsible-header { 
-      cursor: pointer; 
-      padding: 10px; 
-      background: #0c142a; 
-      border-radius: 8px; 
-      display: flex; 
-      justify-content: space-between; 
+    .navbar-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
       align-items: center;
+      justify-content: space-between;
+      height: 64px;
     }
-    .collapsible-content { display: none; padding: 10px; }
-    .collapsible-content.active { display: block; }
-    
-    /* 状态指示器 */
-    .status-indicator { 
-      display: inline-block; 
-      width: 8px; 
-      height: 8px; 
-      border-radius: 50%; 
-      margin-right: 6px; 
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
+      display: flex; align-items: center; justify-content: center;
     }
-    .status-running { background: var(--warning); animation: pulse 1.5s infinite; }
-    .status-completed { background: var(--success); }
-    .status-failed { background: var(--error); }
+    .logo-text { font-size: 18px; font-weight: 600; color: var(--white); }
+    .logo-text span { color: var(--violet-400); }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-links a { color: var(--gray-400); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--white); }
+    .nav-cta { display: flex; align-items: center; gap: 12px; }
+    .nav-cta a { color: var(--gray-400); text-decoration: none; font-size: 14px; padding: 6px 16px; transition: color 0.2s; }
+    .nav-cta a:hover { color: var(--white); }
+    .btn-primary {
+      background: var(--violet-600);
+      color: var(--white) !important;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover { background: var(--violet-500); }
+
+    /* Hero Section */
+    .hero {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding-top: 64px;
+      position: relative; overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124, 58, 237, 0.25), transparent),
+                  radial-gradient(ellipse 50% 30% at 80% 60%, rgba(59, 130, 246, 0.1), transparent);
+    }
+    .hero-grid {
+      position: absolute; inset: 0;
+      opacity: 0.04;
+      background-image: linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+    .hero-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 96px 24px;
+      display: flex; align-items: center; gap: 64px;
+      position: relative; z-index: 10;
+    }
+    .hero-content { flex: 1; max-width: 640px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 9999px;
+      padding: 6px 16px;
+      margin-bottom: 32px;
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--violet-400); animation: pulse 2s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    
-    /* 文件上传 */
-    .file-drop { 
-      border: 2px dashed #3b4f89; 
-      border-radius: 8px; 
-      padding: 30px; 
-      text-align: center; 
-      cursor: pointer;
-      transition: all 0.2s;
+    .badge-text { font-size: 12px; color: var(--violet-400); letter-spacing: 0.05em; }
+    .hero-title {
+      font-size: clamp(2.4rem, 5vw, 3.8rem);
+      font-weight: 700; line-height: 1.15;
+      margin-bottom: 24px;
     }
-    .file-drop:hover { border-color: var(--primary); background: rgba(79, 102, 255, 0.05); }
-    .file-drop.dragover { border-color: var(--primary); background: rgba(79, 102, 255, 0.1); }
+    .gradient-text {
+      background: linear-gradient(90deg, var(--violet-400), var(--blue-400), var(--cyan-400));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-desc { color: var(--gray-400); font-size: 1.1rem; max-width: 576px; margin-bottom: 40px; line-height: 1.6; }
+    .hero-desc strong { color: var(--gray-300); font-weight: 500; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 48px; }
+    .btn-large {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: 8px;
+      font-size: 15px; font-weight: 500;
+      text-decoration: none; transition: all 0.2s;
+    }
+    .btn-gradient { background: var(--violet-600); color: var(--white); }
+    .btn-gradient:hover { background: var(--violet-500); box-shadow: 0 0 30px rgba(124, 58, 237, 0.4); }
+    .btn-outline { border: 1px solid rgba(255, 255, 255, 0.1); color: var(--gray-300); }
+    .btn-outline:hover { border-color: rgba(255, 255, 255, 0.2); color: var(--white); }
+    .hero-stats { display: flex; flex-wrap: wrap; gap: 32px; }
+    .stat-item { display: flex; flex-direction: column; }
+    .stat-value { font-size: 24px; font-weight: 600; color: var(--white); }
+    .stat-label { font-size: 14px; color: var(--gray-500); margin-top: 2px; }
+
+    /* Terminal Demo */
+    .hero-demo { flex: 1; max-width: 560px; width: 100%; }
+    .terminal {
+      background: var(--bg-secondary);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px; overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(124, 58, 237, 0.2);
+    }
+    .terminal-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px;
+      background: rgba(10, 10, 21, 0.8);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dot.red { background: #ff5f57; }
+    .terminal-dot.yellow { background: #febb2d; }
+    .terminal-dot.green { background: #28c840; }
+    .terminal-title { margin-left: auto; margin-right: auto; font-size: 12px; color: var(--gray-500); font-family: 'JetBrains Mono', monospace; }
+    .terminal-body {
+      padding: 20px; min-height: 360px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; line-height: 1.8;
+    }
+    .terminal-line { min-height: 1.5em; }
+    .text-violet { color: var(--violet-400); }
+    .text-blue { color: var(--blue-400); }
+    .text-cyan { color: var(--cyan-400); }
+    .text-emerald { color: var(--emerald-400); }
+    .text-gray { color: var(--gray-300); }
+    .cursor { animation: blink 1s infinite; }
+    @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+    .demo-tags { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .demo-tag { font-size: 12px; color: var(--gray-500); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 9999px; padding: 4px 12px; }
+
+    /* Scroll Indicator */
+    .scroll-indicator { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--gray-600); font-size: 12px; }
+    .scroll-line { width: 1px; height: 32px; background: linear-gradient(to bottom, var(--gray-600), transparent); }
+
+    /* Section Styles */
+    section { padding: 96px 24px; position: relative; }
+    .section-divider { position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.2), transparent); }
+    .section-header { text-align: center; margin-bottom: 64px; }
+    .section-label { font-size: 14px; font-weight: 500; color: var(--violet-400); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
+    .section-title { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 700; margin-bottom: 20px; }
+    .section-desc { color: var(--gray-400); max-width: 576px; margin: 0 auto; line-height: 1.6; }
+    .container { max-width: 1280px; margin: 0 auto; }
+
+    /* Problem Section */
+    .problem-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .problem-card { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 24px; transition: all 0.2s; }
+    .problem-card:hover { border-color: rgba(139, 92, 246, 0.2); background: var(--bg-tertiary); }
+    .problem-card-inner { display: flex; gap: 16px; }
+    .problem-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; color: var(--violet-400); }
+    .problem-card:hover .problem-icon { background: rgba(139, 92, 246, 0.15); }
+    .problem-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .problem-desc { font-size: 14px; color: var(--gray-500); line-height: 1.5; }
+    .quote-box { margin-top: 80px; position: relative; display: flex; justify-content: center; }
+    .quote-line { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, 0.05); }
+    .quote-content { position: relative; background: var(--bg-primary); padding: 24px 32px; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; max-width: 768px; text-align: center; }
+    .quote-text { color: var(--gray-300); font-size: 16px; line-height: 1.6; }
+
+    /* How It Works */
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .step-card { background: var(--bg-secondary); border-radius: 16px; padding: 28px; position: relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); transition: all 0.2s; }
+    .step-card.violet { border: 1px solid rgba(139, 92, 246, 0.2); box-shadow: 0 20px 25px -5px rgba(91, 33, 182, 0.3); }
+    .step-card.violet:hover { box-shadow: 0 25px 50px -12px rgba(91, 33, 182, 0.4); }
+    .step-card.blue { border: 1px solid rgba(59, 130, 246, 0.2); box-shadow: 0 20px 25px -5px rgba(30, 64, 175, 0.3); }
+    .step-card.blue:hover { box-shadow: 0 25px 50px -12px rgba(30, 64, 175, 0.4); }
+    .step-card.emerald { border: 1px solid rgba(16, 185, 129, 0.2); box-shadow: 0 20px 25px -5px rgba(6, 95, 70, 0.3); }
+    .step-card.emerald:hover { box-shadow: 0 25px 50px -12px rgba(6, 95, 70, 0.4); }
+    .step-number { font-size: 48px; font-weight: 700; opacity: 0.2; margin-bottom: 24px; }
+    .step-number.violet { color: var(--violet-500); }
+    .step-number.blue { color: var(--blue-500); }
+    .step-number.emerald { color: var(--emerald-500); }
+    .step-tag { display: inline-flex; align-items: center; border-radius: 9999px; padding: 4px 12px; font-size: 12px; margin-bottom: 16px; }
+    .step-tag.violet { background: rgba(139, 92, 246, 0.1); color: var(--violet-400); border: 1px solid rgba(139, 92, 246, 0.2); }
+    .step-tag.blue { background: rgba(59, 130, 246, 0.1); color: var(--blue-400); border: 1px solid rgba(59, 130, 246, 0.2); }
+    .step-tag.emerald { background: rgba(16, 185, 129, 0.1); color: var(--emerald-400); border: 1px solid rgba(16, 185, 129, 0.2); }
+    .step-title { font-size: 17px; font-weight: 600; margin-bottom: 12px; }
+    .step-desc { font-size: 14px; color: var(--gray-500); margin-bottom: 20px; line-height: 1.5; }
+    .step-example { background: #080810; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; }
+    .step-example pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gray-400); line-height: 1.6; white-space: pre-wrap; overflow-x: auto; }
+    .step-example p { font-size: 12px; color: var(--gray-400); font-style: italic; line-height: 1.5; }
+
+    /* Capabilities */
+    .capabilities-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .capability-card { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 24px; transition: all 0.2s; }
+    .capability-card:hover { border-color: rgba(139, 92, 246, 0.2); background: var(--bg-tertiary); }
+    .capability-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+    .capability-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; color: var(--violet-400); transition: all 0.2s; }
+    .capability-card:hover .capability-icon { background: rgba(139, 92, 246, 0.15); }
+    .capability-tag { font-size: 11px; color: var(--gray-600); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 9999px; padding: 2px 8px; }
+    .capability-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .capability-desc { font-size: 13px; color: var(--gray-500); line-height: 1.5; }
+    .models-section { margin-top: 48px; background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; padding: 24px; }
+    .models-label { font-size: 12px; color: var(--gray-500); text-align: center; margin-bottom: 16px; }
+    .models-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .model-tag { font-size: 12px; color: var(--gray-400); background: #080810; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace; }
+
+    /* Footer */
+    footer { background: #03030a; border-top: 1px solid rgba(255, 255, 255, 0.05); padding: 64px 24px 32px; }
+    .footer-inner { max-width: 1280px; margin: 0 auto; }
+    .footer-grid { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 32px; margin-bottom: 48px; }
+    .footer-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .footer-desc { font-size: 14px; color: var(--gray-600); line-height: 1.6; max-width: 288px; }
+    .footer-social { display: flex; gap: 12px; margin-top: 24px; }
+    .social-link { width: 32px; height: 32px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; color: var(--gray-500); text-decoration: none; font-size: 12px; transition: all 0.2s; }
+    .social-link:hover { color: var(--white); border-color: rgba(255, 255, 255, 0.15); }
+    .footer-col h4 { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 16px; letter-spacing: 0.05em; }
+    .footer-col ul { list-style: none; }
+    .footer-col li { margin-bottom: 10px; }
+    .footer-col a { font-size: 13px; color: var(--gray-600); text-decoration: none; transition: color 0.2s; }
+    .footer-col a:hover { color: var(--gray-300); }
+    .footer-bottom { border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .footer-copyright { font-size: 12px; color: var(--gray-700); }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 12px; color: var(--gray-700); text-decoration: none; transition: color 0.2s; }
+    .footer-links a:hover { color: var(--gray-400); }
+
+    /* Mobile Responsive */
+    @media (max-width: 1024px) {
+      .hero-inner { flex-direction: column; text-align: center; }
+      .hero-content { max-width: 100%; }
+      .hero-desc { margin-left: auto; margin-right: auto; }
+      .hero-actions { justify-content: center; }
+      .hero-stats { justify-content: center; }
+      .hero-demo { max-width: 100%; }
+      .steps-grid { grid-template-columns: 1fr; }
+      .capabilities-grid { grid-template-columns: repeat(2, 1fr); }
+      .problem-grid { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .nav-cta a:first-child { display: none; }
+      .capabilities-grid { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="header">
-      <h1>🧪 VibeML Agent</h1>
-      <p>从自然语言需求到可部署模型权重的全自动 ML 平台</p>
+  <!-- Navigation -->
+  <nav class="navbar" id="navbar">
+    <div class="navbar-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
+            <circle cx="9" cy="9" r="2" fill="white"/>
+          </svg>
+        </div>
+        <span class="logo-text">Vibe<span>ML</span></span>
+      </a>
+
+      <div class="nav-links">
+        <a href="#how-it-works">产品</a>
+        <a href="#capabilities">能力</a>
+        <a href="#use-cases">使用场景</a>
+        <a href="#">文档</a>
+      </div>
+
+      <div class="nav-cta">
+        <a href="/chat.html">开始使用</a>
+        <a href="/chat.html" class="btn-primary">申请内测</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+
+    <div class="hero-inner">
+      <div class="hero-content">
+        <div class="badge">
+          <span class="badge-dot"></span>
+          <span class="badge-text">AI-Native AutoML Agent · 现已开放内测申请</span>
+        </div>
+
+        <h1 class="hero-title">
+          将模糊业务语言<br>
+          <span class="gradient-text">编译成专属训练流</span><br>
+          让顶尖算法专家触手可及
+        </h1>
+
+        <p class="hero-desc">
+          开源论文的标准 Loss 和模板往往无法契合真实的精细业务诉求。VibeML 能够深刻理解你模糊的自然语言描述，并将其转化为量身定制的端到端 ML 训练流（包含特制数据清洗、自定义损失函数与专属模型架构）。<br>
+          <strong>跨越从「业务诉求」到「算法落地」最稀缺的那道鸿沟。</strong>
+        </p>
+
+        <div class="hero-actions">
+          <a href="/chat.html" class="btn-large btn-gradient">
+            开始使用 VibeML
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a href="#how-it-works" class="btn-large btn-outline">了解工作原理</a>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat-item">
+            <span class="stat-value">5层</span>
+            <span class="stat-label">自动化编译架构</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">全流程</span>
+            <span class="stat-label">预处理 → 部署</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">零</span>
+            <span class="stat-label">ML 知识门槛</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-demo">
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+            <span class="terminal-title">vibeml — objective compiler</span>
+          </div>
+          <div class="terminal-body" id="terminalBody">
+          </div>
+        </div>
+
+        <div class="demo-tags">
+          <span class="demo-tag">贝叶斯优化</span>
+          <span class="demo-tag">AutoML</span>
+          <span class="demo-tag">模型蒸馏</span>
+          <span class="demo-tag">GNN</span>
+          <span class="demo-tag">时序预测</span>
+          <span class="demo-tag">AI4Science</span>
+        </div>
+      </div>
     </div>
 
-    <div class="grid">
-      <!-- 1. 数据上传 -->
-      <section class="card">
-        <h2><span class="step">1</span> 数据上传</h2>
-        <p class="muted">上传 CSV 文件，支持自动类型推断和目标列识别</p>
-        
-        <div class="file-drop" id="dropZone" onclick="document.getElementById('fileInput').click()">
-          <p>📁 点击或拖拽 CSV 文件到此处</p>
-          <p class="muted">支持 .csv 格式，最大 100MB</p>
-        </div>
-        <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleFileSelect(this.files[0])">
-        
-        <label>目标列提示（可选）<input id="targetHint" placeholder="如：churn, target, label" /></label>
-        
-        <div id="uploadResult" style="margin-top:15px;"></div>
-      </section>
-
-      <!-- 2. 意图澄清 -->
-      <section class="card">
-        <h2><span class="step">2</span> 意图澄清</h2>
-        <p class="muted">描述你的业务目标，系统自动编译为优化任务</p>
-        
-        <label>目标一句话
-          <input id="goal" value="预测用户是否会流失，预算有限每天只能处理200个" />
-        </label>
-        
-        <label>必须保留（逗号分隔）
-          <input id="mustKeep" value="高价值客户优先,不能漏掉即将流失的用户" />
-        </label>
-        
-        <label>允许变化（逗号分隔）
-          <input id="canChange" value="模型类型,训练时间" />
-        </label>
-        
-        <label>不可接受错误（逗号分隔）
-          <input id="worstErrors" value="漏报比误报更糟,不能错杀忠实用户" />
-        </label>
-        
-        <div class="row">
-          <div style="flex:1">
-            <label>优化优先级
-              <select id="priority">
-                <option value="quality">质量优先</option>
-                <option value="latency">速度优先</option>
-                <option value="cost">成本优先</option>
-              </select>
-            </label>
-          </div>
-          <div style="flex:1">
-            <label>训练策略
-              <select id="mode">
-                <option value="conservative">保守</option>
-                <option value="standard" selected>标准</option>
-                <option value="aggressive">激进</option>
-              </select>
-            </label>
-          </div>
-        </div>
-        
-        <button class="btn" onclick="compileObjective()">🎯 编译意图为 ObjectiveSpec</button>
-        
-        <div id="compileResult" style="margin-top:15px;"></div>
-      </section>
-
-      <!-- 3. 训练控制 -->
-      <section class="card">
-        <h2><span class="step">3</span> 训练控制</h2>
-        <p class="muted">AutoML 自动搜索最佳模型和超参数</p>
-        
-        <div class="row">
-          <div style="flex:1">
-            <label>最大训练时间（秒）<input id="maxTime" type="number" value="120" /></label>
-          </div>
-          <div style="flex:1">
-            <label>最大试验次数<input id="maxTrials" type="number" value="20" /></label>
-          </div>
-        </div>
-        
-        <label>样本备注<textarea id="sampleNotes" rows="2" placeholder="例如：A类样本最重要，高价值用户数据更可信"></textarea></label>
-        
-        <button class="btn" id="startBtn" onclick="startTraining()">🚀 开始 AutoML 训练</button>
-        
-        <div class="row">
-          <button class="btn secondary" onclick="pauseTraining()">⏸️ 暂停</button>
-          <button class="btn secondary" onclick="resumeTraining()">▶️ 继续</button>
-          <button class="btn secondary" onclick="stopTraining()">⏹️ 停止</button>
-        </div>
-        
-        <div class="progress-container" id="progressContainer" style="display:none;">
-          <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
-          <div class="progress-text">
-            <span id="progressMessage">等待开始...</span>
-            <span id="progressPercent">0%</span>
-          </div>
-        </div>
-        
-        <div id="trainingStatus" style="margin-top:15px;"></div>
-      </section>
-
-      <!-- 4. 训练结果 -->
-      <section class="card">
-        <h2><span class="step">4</span> 模型产物</h2>
-        <p class="muted">下载训练好的模型权重和预处理管道</p>
-        
-        <div id="resultContainer" style="display:none;">
-          <div class="metrics" id="metricsContainer"></div>
-          
-          <div class="collapsible">
-            <div class="collapsible-header" onclick="toggleCollapse(this)">
-              <span>📊 特征重要性</span>
-              <span>▼</span>
-            </div>
-            <div class="collapsible-content" id="featureImportance"></div>
-          </div>
-          
-          <div class="collapsible">
-            <div class="collapsible-header" onclick="toggleCollapse(this)">
-              <span>📋 训练日志</span>
-              <span>▼</span>
-            </div>
-            <div class="collapsible-content active">
-              <pre id="resultDetails"></pre>
-            </div>
-          </div>
-          
-          <div style="margin-top:15px;">
-            <p class="muted">下载产物：</p>
-            <div class="downloads" id="downloadsContainer"></div>
-          </div>
-        </div>
-        
-        <div id="noResult" class="muted" style="text-align:center; padding:40px;">
-          训练完成后将显示模型结果
-        </div>
-      </section>
-
-      <!-- 5. 预测服务 -->
-      <section class="card">
-        <h2><span class="step">5</span> 批量预测</h2>
-        <p class="muted">使用训练好的模型对新数据进行预测</p>
-        
-        <div class="file-drop" id="predictDropZone" onclick="document.getElementById('predictFile').click()">
-          <p>📁 上传待预测数据（CSV）</p>
-          <p class="muted">格式需与训练数据一致</p>
-        </div>
-        <input type="file" id="predictFile" accept=".csv" style="display:none" onchange="handlePredictFile(this.files[0])">
-        
-        <div id="predictResult" style="margin-top:15px;"></div>
-      </section>
-
-      <!-- 数据集列表 -->
-      <section class="card">
-        <h2><span class="step">📦</span> 我的数据集</h2>
-        <p class="muted">已上传的数据集列表</p>
-        <button class="btn secondary" onclick="listDatasets()">🔄 刷新列表</button>
-        <div id="datasetList" style="margin-top:10px;">
-          <pre>点击刷新获取列表</pre>
-        </div>
-      </section>
+    <div class="scroll-indicator">
+      <span>向下滚动</span>
+      <div class="scroll-line"></div>
     </div>
-  </div>
+  </section>
+
+  <!-- Problem Section -->
+  <section>
+    <div class="container">
+      <div style="max-width: 640px; margin-bottom: 64px;">
+        <div class="section-label">问题</div>
+        <h2 class="section-title">
+          软件开发进入了 vibe coding 时代，<br>
+          <span style="color: var(--gray-500);">但机器学习仍然停留在专家时代</span>
+        </h2>
+        <p class="section-desc" style="text-align: left; margin: 0;">
+          AI coding 工具让写软件变得前所未有的容易，但机器学习全流程仍高度依赖专家经验。
+          拿到数据只是开始，真正的壁垒在后面。
+        </p>
+      </div>
+
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="problem-card-inner">
+            <div class="problem-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2L2 7V13L10 18L18 13V7L10 2Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <path d="M10 10V6M10 13H10.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="problem-title">数据来了，不知道问题类型</div>
+              <div class="problem-desc">是分类、回归、时序预测还是强化学习？一份数据的问题定义，往往需要算法工程师才能判断。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="problem-card">
+          <div class="problem-card-inner">
+            <div class="problem-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <path d="M7 10H13M10 7V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="problem-title">选哪个模型？怎么调参？</div>
+              <div class="problem-desc">XGBoost、Transformer、GNN……选型需要经验。调参更是黑箱，稍有不慎就浪费大量算力。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="problem-card">
+          <div class="problem-card-inner">
+            <div class="problem-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M4 4L10 2L16 4V10C16 14 10 18 10 18C10 18 4 14 4 10V4Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <path d="M7 10L9 12L13 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="problem-title">训出权重，然后呢？</div>
+              <div class="problem-desc">就算模型训好了，还要解决部署、API封装、监控、再训练……大多数人卡在这里就放弃了。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="problem-card">
+          <div class="problem-card-inner">
+            <div class="problem-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <path d="M10 7V11M10 13H10.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="problem-title">标准模板失效</div>
+              <div class="problem-desc">Paper 里常用的标准 Loss 和 Best Practice 往往无法满足业务的"宁可误报也别漏报"、"要兼顾预算"。将模糊业务转化为精细训练流的专家，极其稀缺。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="quote-box">
+        <div class="quote-line"></div>
+        <div class="quote-content">
+          <p class="quote-text">
+            "标准模型架构和通用损失函数只能解决 80% 的问题。剩下 20% 的精细业务需求，往往需要特制的数据扩充、自定义损失乃至专有架构，而能把模糊自然语言映射成这些专业 ML 决策的顶尖人才，万里挑一。"
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section id="how-it-works" style="position: relative;">
+    <div class="section-divider"></div>
+    <div class="container">
+      <div class="section-header">
+        <div class="section-label">工作原理</div>
+        <h2 class="section-title">三步从人话需求到可交付产品</h2>
+        <p class="section-desc">
+          VibeML 不是帮你写训练代码，而是自动做三件传统上必须由算法工程师完成的高价值判断。
+        </p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card violet">
+          <div class="step-number violet">01</div>
+          <span class="step-tag violet">自然语言输入</span>
+          <h3 class="step-title">用自然语言描述你的需求</h3>
+          <p class="step-desc">告诉 VibeML 你有什么数据、想解决什么问题、以及你的约束。不需要任何 ML 知识。</p>
+          <div class="step-example">
+            <p>"我有用户历史购买数据，想找出 30 天内会流失的高价值用户，每天预算只能打扰 50 个人。"</p>
+          </div>
+        </div>
+
+        <div class="step-card blue">
+          <div class="step-number blue">02</div>
+          <span class="step-tag blue">智能需求编译</span>
+          <h3 class="step-title">Objective Compiler 编译优化合同</h3>
+          <p class="step-desc">系统自动解析意图、落地标签定义、推断评估指标、选择训练损失，生成结构化 ObjectiveSpec。</p>
+          <div class="step-example">
+            <pre>task_family → budgeted_ranking
+primary_objective → maximize_retained_gmv
+surrogate_loss → weighted_bce + ranking_loss
+validation → out_of_time_split</pre>
+          </div>
+        </div>
+
+        <div class="step-card emerald">
+          <div class="step-number emerald">03</div>
+          <span class="step-tag emerald">端到端交付</span>
+          <h3 class="step-title">全自动训练、调参、交付</h3>
+          <p class="step-desc">贝叶斯超参数搜索、模型结构选择、蒸馏压缩、一键打包成可调用 API 或 Web 应用。</p>
+          <div class="step-example">
+            <p>"每日流失风险名单 API 已就绪 — Precision@50: 0.84 / AUC: 0.923"</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Capabilities -->
+  <section id="capabilities" style="position: relative;">
+    <div class="section-divider"></div>
+    <div class="container">
+      <div class="section-header">
+        <div class="section-label">能力全览</div>
+        <h2 class="section-title">不只是功能堆料，而是不可替代的能力</h2>
+        <p class="section-desc">
+          VibeML 自动完成三件传统上必须由算法工程师完成的高价值判断：问题建模、约束下的方案选择、结果可交付化。
+        </p>
+      </div>
+
+      <div class="capabilities-grid">
+        <div class="capability-card">
+          <div class="capability-header">
+            <div class="capability-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M11 3C7.686 3 5 5.686 5 9C5 11.21 6.21 13.13 8 14.14V17H14V14.14C15.79 13.13 17 11.21 17 9C17 5.686 14.314 3 11 3Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+                <path d="M8 19H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="capability-tag">核心能力</span>
+          </div>
+          <h3 class="capability-title">自然语言需求编译</h3>
+          <p class="capability-desc">将模糊的业务语言翻译成结构化优化合同，自动识别任务类型、定义标签、选择评估协议。</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-header">
+            <div class="capability-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <rect x="12" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <rect x="3" y="12" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <rect x="12" y="12" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span class="capability-tag">数据层</span>
+          </div>
+          <h3 class="capability-title">数据预处理 & 特征工程</h3>
+          <p class="capability-desc">自动处理缺失值、异常值、类型转换、时间特征提取、高基数类别编码。</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-header">
+            <div class="capability-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <circle cx="11" cy="11" r="4" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <path d="M11 3V5M11 17V19M3 11H5M17 11H19M5.64 5.64L7.05 7.05M14.95 14.95L16.36 16.36M5.64 16.36L7.05 14.95M14.95 7.05L16.36 5.64" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="capability-tag">调参</span>
+          </div>
+          <h3 class="capability-title">贝叶斯超参数优化</h3>
+          <p class="capability-desc">基于贝叶斯优化的高效超参数搜索，在给定算力约束下找到最优模型配置。</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-header">
+            <div class="capability-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M3 7L11 3L19 7V15L11 19L3 15V7Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+                <circle cx="11" cy="11" r="2.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span class="capability-tag">模型库</span>
+          </div>
+          <h3 class="capability-title">多模型家族支持</h3>
+          <p class="capability-desc">覆盖表格、时序、图神经网络、强化学习、AI for Science 等主流 ML 场景。</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-header">
+            <div class="capability-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M7 11L10 14L15 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M11 3C16.52 3 19 7.5 19 11C19 14.5 16.52 19 11 19C5.48 19 3 14.5 3 11C3 7.5 5.48 3 11 3Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              </svg>
+            </div>
+            <span class="capability-tag">优化</span>
+          </div>
+          <h3 class="capability-title">模型蒸馏 & 压缩</h3>
+          <p class="capability-desc">将大模型蒸馏成轻量级版本，支持边缘部署、低延迟推断、硬件约束场景。</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-header">
+            <div class="capability-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M4 14L4 18L8 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M18 8V4H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M14 18H18V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 4H4V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="capability-tag">部署</span>
+          </div>
+          <h3 class="capability-title">一键打包交付</h3>
+          <p class="capability-desc">不只是模型权重——直接生成可调用 API、Web 应用或批量推断系统，可立即上线。</p>
+        </div>
+      </div>
+
+      <div class="models-section">
+        <div class="models-label">支持的模型家族</div>
+        <div class="models-list">
+          <span class="model-tag">XGBoost / LightGBM</span>
+          <span class="model-tag">Transformer</span>
+          <span class="model-tag">LSTM / TCN</span>
+          <span class="model-tag">GNN / Graph Transformer</span>
+          <span class="model-tag">Tabular DNN</span>
+          <span class="model-tag">Random Forest</span>
+          <span class="model-tag">PPO / SAC (RL)</span>
+          <span class="model-tag">Neural ODE</span>
+          <span class="model-tag">Diffusion Model</span>
+          <span class="model-tag">Causal ML</span>
+          <span class="model-tag">Conformal Prediction</span>
+          <span class="model-tag">AutoML Pipeline</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-brand">
+            <div class="logo-icon">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
+                <circle cx="9" cy="9" r="2" fill="white"/>
+              </svg>
+            </div>
+            <span class="logo-text">Vibe<span>ML</span></span>
+          </div>
+          <p class="footer-desc">
+            AI 原生的全自动机器学习 Agent。把人话需求编译成优化合同，全流程自动训练交付。
+          </p>
+          <div class="footer-social">
+            <a href="#" class="social-link">G</a>
+            <a href="#" class="social-link">T</a>
+            <a href="#" class="social-link">D</a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <h4>产品</h4>
+          <ul>
+            <li><a href="#">功能介绍</a></li>
+            <li><a href="#">技术架构</a></li>
+            <li><a href="#">使用场景</a></li>
+            <li><a href="#">定价方案</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>资源</h4>
+          <ul>
+            <li><a href="#">文档中心</a></li>
+            <li><a href="#">API Reference</a></li>
+            <li><a href="#">示例项目</a></li>
+            <li><a href="#">博客</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>公司</h4>
+          <ul>
+            <li><a href="#">关于我们</a></li>
+            <li><a href="#">加入团队</a></li>
+            <li><a href="#">新闻动态</a></li>
+            <li><a href="#">联系我们</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>社区</h4>
+          <ul>
+            <li><a href="#">GitHub</a></li>
+            <li><a href="#">Discord</a></li>
+            <li><a href="#">Twitter / X</a></li>
+            <li><a href="#">微信群</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p class="footer-copyright">© 2026 VibeML. 保留所有权利。</p>
+        <div class="footer-links">
+          <a href="#">隐私政策</a>
+          <a href="#">服务条款</a>
+          <a href="#">Cookie 设置</a>
+        </div>
+      </div>
+    </div>
+  </footer>
 
   <script>
-    const API = "/api";
-    let currentJobId = "";
-    let currentDatasetId = "";
-    let refreshTimer = null;
-    let objectiveSpec = null;
-
-    const byId = (id) => document.getElementById(id);
-    const parseList = (v) => v.split(',').map(s => s.trim()).filter(Boolean);
-
-    // ============ 数据上传 ============
-    async function handleFileSelect(file) {
-      if (!file) return;
-      
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('target_hint', byId('targetHint').value);
-      
-      byId('uploadResult').innerHTML = '<p class="muted">上传中...</p>';
-      
-      try {
-        const res = await fetch(`${API}/data/upload`, {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!res.ok) throw new Error(await res.text());
-        
-        const data = await res.json();
-        currentDatasetId = data.dataset_id;
-        
-        let colsHtml = '<table><tr><th>列名</th><th>类型</th><th>缺失值</th><th>唯一值</th></tr>';
-        data.columns.forEach(c => {
-          colsHtml += `<tr>
-            <td>${c.name} ${c.name === data.target_column ? '<span class="tag tag-success">目标</span>' : ''}</td>
-            <td><span class="tag tag-primary">${c.column_type}</span></td>
-            <td>${c.missing_count}</td>
-            <td>${c.unique_count}</td>
-          </tr>`;
-        });
-        colsHtml += '</table>';
-        
-        byId('uploadResult').innerHTML = `
-          <p class="ok">✅ 上传成功！数据集 ID: ${data.dataset_id}</p>
-          <p class="muted">${data.n_rows} 行 × ${data.n_cols} 列 | 目标列: ${data.target_column || '未识别'}</p>
-          <div class="data-preview">${colsHtml}</div>
-        `;
-        
-        // 自动填充目标列提示
-        if (data.target_column) {
-          byId('targetHint').value = data.target_column;
-        }
-        
-      } catch (e) {
-        byId('uploadResult').innerHTML = `<p class="error">❌ 上传失败: ${e.message}</p>`;
+    // Navbar scroll effect
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 20) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
       }
-    }
-
-    // 拖拽上传
-    const dropZone = byId('dropZone');
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      if (file && file.name.endsWith('.csv')) handleFileSelect(file);
     });
 
-    // ============ 意图编译 ============
-    async function compileObjective() {
-      if (!currentDatasetId) {
-        alert('请先上传数据集');
-        return;
-      }
-      
-      const payload = {
-        user_goal: byId('goal').value,
-        must_keep: parseList(byId('mustKeep').value),
-        can_change: parseList(byId('canChange').value),
-        worst_errors: parseList(byId('worstErrors').value),
-        priority: byId('priority').value,
-        dataset_id: currentDatasetId,
-      };
-      
-      byId('compileResult').innerHTML = '<p class="muted">编译中...</p>';
-      
-      try {
-        const res = await fetch(`${API}/intent/compile`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        
-        if (!res.ok) throw new Error(await res.text());
-        
-        const data = await res.json();
-        objectiveSpec = data.objective_spec;
-        
-        const spec = data.objective_spec;
-        const interp = data.interpretation;
-        
-        byId('compileResult').innerHTML = `
-          <p class="ok">✅ 编译成功！</p>
-          <div style="background:#0c142a; padding:12px; border-radius:8px; margin-top:10px;">
-            <p><strong>任务类型:</strong> <span class="tag tag-primary">${interp.task_type}</span></p>
-            <p><strong>目标列:</strong> ${interp.target_column || '自动识别'}</p>
-            <p><strong>评估指标:</strong> ${interp.primary_metric}</p>
-            <p><strong>验证策略:</strong> ${interp.validation_strategy}</p>
-            <p><strong>推荐模型:</strong> ${interp.recommended_models.map(m => `<span class="tag tag-warning">${m}</span>`).join(' ')}</p>
-          </div>
-        `;
-        
-      } catch (e) {
-        byId('compileResult').innerHTML = `<p class="error">❌ 编译失败: ${e.message}</p>`;
-      }
-    }
+    // Terminal typewriter animation
+    const terminalBody = document.getElementById('terminalBody');
+    const demoLines = [
+      { delay: 0, text: '> 我有一份电商用户的历史购买记录，想找出快要流失的高价值用户', color: 'text-gray' },
+      { delay: 600, text: '', color: '' },
+      { delay: 700, text: '✦ 分析数据结构...', color: 'text-violet' },
+      { delay: 1400, text: '✦ 检测到时序特征 + 用户行为序列', color: 'text-violet' },
+      { delay: 2000, text: '✦ 编译优化目标: budgeted_ranking + recall_priority', color: 'text-blue' },
+      { delay: 2700, text: '', color: '' },
+      { delay: 2800, text: '  entity: user', color: 'text-cyan' },
+      { delay: 3000, text: '  task_family: budgeted_ranking', color: 'text-cyan' },
+      { delay: 3200, text: '  primary_objective: maximize_retained_gmv', color: 'text-cyan' },
+      { delay: 3400, text: '  surrogate_loss: weighted_bce + ranking_loss', color: 'text-cyan' },
+      { delay: 3600, text: '  delivery: top_k_list + action_suggestion', color: 'text-cyan' },
+      { delay: 4000, text: '', color: '' },
+      { delay: 4100, text: '✦ 启动贝叶斯超参数搜索...', color: 'text-violet' },
+      { delay: 4800, text: '✦ 训练完成  AUC 0.923  Precision@50 0.84', color: 'text-emerald' },
+      { delay: 5500, text: '', color: '' },
+      { delay: 5600, text: '✓ 交付: 每日流失风险名单 API 已就绪', color: 'text-emerald' },
+    ];
 
-    // ============ 训练控制 ============
-    async function startTraining() {
-      if (!currentDatasetId) {
-        alert('请先上传数据集');
-        return;
-      }
-      
-      const payload = {
-        objective: byId('goal').value,
-        must_keep: parseList(byId('mustKeep').value),
-        can_change: parseList(byId('canChange').value),
-        worst_errors: parseList(byId('worstErrors').value),
-        priority: byId('priority').value,
-        mode: byId('mode').value,
-        sample_notes: byId('sampleNotes').value,
-        dataset_id: currentDatasetId,
-        target_column: byId('targetHint').value || null,
-        max_training_time: parseInt(byId('maxTime').value) || 120,
-        max_trials: parseInt(byId('maxTrials').value) || 20,
-      };
-      
-      try {
-        byId('startBtn').disabled = true;
-        byId('progressContainer').style.display = 'block';
-        byId('trainingStatus').innerHTML = '<p class="muted">启动中...</p>';
-        
-        const res = await fetch(`${API}/training/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        
-        if (!res.ok) throw new Error(await res.text());
-        
-        const data = await res.json();
-        currentJobId = data.job_id;
-        objectiveSpec = data.objective_spec;
-        
-        byId('trainingStatus').innerHTML = `<p class="ok">✅ 任务已启动: ${currentJobId}</p>`;
-        
-        // 开始轮询
-        startAutoRefresh();
-        
-      } catch (e) {
-        byId('trainingStatus').innerHTML = `<p class="error">❌ 启动失败: ${e.message}</p>`;
-        byId('startBtn').disabled = false;
-      }
-    }
+    let loopKey = 0;
 
-    async function refreshStatus() {
-      if (!currentJobId) return;
-      
-      try {
-        const res = await fetch(`${API}/training/${currentJobId}`);
-        if (!res.ok) throw new Error(await res.text());
-        
-        const data = await res.json();
-        
-        // 更新进度条
-        byId('progressBar').style.width = `${data.progress}%`;
-        byId('progressPercent').textContent = `${Math.round(data.progress)}%`;
-        byId('progressMessage').innerHTML = `<span class="status-indicator status-${data.status}"></span>${data.message}`;
-        
-        // 如果完成或失败，停止轮询
-        if (['completed', 'failed', 'stopped'].includes(data.status)) {
-          stopAutoRefresh();
-          byId('startBtn').disabled = false;
-          
-          if (data.status === 'completed') {
-            loadTrainingResult();
+    function typeWriter() {
+      terminalBody.innerHTML = '';
+
+      demoLines.forEach((line, i) => {
+        setTimeout(() => {
+          if (line.text === '') {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'terminal-line';
+            emptyDiv.style.height = '0.5em';
+            terminalBody.appendChild(emptyDiv);
+          } else {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = `terminal-line ${line.color}`;
+
+            let charIndex = 0;
+            const typeInterval = setInterval(() => {
+              if (charIndex < line.text.length) {
+                lineDiv.textContent = line.text.slice(0, charIndex + 1);
+                charIndex++;
+              } else {
+                clearInterval(typeInterval);
+                const cursor = document.createElement('span');
+                cursor.className = 'cursor';
+                cursor.textContent = '▋';
+                lineDiv.appendChild(cursor);
+              }
+            }, 18);
+
+            terminalBody.appendChild(lineDiv);
           }
+
+          const allLines = terminalBody.querySelectorAll('.terminal-line');
+          allLines.forEach((el, idx) => {
+            if (idx < allLines.length - 1) {
+              const cursor = el.querySelector('.cursor');
+              if (cursor) cursor.remove();
+            }
+          });
+
+          terminalBody.scrollTop = terminalBody.scrollHeight;
+        }, line.delay);
+      });
+
+      const totalTime = demoLines[demoLines.length - 1].delay + 3500;
+      setTimeout(() => {
+        loopKey++;
+        typeWriter();
+      }, totalTime);
+    }
+
+    setTimeout(typeWriter, 600);
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-        
-      } catch (e) {
-        console.error('刷新失败:', e);
-      }
-    }
-
-    async function pauseTraining() {
-      if (!currentJobId) return;
-      await fetch(`${API}/training/${currentJobId}/pause`, { method: 'POST' });
-      await refreshStatus();
-    }
-
-    async function resumeTraining() {
-      if (!currentJobId) return;
-      await fetch(`${API}/training/${currentJobId}/resume`, { method: 'POST' });
-      await refreshStatus();
-    }
-
-    async function stopTraining() {
-      if (!currentJobId) return;
-      await fetch(`${API}/training/${currentJobId}/stop`, { method: 'POST' });
-      stopAutoRefresh();
-      await refreshStatus();
-      byId('startBtn').disabled = false;
-    }
-
-    function startAutoRefresh() {
-      if (refreshTimer) clearInterval(refreshTimer);
-      refreshTimer = setInterval(refreshStatus, 2000);
-    }
-
-    function stopAutoRefresh() {
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-        refreshTimer = null;
-      }
-    }
-
-    // ============ 训练结果 ============
-    async function loadTrainingResult() {
-      if (!currentJobId) return;
-      
-      try {
-        const res = await fetch(`${API}/training/${currentJobId}/result`);
-        if (!res.ok) throw new Error(await res.text());
-        
-        const data = await res.json();
-        
-        byId('noResult').style.display = 'none';
-        byId('resultContainer').style.display = 'block';
-        
-        // 指标卡片
-        const metricsHtml = Object.entries(data.val_metrics).map(([k, v]) => `
-          <div class="metric">
-            <div class="metric-value">${typeof v === 'number' ? v.toFixed(4) : v}</div>
-            <div class="metric-label">${k.toUpperCase()}</div>
-          </div>
-        `).join('');
-        byId('metricsContainer').innerHTML = metricsHtml;
-        
-        // 特征重要性
-        const fi = data.feature_importance || {};
-        const fiHtml = Object.entries(fi).slice(0, 10).map(([name, val], i) => `
-          <div style="display:flex; align-items:center; margin:6px 0;">
-            <span style="width:30px; color:#8b9dc3;">#${i+1}</span>
-            <span style="flex:1; font-size:12px;">${name}</span>
-            <div style="width:100px; height:6px; background:#1a2542; border-radius:3px; overflow:hidden;">
-              <div style="width:${Math.min(val * 100, 100)}%; height:100%; background:var(--primary);"></div>
-            </div>
-            <span style="width:60px; text-align:right; font-size:11px; color:#8b9dc3;">${val.toFixed(3)}</span>
-          </div>
-        `).join('');
-        byId('featureImportance').innerHTML = fiHtml || '<p class="muted">无特征重要性数据</p>';
-        
-        // 详情
-        byId('resultDetails').textContent = JSON.stringify(data, null, 2);
-        
-        // 下载链接
-        byId('downloadsContainer').innerHTML = `
-          <a class="btn" href="${API}/training/${currentJobId}/download/model" download>⬇️ 模型权重 (.pkl)</a>
-          <a class="btn secondary" href="${API}/training/${currentJobId}/download/preprocessor" download>⬇️ 预处理器</a>
-          <a class="btn secondary" href="${API}/training/${currentJobId}/download/metadata" download>⬇️ 元数据 (JSON)</a>
-        `;
-        
-      } catch (e) {
-        console.error('加载结果失败:', e);
-      }
-    }
-
-    // ============ 预测 ============
-    async function handlePredictFile(file) {
-      if (!currentJobId) {
-        alert('请先完成训练');
-        return;
-      }
-      
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      byId('predictResult').innerHTML = '<p class="muted">预测中...</p>';
-      
-      try {
-        const res = await fetch(`${API}/predict/${currentJobId}`, {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!res.ok) throw new Error(await res.text());
-        
-        const data = await res.json();
-        
-        let preview = '';
-        if (data.probabilities) {
-          preview = data.probabilities.slice(0, 5).map((p, i) => 
-            `样本 ${i+1}: 预测=${data.predictions[i]}, 置信度=${(p*100).toFixed(1)}%`
-          ).join('<br>');
-        } else {
-          preview = data.predictions.slice(0, 5).map((p, i) => 
-            `样本 ${i+1}: 预测=${p}`
-          ).join('<br>');
-        }
-        
-        byId('predictResult').innerHTML = `
-          <p class="ok">✅ 预测完成！共 ${data.n_predictions} 条结果</p>
-          <p class="muted">使用模型: ${data.model_used}</p>
-          <div style="background:#0c142a; padding:12px; border-radius:8px; margin-top:10px; font-size:12px;">
-            <strong>预览（前5条）:</strong><br>${preview}
-          </div>
-        `;
-        
-      } catch (e) {
-        byId('predictResult').innerHTML = `<p class="error">❌ 预测失败: ${e.message}</p>`;
-      }
-    }
-
-    // ============ 数据集列表 ============
-    async function listDatasets() {
-      try {
-        const res = await fetch(`${API}/data/list`);
-        const data = await res.json();
-        
-        if (data.datasets.length === 0) {
-          byId('datasetList').innerHTML = '<pre class="muted">暂无数据集</pre>';
-          return;
-        }
-        
-        let html = '<table style="width:100%; font-size:12px;"><tr><th>ID</th><th>文件名</th><th>行数</th><th>目标列</th><th>操作</th></tr>';
-        data.datasets.forEach(ds => {
-          html += `<tr>
-            <td>${ds.dataset_id}</td>
-            <td>${ds.filename}</td>
-            <td>${ds.n_rows}</td>
-            <td>${ds.target_column || '-'}</td>
-            <td><button class="btn secondary" style="padding:4px 8px; font-size:11px;" onclick="selectDataset('${ds.dataset_id}', '${ds.target_column || ''}')">选择</button></td>
-          </tr>`;
-        });
-        html += '</table>';
-        
-        byId('datasetList').innerHTML = html;
-        
-      } catch (e) {
-        byId('datasetList').innerHTML = `<pre class="error">加载失败: ${e.message}</pre>`;
-      }
-    }
-
-    function selectDataset(id, target) {
-      currentDatasetId = id;
-      if (target) byId('targetHint').value = target;
-      alert(`已选择数据集: ${id}`);
-    }
-
-    // ============ 工具函数 ============
-    function toggleCollapse(header) {
-      const content = header.nextElementSibling;
-      content.classList.toggle('active');
-      header.querySelector('span:last-child').textContent = 
-        content.classList.contains('active') ? '▼' : '▶';
-    }
-
-    // 初始化
-    listDatasets();
+      });
+    });
   </script>
 </body>
 </html>

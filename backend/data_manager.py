@@ -329,6 +329,155 @@ class DataManager:
         self.detector = DataTypeDetector()
         self.datasets: dict[str, DataSpec] = {}
     
+    def upload_file(
+        self,
+        content: bytes,
+        filename: str,
+        dataset_id: str | None = None,
+        target_hint: str | None = None,
+    ) -> DataSpec:
+        """
+        上传并解析多种格式的数据文件
+        
+        支持格式：
+        - CSV (.csv)
+        - Excel (.xlsx, .xls)
+        - ZIP (.zip) - 包含上述格式的压缩包
+        - 7Z (.7z) - 包含上述格式的压缩包
+        """
+        import uuid
+        import tempfile
+        import zipfile
+        import shutil
+        
+        if dataset_id is None:
+            dataset_id = f"ds_{uuid.uuid4().hex[:8]}"
+        
+        # 获取文件扩展名
+        ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        
+        # 创建临时目录
+        temp_dir = tempfile.mkdtemp()
+        temp_file = Path(temp_dir) / filename
+        
+        # 保存上传的内容
+        with open(temp_file, 'wb') as f:
+            f.write(content)
+        
+        try:
+            # 处理压缩文件
+            if ext == 'zip':
+                df = self._extract_and_read_zip(temp_file, temp_dir)
+                # 更新文件名为实际数据文件名
+                filename = self._find_data_file(temp_dir)
+            elif ext == '7z':
+                df = self._extract_and_read_7z(temp_file, temp_dir)
+                filename = self._find_data_file(temp_dir)
+            elif ext in ['xlsx', 'xls']:
+                df = pd.read_excel(temp_file)
+            elif ext == 'csv':
+                df = pd.read_csv(temp_file)
+            else:
+                raise ValueError(f"不支持的文件格式: {ext}")
+            
+            # 确保有有效的 DataFrame
+            if df is None or df.empty:
+                raise ValueError("无法从文件中读取数据")
+            
+            # 保存为 CSV 格式（统一存储）
+            csv_filename = f"{dataset_id}_data.csv"
+            csv_path = DATA_DIR / csv_filename
+            df.to_csv(csv_path, index=False)
+            
+            # 分析每列
+            columns_info = []
+            column_types = {}
+            
+            for col in df.columns:
+                info = self.detector.analyze_column(df[col])
+                columns_info.append(info)
+                column_types[col] = info.column_type
+            
+            # 推断目标列
+            target_column = self.detector.infer_target_column(df, target_hint)
+            
+            # 推断ID列
+            id_column = None
+            for col_info in columns_info:
+                if col_info.column_type == ColumnType.ID:
+                    id_column = col_info.name
+                    break
+            
+            # 确定特征列
+            feature_columns = [
+                c.name for c in columns_info
+                if c.name not in [target_column, id_column] and c.column_type != ColumnType.ID
+            ]
+            
+            spec = DataSpec(
+                dataset_id=dataset_id,
+                filename=csv_filename,
+                n_rows=len(df),
+                n_cols=len(df.columns),
+                columns=columns_info,
+                target_column=target_column,
+                id_column=id_column,
+                feature_columns=feature_columns,
+            )
+            
+            # 保存元数据
+            meta_path = DATA_DIR / f"{dataset_id}_meta.json"
+            with open(meta_path, 'w', encoding='utf-8') as f:
+                json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
+            
+            self.datasets[dataset_id] = spec
+            return spec
+            
+        finally:
+            # 清理临时目录
+            shutil.rmtree(temp_dir, ignore_errors=True)
+    
+    def _extract_and_read_zip(self, zip_path: Path, extract_dir: str) -> pd.DataFrame:
+        """解压 ZIP 并读取数据文件"""
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
+        return self._read_data_from_dir(extract_dir)
+    
+    def _extract_and_read_7z(self, archive_path: Path, extract_dir: str) -> pd.DataFrame:
+        """解压 7Z 并读取数据文件"""
+        try:
+            import py7zr
+            with py7zr.SevenZipFile(archive_path, mode='r') as z:
+                z.extractall(path=extract_dir)
+            return self._read_data_from_dir(extract_dir)
+        except ImportError:
+            raise ValueError("处理 7Z 文件需要安装 py7zr: pip install py7zr")
+    
+    def _find_data_file(self, directory: str) -> str:
+        """在目录中查找数据文件"""
+        dir_path = Path(directory)
+        for pattern in ['*.csv', '*.xlsx', '*.xls']:
+            files = list(dir_path.glob(pattern))
+            if files:
+                return files[0].name
+        return "data.csv"
+    
+    def _read_data_from_dir(self, directory: str) -> pd.DataFrame:
+        """从目录中读取数据文件"""
+        dir_path = Path(directory)
+        
+        # 优先读取 CSV
+        csv_files = list(dir_path.glob('*.csv'))
+        if csv_files:
+            return pd.read_csv(csv_files[0])
+        
+        # 然后尝试 Excel
+        excel_files = list(dir_path.glob('*.xlsx')) + list(dir_path.glob('*.xls'))
+        if excel_files:
+            return pd.read_excel(excel_files[0])
+        
+        raise ValueError("压缩包中未找到 CSV 或 Excel 文件")
+    
     def upload_csv(
         self,
         content: bytes,
@@ -424,7 +573,8 @@ class DataManager:
     def load_dataframe(self, dataset_id: str) -> pd.DataFrame:
         """加载数据为 DataFrame"""
         spec = self.get_dataset(dataset_id)
-        file_path = DATA_DIR / f"{dataset_id}_{spec.filename}"
+        # 文件名已经是 {dataset_id}_data.csv 格式
+        file_path = DATA_DIR / spec.filename
         return pd.read_csv(file_path)
     
     def list_datasets(self) -> list[DataSpec]:

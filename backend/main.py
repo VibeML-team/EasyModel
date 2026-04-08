@@ -11,6 +11,7 @@ VibeML Agent - 完整后端实现
 from __future__ import annotations
 
 import json
+import os
 import pickle
 import threading
 import time
@@ -291,7 +292,7 @@ app.add_middleware(
 )
 
 # 挂载 V2 API
-app.include_router(v2_router)
+app.include_router(v2_router, prefix="/api")
 
 # 挂载前端
 if FRONTEND_DIR.exists():
@@ -377,14 +378,26 @@ async def upload_data(
     file: UploadFile = File(...),
     target_hint: str = Form(""),
 ) -> dict[str, Any]:
-    """上传数据文件"""
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(400, "只支持 CSV 文件")
+    """
+    上传数据文件
+    
+    支持格式：
+    - CSV (.csv)
+    - Excel (.xlsx, .xls)
+    - ZIP (.zip) - 包含上述格式的压缩包
+    - 7Z (.7z) - 包含上述格式的压缩包
+    """
+    # 检查文件扩展名
+    allowed_extensions = ['.csv', '.xlsx', '.xls', '.zip', '.7z']
+    filename_lower = file.filename.lower()
+    
+    if not any(filename_lower.endswith(ext) for ext in allowed_extensions):
+        raise HTTPException(400, f"不支持的文件格式。支持: {', '.join(allowed_extensions)}")
     
     content = await file.read()
     
     try:
-        spec = data_manager.upload_csv(
+        spec = data_manager.upload_file(
             content=content,
             filename=file.filename,
             target_hint=target_hint if target_hint else None,
@@ -401,6 +414,49 @@ async def upload_data(
         }
     except Exception as e:
         raise HTTPException(400, f"数据处理失败: {str(e)}")
+
+
+# ---- Google Drive 集成 API ----
+
+@app.get("/api/drive/status")
+def google_drive_status() -> dict[str, Any]:
+    """检查 Google Drive 集成状态"""
+    # 检查是否配置了 Google Drive API
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    
+    return {
+        "enabled": bool(client_id and client_secret),
+        "client_id_configured": bool(client_id),
+        "auth_url": "/api/drive/auth" if client_id else None,
+    }
+
+
+@app.get("/api/drive/auth")
+def google_drive_auth():
+    """获取 Google Drive 授权 URL"""
+    # 预留：实际实现需要 Google OAuth 流程
+    raise HTTPException(501, "Google Drive 集成需要配置 OAuth 凭证。请联系管理员。")
+
+
+@app.post("/api/drive/import")
+async def import_from_drive(
+    file_id: str = Form(...),
+    file_name: str = Form(...),
+    target_hint: str = Form(""),
+) -> dict[str, Any]:
+    """
+    从 Google Drive 导入文件
+    
+    需要：
+    1. 用户已完成 Google OAuth 授权
+    2. 有有效的 access_token
+    """
+    # 预留：实际实现需要：
+    # 1. 验证用户 access_token
+    # 2. 调用 Google Drive API 下载文件
+    # 3. 保存并解析文件
+    raise HTTPException(501, "Google Drive 导入功能开发中。请直接上传文件。")
 
 
 @app.get("/api/data/list")

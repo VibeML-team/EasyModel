@@ -1,0 +1,1201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeML V2 - 意图驱动训练</title>
+  <style>
+    :root { 
+      color-scheme: dark; 
+      --primary: #4f66ff;
+      --primary-hover: #3b52e0;
+      --success: #77f2a0;
+      --warning: #ffd166;
+      --error: #ff6b6b;
+      --bg: #0b1020;
+      --card-bg: #151d34;
+      --border: #293a6f;
+    }
+    body { 
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background: var(--bg); 
+      color: #edf2ff; 
+      line-height: 1.6;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { margin: 0; font-size: 2rem; background: linear-gradient(135deg, #4f66ff 0%, #9d4edd 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: #8b9dc3; margin-top: 8px; }
+    .header .subtitle { color: #4f66ff; font-size: 0.9rem; margin-top: 4px; }
+    
+    /* 流程步骤 */
+    .flow-steps { display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; }
+    .flow-step { display: flex; align-items: center; gap: 8px; color: #8b9dc3; }
+    .flow-step.active { color: #4f66ff; }
+    .flow-step.completed { color: var(--success); }
+    .flow-step .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+    .flow-step .line { width: 40px; height: 2px; background: currentColor; }
+    
+    /* 卡片 */
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .card h2 { margin: 0 0 16px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    .card h2 .icon { font-size: 20px; }
+    
+    /* 输入 */
+    label { display: block; margin-top: 16px; font-size: 14px; color: #b9c4ef; }
+    input, textarea, select { 
+      width: 100%; 
+      margin-top: 6px; 
+      padding: 12px 14px; 
+      border-radius: 8px; 
+      border: 1px solid #3b4f89; 
+      background: #0d1530; 
+      color: #fff; 
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
+    textarea { min-height: 80px; resize: vertical; }
+    
+    /* 按钮 */
+    .btn { 
+      cursor: pointer; 
+      font-weight: 600; 
+      background: var(--primary); 
+      border: 0; 
+      padding: 12px 24px;
+      border-radius: 8px;
+      color: white;
+      transition: all 0.2s;
+      margin-top: 16px;
+    }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn.secondary { background: #2b3d78; }
+    .btn.secondary:hover { background: #364a94; }
+    .btn.success { background: #2d6a4f; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 12px; margin-top: 16px; }
+    
+    /* 约束卡片 */
+    .constraint-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .constraint-box { 
+      background: #0c142a; 
+      border: 1px solid #2d3f73; 
+      border-radius: 8px; 
+      padding: 16px; 
+    }
+    .constraint-box h4 { margin: 0 0 12px; font-size: 13px; color: #8b9dc3; text-transform: uppercase; }
+    .tag-input { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag-input input { flex: 1; min-width: 150px; margin-top: 0; }
+    .tag { 
+      display: inline-flex; 
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px; 
+      border-radius: 6px; 
+      font-size: 13px; 
+      background: rgba(79, 102, 255, 0.15); 
+      color: #7b8eff;
+      border: 1px solid rgba(79, 102, 255, 0.3);
+    }
+    .tag .remove { cursor: pointer; opacity: 0.7; }
+    .tag .remove:hover { opacity: 1; }
+    
+    /* 三选一卡片 */
+    .tri-state { display: flex; gap: 12px; }
+    .tri-option { 
+      flex: 1; 
+      padding: 16px; 
+      border: 2px solid #2d3f73; 
+      border-radius: 8px; 
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .tri-option:hover { border-color: #4f66ff; }
+    .tri-option.selected { 
+      border-color: var(--primary); 
+      background: rgba(79, 102, 255, 0.1);
+    }
+    .tri-option .emoji { font-size: 24px; margin-bottom: 8px; }
+    .tri-option .label { font-weight: 600; font-size: 14px; }
+    .tri-option .desc { font-size: 12px; color: #8b9dc3; margin-top: 4px; }
+    
+    /* 系统理解展示 */
+    .system-understanding { 
+      background: linear-gradient(135deg, rgba(79, 102, 255, 0.1) 0%, rgba(157, 78, 221, 0.1) 100%);
+      border: 1px solid rgba(79, 102, 255, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .system-understanding h4 { margin: 0 0 12px; color: #9d4edd; }
+    .understanding-item { 
+      display: flex; 
+      align-items: flex-start; 
+      gap: 12px; 
+      margin: 8px 0;
+      font-size: 14px;
+    }
+    .understanding-item .key { color: #8b9dc3; min-width: 80px; }
+    .understanding-item .value { color: #fff; }
+    .confidence-badge { 
+      display: inline-block;
+      padding: 2px 8px; 
+      border-radius: 4px; 
+      font-size: 11px; 
+      margin-left: 8px;
+    }
+    .confidence-high { background: rgba(119, 242, 160, 0.2); color: var(--success); }
+    .confidence-medium { background: rgba(255, 209, 102, 0.2); color: var(--warning); }
+    .confidence-low { background: rgba(255, 107, 107, 0.2); color: var(--error); }
+    
+    /* 训练进度 */
+    .progress-container { margin-top: 20px; }
+    .progress-bar { height: 8px; background: #1a2542; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #9d4edd); transition: width 0.5s; }
+    .progress-info { display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: #8b9dc3; }
+    
+    /* 风险提示 */
+    .risk-alert { 
+      background: rgba(255, 107, 107, 0.1); 
+      border-left: 3px solid var(--error); 
+      padding: 12px 16px; 
+      border-radius: 0 8px 8px 0;
+      margin: 12px 0;
+    }
+    .risk-alert.warning { 
+      background: rgba(255, 209, 102, 0.1); 
+      border-left-color: var(--warning); 
+    }
+    
+    /* Checkpoint 列表 */
+    .checkpoint-list { display: flex; flex-direction: column; gap: 12px; }
+    .checkpoint-item { 
+      display: flex; 
+      align-items: center; 
+      gap: 16px;
+      padding: 16px;
+      background: #0c142a;
+      border: 1px solid #2d3f73;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .checkpoint-item:hover { border-color: var(--primary); }
+    .checkpoint-item.selected { 
+      border-color: var(--success); 
+      background: rgba(119, 242, 160, 0.05);
+    }
+    .checkpoint-rank { 
+      width: 32px; 
+      height: 32px; 
+      border-radius: 50%; 
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .checkpoint-rank.gold { background: #ffd700; color: #000; }
+    .checkpoint-rank.silver { background: #c0c0c0; color: #000; }
+    .checkpoint-rank.bronze { background: #cd7f32; color: #fff; }
+    .checkpoint-info { flex: 1; }
+    .checkpoint-metric { font-size: 20px; font-weight: bold; color: var(--success); }
+    .checkpoint-meta { font-size: 12px; color: #8b9dc3; margin-top: 2px; }
+    
+    /* 隐藏/显示 */
+    .hidden { display: none !important; }
+    
+    /* 加载动画 */
+    .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #3b4f89; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* 反馈按钮 */
+    .feedback-btns { display: flex; gap: 8px; }
+    .feedback-btn { 
+      padding: 6px 12px; 
+      border: 1px solid #2d3f73; 
+      background: transparent; 
+      color: #8b9dc3;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .feedback-btn:hover { border-color: var(--primary); color: #fff; }
+    .feedback-btn.liked { background: rgba(119, 242, 160, 0.2); border-color: var(--success); color: var(--success); }
+    .feedback-btn.disliked { background: rgba(255, 107, 107, 0.2); border-color: var(--error); color: var(--error); }
+    
+    /* 模糊性警告 */
+    .ambiguity-warning {
+      background: rgba(255, 209, 102, 0.1);
+      border: 1px solid var(--warning);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .ambiguity-warning h4 {
+      margin: 0 0 12px;
+      color: var(--warning);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ambiguity-warning .missing-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 14px;
+      color: #b9c4ef;
+    }
+    .ambiguity-warning .missing-item::before {
+      content: "•";
+      color: var(--warning);
+    }
+    
+    /* 澄清问题卡片 */
+    .clarification-card {
+      background: #0c142a;
+      border: 1px solid #2d3f73;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 12px 0;
+    }
+    .clarification-card h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: #fff;
+    }
+    .clarification-card .context {
+      font-size: 12px;
+      color: #8b9dc3;
+      margin-bottom: 12px;
+      padding: 8px;
+      background: rgba(79, 102, 255, 0.05);
+      border-radius: 6px;
+      border-left: 2px solid var(--primary);
+    }
+    .clarification-card .options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .clarification-card .option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid #2d3f73;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .clarification-card .option:hover {
+      border-color: var(--primary);
+      background: rgba(79, 102, 255, 0.05);
+    }
+    .clarification-card .option.selected {
+      border-color: var(--success);
+      background: rgba(119, 242, 160, 0.1);
+    }
+    .clarification-card .option input {
+      width: auto;
+      margin: 0;
+    }
+    .clarification-progress {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0;
+      padding: 12px;
+      background: rgba(79, 102, 255, 0.1);
+      border-radius: 8px;
+    }
+    .clarification-progress .progress-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .clarification-progress .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2d3f73;
+    }
+    .clarification-progress .dot.answered {
+      background: var(--success);
+    }
+    .clarification-progress .dot.current {
+      background: var(--primary);
+      animation: pulse 1.5s infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <h1>🎯 VibeML V2</h1>
+      <p>意图驱动的模型训练 - 从需求到权重</p>
+      <p class="subtitle">用户介入意图层，系统执行机制层</p>
+    </div>
+
+    <!-- 流程步骤指示器 -->
+    <div class="flow-steps">
+      <div class="flow-step active" id="step1-indicator">
+        <span class="dot"></span>
+        <span>需求编译</span>
+      </div>
+      <div class="line"></div>
+      <div class="flow-step" id="step2-indicator">
+        <span class="dot"></span>
+        <span>数据构造</span>
+      </div>
+      <div class="line"></div>
+      <div class="flow-step" id="step3-indicator">
+        <span class="dot"></span>
+        <span>训练执行</span>
+      </div>
+      <div class="line"></div>
+      <div class="flow-step" id="step4-indicator">
+        <span class="dot"></span>
+        <span>验收定版</span>
+      </div>
+    </div>
+
+    <!-- ========== 步骤 1: 需求编译 ========== -->
+    <div id="step1" class="step-panel">
+      <div class="card">
+        <h2><span class="icon">📝</span>描述你的需求</h2>
+        <p style="color: #8b9dc3; font-size: 14px;">用自然语言描述你想解决的问题，系统会编译为训练方案。</p>
+        
+        <label>目标一句话 <span style="color: var(--error)">*</span>
+          <input id="intent-input" placeholder="例如：预测用户是否会流失，宁可误报也别漏报" 
+                 value="预测用户是否会流失，宁可误报也别漏报，高价值客户优先"/>
+        </label>
+        
+        <div class="constraint-grid">
+          <div class="constraint-box">
+            <h4>🔒 必须保留</h4>
+            <div class="tag-input" id="must-keep-container">
+              <span class="tag">业务逻辑正确性<span class="remove" onclick="removeTag(this)">×</span></span>
+            </div>
+            <input type="text" id="must-keep-input" placeholder="输入后回车添加" 
+                   onkeydown="handleTagInput(event, 'must-keep')"/>
+          </div>
+          
+          <div class="constraint-box">
+            <h4>🔓 可以变化</h4>
+            <div class="tag-input" id="can-change-container">
+              <span class="tag">模型类型<span class="remove" onclick="removeTag(this)">×</span></span>
+              <span class="tag">训练时间<span class="remove" onclick="removeTag(this)">×</span></span>
+            </div>
+            <input type="text" id="can-change-input" placeholder="输入后回车添加" 
+                   onkeydown="handleTagInput(event, 'can-change')"/>
+          </div>
+        </div>
+        
+        <label>质量 / 速度 / 成本 优先级</label>
+        <div class="tri-state">
+          <div class="tri-option selected" data-value="quality" onclick="selectPriority(this)">
+            <div class="emoji">🏆</div>
+            <div class="label">质量优先</div>
+            <div class="desc">追求最高精度</div>
+          </div>
+          <div class="tri-option" data-value="balanced" onclick="selectPriority(this)">
+            <div class="emoji">⚖️</div>
+            <div class="label">平衡</div>
+            <div class="desc">质量与效率兼顾</div>
+          </div>
+          <div class="tri-option" data-value="speed" onclick="selectPriority(this)">
+            <div class="emoji">⚡</div>
+            <div class="label">速度优先</div>
+            <div class="desc">快速交付</div>
+          </div>
+        </div>
+        
+        <div class="btn-row">
+          <button class="btn" onclick="compileIntent()">
+            <span id="compile-btn-text">编译意图</span>
+            <span id="compile-loading" class="loading hidden"></span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- 编译结果 -->
+      <div id="compile-result" class="hidden">
+        <div class="card">
+          <h2><span class="icon">🤖</span>系统理解</h2>
+          <div class="system-understanding" id="system-understanding">
+            <!-- 动态填充 -->
+          </div>
+          
+          <!-- 模糊性警告 -->
+          <div id="ambiguity-warning" class="hidden"></div>
+          
+          <!-- 澄清问题区域 -->
+          <div id="clarification-area" class="hidden">
+            <div class="clarification-progress" id="clarification-progress"></div>
+            <div id="clarification-questions"></div>
+            <div class="btn-row">
+              <button class="btn" id="submit-clarification-btn" onclick="submitClarification()" disabled>
+                提交回答
+              </button>
+            </div>
+          </div>
+          
+          <div class="btn-row" id="proceed-btn-row">
+            <button class="btn secondary" onclick="modifyIntent()">✏️ 修改理解</button>
+            <button class="btn success" id="continue-btn" onclick="goToStep2()">✅ 确认并继续</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 步骤 2: 数据构造 ========== -->
+    <div id="step2" class="step-panel hidden">
+      <div class="card">
+        <h2><span class="icon">📊</span>数据与样本</h2>
+        
+        <div class="constraint-grid">
+          <div class="constraint-box">
+            <h4>✅ 允许的变化</h4>
+            <div class="tag-input" id="allowed-var-container">
+              <span class="tag">数值范围变化<span class="remove" onclick="removeTag(this)">×</span></span>
+            </div>
+            <input type="text" placeholder="例如：光照变化、措辞变化" 
+                   onkeydown="handleTagInput(event, 'allowed-var')"/>
+          </div>
+          
+          <div class="constraint-box">
+            <h4>❌ 禁止的变化</h4>
+            <div class="tag-input" id="forbidden-var-container">
+              <span class="tag">标签错误<span class="remove" onclick="removeTag(this)">×</span></span>
+              <span class="tag">主体位置漂移<span class="remove" onclick="removeTag(this)">×</span></span>
+            </div>
+            <input type="text" placeholder="例如：结构错误、格式错误" 
+                   onkeydown="handleTagInput(event, 'forbidden-var')"/>
+          </div>
+        </div>
+        
+        <label>数据增强风格</label>
+        <div class="tri-state">
+          <div class="tri-option" data-value="conservative" onclick="selectAugmentation(this)">
+            <div class="emoji">🛡️</div>
+            <div class="label">保守</div>
+            <div class="desc">只允许微小变化</div>
+          </div>
+          <div class="tri-option selected" data-value="standard" onclick="selectAugmentation(this)">
+            <div class="emoji">🎯</div>
+            <div class="label">标准</div>
+            <div class="desc">适度变化</div>
+          </div>
+          <div class="tri-option" data-value="aggressive" onclick="selectAugmentation(this)">
+            <div class="emoji">🚀</div>
+            <div class="label">激进</div>
+            <div class="desc">允许大幅变化</div>
+          </div>
+        </div>
+        
+        <div class="btn-row">
+          <button class="btn secondary" onclick="goToStep1()">← 返回修改</button>
+          <button class="btn success" onclick="goToStep3()">开始训练 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 步骤 3: 训练执行 ========== -->
+    <div id="step3" class="step-panel hidden">
+      <div class="card">
+        <h2><span class="icon">⚙️</span>训练进行中</h2>
+        
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill" id="train-progress" style="width: 0%"></div>
+          </div>
+          <div class="progress-info">
+            <span id="train-stage">准备中...</span>
+            <span id="train-percent">0%</span>
+          </div>
+        </div>
+        
+        <div id="risk-alerts"></div>
+        
+        <div class="btn-row">
+          <button class="btn secondary" onclick="pauseTraining()">⏸️ 暂停</button>
+          <button class="btn secondary" onclick="resumeTraining()" id="resume-btn" disabled>▶️ 恢复</button>
+          <button class="btn secondary" onclick="stopTraining()">⏹️ 停止</button>
+        </div>
+      </div>
+      
+      <!-- 中间 Checkpoint 下载 -->
+      <div id="checkpoint-download" class="card hidden">
+        <h2><span class="icon">📦</span>中间 Checkpoint</h2>
+        <p style="color: #8b9dc3; font-size: 14px;">暂停期间可以下载当前 checkpoint 进行测试。</p>
+        
+        <div id="checkpoint-list-interim" style="margin: 16px 0;">
+          <p class="muted">暂无可用 checkpoint...</p>
+        </div>
+        
+        <div class="btn-row">
+          <button class="btn" onclick="fetchAndShowCheckpoints()">🔄 刷新列表</button>
+          <button class="btn success" onclick="pauseAndDownload()">⏸️ 暂停并获取最新</button>
+        </div>
+      </div>
+      
+      <!-- 中间预览 -->
+      <div id="interim-preview" class="card hidden">
+        <h2><span class="icon">👁️</span>中间结果预览</h2>
+        <p style="color: #8b9dc3; font-size: 14px;">检查当前模型的输出质量，提供反馈帮助优化。</p>
+        
+        <div id="preview-content" style="margin: 16px 0; padding: 16px; background: #0c142a; border-radius: 8px;">
+          <p class="muted">训练进行中，暂无预览...</p>
+        </div>
+        
+        <div class="feedback-btns">
+          <button class="feedback-btn" onclick="provideFeedback(true)">👍 符合预期</button>
+          <button class="feedback-btn" onclick="provideFeedback(false)">👎 需要改进</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 步骤 4: 验收定版 ========== -->
+    <div id="step4" class="step-panel hidden">
+      <div class="card">
+        <h2><span class="icon">🏁</span>选择最终版本</h2>
+        <p style="color: #8b9dc3; font-size: 14px;">从候选 checkpoint 中选择最符合你需求的版本。</p>
+        
+        <div class="checkpoint-list" id="checkpoint-list">
+          <!-- 动态填充 -->
+        </div>
+        
+        <div class="btn-row">
+          <button class="btn secondary" onclick="goBackToTrain()">← 返回训练</button>
+          <button class="btn success" id="finalize-btn" onclick="finalizeModel()" disabled>
+            确认定版并下载
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== 状态管理 ==========
+    const state = {
+      sessionId: null,
+      jobId: null,
+      currentStep: 1,
+      selectedCheckpoint: null,
+      cards: {
+        intent: null,
+        data: null,
+        plan: null
+      }
+    };
+
+    const API = '/api';
+    let refreshTimer = null;
+
+    // ========== 工具函数 ==========
+    function byId(id) { return document.getElementById(id); }
+    
+    function showStep(stepNum) {
+      // 隐藏所有步骤
+      document.querySelectorAll('.step-panel').forEach(el => el.classList.add('hidden'));
+      // 显示当前步骤
+      byId(`step${stepNum}`).classList.remove('hidden');
+      
+      // 更新指示器
+      for (let i = 1; i <= 4; i++) {
+        const indicator = byId(`step${i}-indicator`);
+        indicator.classList.remove('active', 'completed');
+        if (i < stepNum) indicator.classList.add('completed');
+        else if (i === stepNum) indicator.classList.add('active');
+      }
+      
+      state.currentStep = stepNum;
+    }
+
+    function handleTagInput(event, type) {
+      if (event.key === 'Enter') {
+        const value = event.target.value.trim();
+        if (value) {
+          const container = type === 'must-keep' ? byId('must-keep-container') :
+                           type === 'can-change' ? byId('can-change-container') :
+                           type === 'allowed-var' ? byId('allowed-var-container') :
+                           byId('forbidden-var-container');
+          
+          const tag = document.createElement('span');
+          tag.className = 'tag';
+          tag.innerHTML = `${value}<span class="remove" onclick="removeTag(this)">×</span>`;
+          container.appendChild(tag);
+          event.target.value = '';
+        }
+      }
+    }
+
+    function removeTag(el) {
+      el.parentElement.remove();
+    }
+
+    function getTags(containerId) {
+      return Array.from(byId(containerId).querySelectorAll('.tag'))
+        .map(tag => tag.textContent.replace('×', '').trim());
+    }
+
+    function selectPriority(el) {
+      el.parentElement.querySelectorAll('.tri-option').forEach(opt => opt.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function selectAugmentation(el) {
+      el.parentElement.querySelectorAll('.tri-option').forEach(opt => opt.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    // ========== 步骤 1: 编译意图 ==========
+    async function compileIntent() {
+      const intent = byId('intent-input').value;
+      if (!intent) {
+        alert('请输入目标描述');
+        return;
+      }
+
+      byId('compile-btn-text').classList.add('hidden');
+      byId('compile-loading').classList.remove('hidden');
+
+      try {
+        const response = await fetch(`${API}/v2/compile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            intent: intent,
+            domain: 'general'
+          })
+        });
+
+        const data = await response.json();
+        state.sessionId = data.session_id;
+        state.cards.intent = data.intent_card;
+        state.cards.data = data.data_card;
+        state.cards.plan = data.plan_card;
+
+        // 显示系统理解
+        renderSystemUnderstanding(data.intent_card);
+        byId('compile-result').classList.remove('hidden');
+
+      } catch (e) {
+        alert('编译失败: ' + e.message);
+      } finally {
+        byId('compile-btn-text').classList.remove('hidden');
+        byId('compile-loading').classList.add('hidden');
+      }
+    }
+
+    function renderSystemUnderstanding(intentCard) {
+      const task = intentCard.task;
+      const constraints = intentCard.constraints;
+      const systemNotes = intentCard.system_notes;
+      const clarification = intentCard.clarification;
+      
+      const confidenceClass = task.confidence > 0.8 ? 'confidence-high' : 
+                             task.confidence > 0.5 ? 'confidence-medium' : 'confidence-low';
+      
+      byId('system-understanding').innerHTML = `
+        <div class="understanding-item">
+          <span class="key">任务类型</span>
+          <span class="value">${task.type} <span class="confidence-badge ${confidenceClass}">置信度 ${(task.confidence * 100).toFixed(0)}%</span></span>
+        </div>
+        <div class="understanding-item">
+          <span class="key">系统推理</span>
+          <span class="value">${systemNotes.reasoning}</span>
+        </div>
+        <div class="understanding-item">
+          <span class="key">必须保留</span>
+          <span class="value">${constraints.must_keep.join(', ') || '无'}</span>
+        </div>
+        <div class="understanding-item">
+          <span class="key">优先目标</span>
+          <span class="value">${constraints.priority}</span>
+        </div>
+        ${systemNotes.uncertainties.length ? `
+        <div class="understanding-item">
+          <span class="key">⚠️ 不确定</span>
+          <span class="value" style="color: var(--warning)">${systemNotes.uncertainties.join(', ')}</span>
+        </div>
+        ` : ''}
+      `;
+      
+      // 处理模糊性检测和澄清
+      if (clarification && clarification.is_ambiguous) {
+        renderAmbiguityWarning(clarification);
+        renderClarificationQuestions(clarification.suggested_questions);
+        
+        // 如果不能直接继续，隐藏继续按钮
+        if (!clarification.can_proceed) {
+          byId('continue-btn').classList.add('hidden');
+        }
+      }
+    }
+    
+    function renderAmbiguityWarning(clarification) {
+      const warningDiv = byId('ambiguity-warning');
+      warningDiv.classList.remove('hidden');
+      
+      warningDiv.innerHTML = `
+        <h4>⚠️ 意图需要澄清</h4>
+        <p style="margin: 8px 0; font-size: 14px; color: #b9c4ef;">
+          系统检测到您的需求描述有些模糊（模糊度: ${(clarification.ambiguity_score * 100).toFixed(0)}%）。
+          为了给您更精准的训练方案，请回答以下几个问题：
+        </p>
+        ${clarification.missing_elements.length ? `
+        <div style="margin-top: 12px;">
+          <strong style="font-size: 13px; color: #8b9dc3;">缺失的关键信息：</strong>
+          ${clarification.missing_elements.map(m => `<div class="missing-item">${m}</div>`).join('')}
+        </div>
+        ` : ''}
+      `;
+    }
+    
+    // 存储当前澄清问题的状态
+    let currentClarificationAnswers = {};
+    let currentQuestions = [];
+    
+    function renderClarificationQuestions(questions) {
+      if (!questions || questions.length === 0) return;
+      
+      currentQuestions = questions;
+      currentClarificationAnswers = {};
+      
+      const area = byId('clarification-area');
+      const container = byId('clarification-questions');
+      const progressDiv = byId('clarification-progress');
+      
+      area.classList.remove('hidden');
+      
+      // 渲染进度指示器
+      progressDiv.innerHTML = `
+        <span style="font-size: 13px; color: #8b9dc3;">澄清进度</span>
+        <div class="progress-dots">
+          ${questions.map((q, i) => `<div class="dot" id="dot-${q.id}"></div>`).join('')}
+        </div>
+        <span style="font-size: 13px; color: #8b9dc3;" id="progress-text">0/${questions.length}</span>
+      `;
+      
+      // 渲染问题
+      container.innerHTML = questions.map((q, idx) => `
+        <div class="clarification-card" id="question-${q.id}">
+          <h4>问题 ${idx + 1}: ${q.text}</h4>
+          ${q.context ? `<div class="context">💡 ${q.context}</div>` : ''}
+          <div class="options">
+            ${q.type === 'multiple_choice' && q.options ? 
+              q.options.map((opt, optIdx) => `
+                <label class="option" onclick="selectClarificationOption('${q.id}', '${opt}', this)">
+                  <input type="radio" name="${q.id}" value="${opt}">
+                  <span>${opt}</span>
+                </label>
+              `).join('') :
+              `<input type="text" placeholder="请输入您的回答..." 
+                      onchange="saveClarificationAnswer('${q.id}', this.value)" 
+                      style="margin-top: 8px;">`
+            }
+          </div>
+        </div>
+      `).join('');
+      
+      updateClarificationProgress();
+    }
+    
+    function selectClarificationOption(questionId, value, el) {
+      // 移除同组其他选项的选中状态
+      const card = el.closest('.clarification-card');
+      card.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
+      
+      // 添加选中状态
+      el.classList.add('selected');
+      el.querySelector('input').checked = true;
+      
+      // 保存答案
+      saveClarificationAnswer(questionId, value);
+    }
+    
+    function saveClarificationAnswer(questionId, value) {
+      currentClarificationAnswers[questionId] = value;
+      updateClarificationProgress();
+      
+      // 更新进度点状态
+      const dot = byId(`dot-${questionId}`);
+      if (dot) {
+        dot.classList.add('answered');
+      }
+      
+      // 检查是否可以提交
+      const answeredCount = Object.keys(currentClarificationAnswers).length;
+      const totalCount = currentQuestions.length;
+      byId('submit-clarification-btn').disabled = answeredCount < Math.min(2, totalCount);
+    }
+    
+    function updateClarificationProgress() {
+      const answered = Object.keys(currentClarificationAnswers).length;
+      const total = currentQuestions.length;
+      byId('progress-text').textContent = `${answered}/${total}`;
+    }
+    
+    async function submitClarification() {
+      const btn = byId('submit-clarification-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> 提交中...';
+      
+      try {
+        const answers = Object.entries(currentClarificationAnswers).map(([qid, ans]) => ({
+          question_id: qid,
+          answer: ans
+        }));
+        
+        const response = await fetch(`${API}/v2/clarify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: state.sessionId,
+            answers: answers
+          })
+        });
+        
+        const data = await response.json();
+        state.cards.intent = data.intent_card;
+        
+        // 重新渲染系统理解
+        renderSystemUnderstanding(data.intent_card);
+        
+        if (data.clarification_complete) {
+          // 澄清完成，显示继续按钮
+          byId('clarification-area').classList.add('hidden');
+          byId('ambiguity-warning').classList.add('hidden');
+          byId('continue-btn').classList.remove('hidden');
+          
+          alert('✅ 澄清完成！系统对您的需求理解更清晰了。');
+        } else {
+          // 还有剩余问题
+          renderClarificationQuestions(data.remaining_questions);
+          alert(`还有 ${data.remaining_questions.length} 个问题需要回答`);
+        }
+        
+      } catch (e) {
+        alert('提交失败: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '提交回答';
+      }
+    }
+
+    function modifyIntent() {
+      byId('compile-result').classList.add('hidden');
+    }
+
+    function goToStep2() {
+      showStep(2);
+    }
+
+    function goToStep1() {
+      showStep(1);
+    }
+
+    // ========== 步骤 2: 数据构造 ==========
+    async function goToStep3() {
+      showStep(3);
+      startTraining();
+    }
+
+    // ========== 步骤 3: 训练执行 ==========
+    async function startTraining() {
+      try {
+        const response = await fetch(`${API}/v2/train/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: state.sessionId
+          })
+        });
+
+        const data = await response.json();
+        state.jobId = data.job_id;
+        
+        // 开始轮询
+        startProgressPolling();
+        
+      } catch (e) {
+        alert('启动训练失败: ' + e.message);
+      }
+    }
+
+    function startProgressPolling() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(fetchTrainingStatus, 2000);
+      fetchTrainingStatus(); // 立即执行一次
+    }
+
+    async function fetchTrainingStatus() {
+      if (!state.jobId) return;
+      
+      try {
+        const response = await fetch(`${API}/v2/train/status/${state.jobId}`);
+        const data = await response.json();
+        
+        // 更新进度
+        const progress = data.progress_percent;
+        byId('train-progress').style.width = `${progress}%`;
+        byId('train-percent').textContent = `${progress}%`;
+        byId('train-stage').textContent = data.observation?.progress?.stage || '训练中...';
+        
+        // 显示风险警告
+        if (data.observation?.alerts?.length) {
+          const alertsHtml = data.observation.alerts.map(a => `
+            <div class="risk-alert ${a.type === 'warning' ? 'warning' : ''}">
+              <strong>${a.type === 'warning' ? '⚠️' : '❌'}</strong> ${a.message}
+            </div>
+          `).join('');
+          byId('risk-alerts').innerHTML = alertsHtml;
+        }
+        
+        // 如果完成，进入步骤4
+        if (data.status === 'completed' || progress >= 100) {
+          clearInterval(refreshTimer);
+          setTimeout(goToStep4, 1000);
+        }
+        
+      } catch (e) {
+        console.error('获取状态失败:', e);
+      }
+    }
+
+    let isPaused = false;
+    
+    async function pauseTraining() {
+      if (!state.jobId) return;
+      
+      try {
+        const response = await fetch(`${API}/v2/train/pause/${state.jobId}`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+          isPaused = true;
+          byId('resume-btn').disabled = false;
+          
+          // 显示 checkpoint 下载区域
+          byId('checkpoint-download').classList.remove('hidden');
+          
+          // 获取 checkpoint 列表
+          fetchAndShowCheckpoints();
+          
+          alert('训练已暂停，可以下载 checkpoint 进行测试');
+        }
+      } catch (e) {
+        console.error('暂停失败:', e);
+      }
+    }
+    
+    async function resumeTraining() {
+      if (!state.jobId) return;
+      
+      try {
+        const response = await fetch(`${API}/v2/train/resume/${state.jobId}`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+          isPaused = false;
+          byId('resume-btn').disabled = true;
+          
+          // 隐藏 checkpoint 下载区域
+          byId('checkpoint-download').classList.add('hidden');
+          
+          // 恢复轮询
+          startProgressPolling();
+          
+          alert('训练已恢复');
+        }
+      } catch (e) {
+        console.error('恢复失败:', e);
+      }
+    }
+    
+    async function fetchAndShowCheckpoints() {
+      if (!state.jobId) return;
+      
+      try {
+        const response = await fetch(`${API}/v2/train/checkpoints/${state.jobId}`);
+        const data = await response.json();
+        
+        const container = byId('checkpoint-list-interim');
+        
+        if (data.checkpoints.length === 0) {
+          container.innerHTML = '<p class="muted">暂无可用 checkpoint...</p>';
+          return;
+        }
+        
+        // 按 metric 排序
+        const sorted = data.checkpoints.sort((a, b) => b.metric - a.metric);
+        
+        container.innerHTML = sorted.map((ckpt, i) => `
+          <div class="checkpoint-item" style="margin: 8px 0; padding: 12px;">
+            <div class="checkpoint-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">${i + 1}</div>
+            <div class="checkpoint-info" style="flex: 1;">
+              <div class="checkpoint-metric" style="font-size: 18px;">${(ckpt.metric * 100).toFixed(1)}%</div>
+              <div class="checkpoint-meta">Step ${ckpt.step} · ${ckpt.metric_name || 'score'}</div>
+            </div>
+            <a class="btn secondary" style="padding: 6px 12px; font-size: 12px; margin: 0;"
+               href="${API}/v2/train/checkpoints/${state.jobId}/${ckpt.id}/download" 
+               download>⬇️ 下载</a>
+          </div>
+        `).join('');
+        
+      } catch (e) {
+        console.error('获取 checkpoint 失败:', e);
+      }
+    }
+    
+    async function pauseAndDownload() {
+      if (!state.jobId) return;
+      
+      try {
+        // 暂停并获取最新 checkpoint
+        const response = await fetch(`${API}/v2/train/pause-and-download/${state.jobId}`, {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          isPaused = true;
+          byId('resume-btn').disabled = false;
+          byId('checkpoint-download').classList.remove('hidden');
+          
+          // 刷新 checkpoint 列表
+          fetchAndShowCheckpoints();
+          
+          // 如果有最佳 checkpoint，提示用户
+          if (data.best_checkpoint) {
+            const confirmed = confirm(
+              `训练已暂停！\\n\\n` +
+              `最佳 checkpoint: ${(data.best_checkpoint.metric * 100).toFixed(1)}%\\n` +
+              `是否立即下载？`
+            );
+            
+            if (confirmed) {
+              window.open(`${API}/v2/train/checkpoints/${state.jobId}/${data.best_checkpoint.id}/download`, '_blank');
+            }
+          }
+        }
+      } catch (e) {
+        console.error('暂停并下载失败:', e);
+        alert('操作失败: ' + e.message);
+      }
+    }
+
+    function stopTraining() {
+      if (!state.jobId) return;
+      if (!confirm('确定要停止训练吗？')) return;
+      fetch(`${API}/v2/train/stop/${state.jobId}`, { method: 'POST' });
+      clearInterval(refreshTimer);
+    }
+
+    function provideFeedback(liked) {
+      // 这里可以实现反馈逻辑
+      alert(liked ? '已记录：符合预期' : '已记录：需要改进');
+    }
+
+    // ========== 步骤 4: 验收定版 ==========
+    async function goToStep4() {
+      showStep(4);
+      
+      try {
+        const response = await fetch(`${API}/v2/train/finalize/${state.jobId}`, {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        renderCheckpoints(data.acceptance_card.candidates);
+        
+      } catch (e) {
+        console.error('获取候选失败:', e);
+        // 显示模拟数据
+        renderCheckpoints([
+          { id: 'ckpt_1', step: 100, metric: 0.85, model: 'xgboost' },
+          { id: 'ckpt_2', step: 80, metric: 0.82, model: 'lightgbm' },
+          { id: 'ckpt_3', step: 60, metric: 0.78, model: 'random_forest' },
+        ]);
+      }
+    }
+
+    function renderCheckpoints(candidates) {
+      const container = byId('checkpoint-list');
+      container.innerHTML = candidates.map((c, i) => `
+        <div class="checkpoint-item ${state.selectedCheckpoint === c.id ? 'selected' : ''}" 
+             onclick="selectCheckpoint('${c.id}')">
+          <div class="checkpoint-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">${i + 1}</div>
+          <div class="checkpoint-info">
+            <div class="checkpoint-metric">${(c.metric * 100).toFixed(1)}%</div>
+            <div class="checkpoint-meta">Step ${c.step} · ${c.model || 'model'}</div>
+          </div>
+          <div class="feedback-btns" onclick="event.stopPropagation()">
+            <button class="feedback-btn" onclick="checkpointFeedback('${c.id}', true)">👍</button>
+            <button class="feedback-btn" onclick="checkpointFeedback('${c.id}', false)">👎</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function selectCheckpoint(id) {
+      state.selectedCheckpoint = id;
+      byId('finalize-btn').disabled = false;
+      
+      // 更新UI
+      document.querySelectorAll('.checkpoint-item').forEach(el => {
+        el.classList.toggle('selected', el.onclick.toString().includes(id));
+      });
+    }
+
+    function checkpointFeedback(checkpointId, liked) {
+      // 实现反馈提交
+      fetch(`${API}/v2/train/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: state.jobId,
+          checkpoint_id: checkpointId,
+          liked: liked
+        })
+      });
+    }
+
+    function goBackToTrain() {
+      showStep(3);
+      startProgressPolling();
+    }
+
+    async function finalizeModel() {
+      if (!state.selectedCheckpoint) return;
+      
+      try {
+        const response = await fetch(`${API}/v2/train/select`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: state.jobId,
+            checkpoint_id: state.selectedCheckpoint
+          })
+        });
+        
+        const data = await response.json();
+        alert(`模型已定版！\\n路径: ${data.model_path}`);
+        
+      } catch (e) {
+        alert('定版成功（模拟）');
+      }
+    }
+
+    // 初始化
+    showStep(1);
+  </script>
+</body>
+</html>
