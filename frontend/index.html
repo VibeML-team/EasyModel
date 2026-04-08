@@ -6,8 +6,23 @@
   <title>VibeML - 将模糊业务语言编译成专属训练流</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-Regular (1).otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-It.otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: italic;
+      font-display: swap;
+    }
+
     :root {
       --bg-primary: #03070a;
       --bg-secondary: #08110f;
@@ -59,7 +74,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: "Avenir Next LT Pro", sans-serif;
       background-color: var(--bg-primary);
       color: var(--white);
       line-height: 1.6;
@@ -254,10 +269,16 @@
     .terminal-dot.red { background: #ff5f57; }
     .terminal-dot.yellow { background: #febb2d; }
     .terminal-dot.green { background: #28c840; }
-    .terminal-title { margin-left: auto; margin-right: auto; font-size: 12px; color: var(--gray-500); font-family: 'JetBrains Mono', monospace; }
+    .terminal-title {
+      margin-left: auto;
+      margin-right: auto;
+      font-size: 12px;
+      color: var(--gray-500);
+      font-family: 'JetBrains Mono', 'Avenir Next LT Pro', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+    }
     .terminal-body {
       padding: 20px; min-height: 360px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'JetBrains Mono', 'Avenir Next LT Pro', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
       font-size: 13px; line-height: 1.8;
     }
     .terminal-line { min-height: 1.5em; }
@@ -287,6 +308,27 @@
 
     /* Problem Section */
     .problem-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .problem-intro { max-width: 980px; margin-bottom: 64px; }
+    .problem-headline {
+      font-size: clamp(2.1rem, 4.2vw, 3.8rem);
+      font-weight: 700;
+      line-height: 1.12;
+      margin-bottom: 18px;
+      letter-spacing: -0.01em;
+    }
+    .problem-headline .headline-line {
+      display: block;
+      white-space: nowrap;
+    }
+    .problem-headline .headline-line + .headline-line { margin-top: 8px; }
+    .vibe-italic { font-style: italic; }
+    .problem-lead {
+      text-align: left;
+      margin: 0;
+      max-width: 760px;
+      font-size: 1.03rem;
+      line-height: 1.7;
+    }
     .problem-card { background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 12px; padding: 24px; transition: all 0.25s ease; backdrop-filter: blur(10px); position: relative; overflow: hidden; }
     .problem-card::before {
       content: "";
@@ -304,10 +346,69 @@
     .problem-card:hover .problem-icon { background: rgba(136, 255, 216, 0.15); }
     .problem-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
     .problem-desc { font-size: 14px; color: var(--gray-500); line-height: 1.5; }
-    .quote-box { margin-top: 80px; position: relative; display: flex; justify-content: center; }
+    .quote-box { margin-top: 92px; position: relative; display: flex; justify-content: center; }
     .quote-line { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border-soft); }
-    .quote-content { position: relative; background: var(--surface-glass); padding: 24px 32px; border: 1px solid var(--border-soft); border-radius: 12px; max-width: 768px; text-align: center; backdrop-filter: blur(10px); }
-    .quote-text { color: var(--gray-300); font-size: 16px; line-height: 1.6; }
+    .quote-content {
+      position: relative;
+      background: var(--surface-glass);
+      padding: 34px 38px;
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      max-width: 1040px;
+      width: 100%;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.26s ease, box-shadow 0.26s ease, transform 0.26s ease;
+    }
+    .quote-content:hover {
+      border-color: var(--border-strong);
+      box-shadow: 0 26px 56px -24px rgba(6, 95, 70, 0.6);
+      transform: translateY(-4px);
+    }
+    .quote-text {
+      color: var(--gray-300);
+      font-size: 17px;
+      line-height: 1.65;
+      max-width: 720px;
+      margin: 0 auto;
+      text-wrap: balance;
+    }
+    .quote-metrics {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .quote-metric {
+      border: 1px solid var(--border-soft);
+      border-radius: 14px;
+      padding: 20px 18px;
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+      box-shadow: inset 0 0 0 1px rgba(136, 255, 216, 0.06);
+      transition: all 0.24s ease;
+    }
+    .quote-metric:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 16px 32px -20px rgba(6, 95, 70, 0.52);
+      background: color-mix(in srgb, rgba(16, 202, 144, 0.18) 50%, var(--surface-glass));
+    }
+    .quote-metric-value {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--violet-500);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+    .quote-metric-label {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--gray-500);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
 
     /* How It Works */
     .steps-grid {
@@ -590,9 +691,9 @@
       background: rgba(6, 182, 127, 0.16);
     }
     .models-section { margin-top: 48px; background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 16px; padding: 24px; backdrop-filter: blur(10px); }
-    .models-label { font-size: 12px; color: var(--gray-500); text-align: center; margin-bottom: 16px; }
+    .models-label { font-size: 14px; color: var(--gray-500); text-align: center; margin-bottom: 16px; }
     .models-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-    .model-tag { font-size: 12px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
+    .model-tag { font-size: 14px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 7px 14px; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
     .model-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: color-mix(in srgb, rgba(16, 202, 144, 0.22) 52%, var(--bg-tertiary)); }
 
     /* Footer */
@@ -634,6 +735,9 @@
       .hero-demo { max-width: 100%; }
       .steps-grid { grid-template-columns: 1fr; }
       .step-card { grid-column: auto; --step-offset: 0px; }
+      .problem-headline .headline-line { white-space: normal; }
+      .quote-metrics { grid-template-columns: 1fr; }
+      .quote-metric-label { white-space: normal; }
       .usecase-drawer { grid-template-columns: 1fr; }
       .usecase-rail { border-right: none; border-bottom: 1px solid var(--border-soft); }
       .usecase-panel { min-height: 340px; }
@@ -675,12 +779,12 @@
       </div>
 
       <div class="nav-cta">
-        <a href="/chat.html">开始使用</a>
+
         <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换明暗主题">
           <span class="theme-icon-dark">◐</span>
           <span class="theme-icon-light">◑</span>
         </button>
-        <a href="/chat.html" class="btn-primary">申请内测</a>
+        <a href="/chat.html" class="btn-primary">开始试用 | Dashboard</a>
       </div>
     </div>
   </nav>
@@ -698,9 +802,9 @@
         </div>
 
         <h1 class="hero-title">
-          将模糊业务语言<br>
+          将模糊的自然语言<br>
           <span class="gradient-text">编译成专属训练流</span><br>
-          让顶尖算法专家触手可及
+          让顶尖机器学习Specialists触手可及
         </h1>
 
         <p class="hero-desc">
@@ -765,14 +869,14 @@
   <!-- Problem Section -->
   <section>
     <div class="container">
-      <div style="max-width: 640px; margin-bottom: 64px;">
-        <h2 class="section-title">
-          软件开发进入了 vibe coding 时代，<br>
-          <span class="gradient-text">但机器学习仍然停留在专家时代</span>
+      <div class="problem-intro">
+        <h2 class="problem-headline">
+          <span class="headline-line">软件开发进入了 <span class="vibe-italic">Vibe Coding</span> 时代，</span>
+          <span class="headline-line gradient-text">但机器学习仍然停留在专家时代</span>
         </h2>
-        <p class="section-desc" style="text-align: left; margin: 0;">
-          AI coding 工具让写软件变得前所未有的容易，但机器学习全流程仍高度依赖专家经验。
-          拿到数据只是开始，真正的壁垒在后面。
+        <p class="section-desc problem-lead">
+          AI Coding 让软件开发门槛更低，机器学习全链路仍需专家深耕。<br>
+          以数据与标准化流程为始，Vibe ML重构机器学习效率，击穿AI-Driven Machine Learning技术壁垒。
         </p>
       </div>
 
@@ -842,8 +946,22 @@
         <div class="quote-line"></div>
         <div class="quote-content">
           <p class="quote-text">
-            "标准模型架构和通用损失函数只能解决 80% 的问题。剩下 20% 的精细业务需求，往往需要特制的数据扩充、自定义损失乃至专有架构，而能把模糊自然语言映射成这些专业 ML 决策的顶尖人才，万里挑一。"
+            标准模板只能覆盖常规场景，真正决定业务效果的是剩下那 20% 的定制化建模与交付能力。
           </p>
+          <div class="quote-metrics">
+            <div class="quote-metric">
+              <div class="quote-metric-value">80%</div>
+              <div class="quote-metric-label">模板可覆盖</div>
+            </div>
+            <div class="quote-metric">
+              <div class="quote-metric-value">20%</div>
+              <div class="quote-metric-label">关键定制决策</div>
+            </div>
+            <div class="quote-metric">
+              <div class="quote-metric-value">Top 1%</div>
+              <div class="quote-metric-label">可落地专家密度</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
