@@ -344,6 +344,36 @@ def root() -> FileResponse:
     return FileResponse(index)
 
 
+@app.get("/chat")
+def chat() -> FileResponse:
+    """Chat 页面"""
+    chat_file = FRONTEND_DIR / "chat.html"
+    if chat_file.exists():
+        return FileResponse(chat_file)
+    return JSONResponse({"error": "Chat page not found"}, status_code=404)
+
+
+@app.get("/chat.html")
+def chat_html() -> FileResponse:
+    """Chat 页面 (.html 后缀)"""
+    return chat()
+
+
+@app.get("/dashboard")
+def dashboard() -> FileResponse:
+    """Dashboard 页面"""
+    dashboard_file = FRONTEND_DIR / "dashboard.html"
+    if dashboard_file.exists():
+        return FileResponse(dashboard_file)
+    return JSONResponse({"error": "Dashboard page not found"}, status_code=404)
+
+
+@app.get("/dashboard.html")
+def dashboard_html() -> FileResponse:
+    """Dashboard 页面 (.html 后缀)"""
+    return dashboard()
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     """健康检查"""
