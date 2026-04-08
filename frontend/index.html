@@ -240,6 +240,28 @@
     .step-example pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gray-400); line-height: 1.6; white-space: pre-wrap; overflow-x: auto; }
     .step-example p { font-size: 12px; color: var(--gray-400); font-style: italic; line-height: 1.5; }
 
+    /* Use Cases */
+    .usecases-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .usecase-card { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; padding: 24px; transition: all 0.2s; }
+    .usecase-card:hover { border-color: rgba(139, 92, 246, 0.3); transform: translateY(-2px); }
+    .usecase-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .usecase-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2); display: flex; align-items: center; justify-content: center; color: var(--violet-400); }
+    .usecase-tag { font-size: 12px; color: var(--gray-500); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 9999px; padding: 4px 12px; }
+    .usecase-title { font-size: 17px; font-weight: 600; margin-bottom: 10px; }
+    .usecase-desc { font-size: 14px; color: var(--gray-400); line-height: 1.6; margin-bottom: 16px; }
+    .usecase-features { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .usecase-feature { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--gray-300); }
+    .feature-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .feature-dot.violet { background: var(--violet-400); }
+    .feature-dot.blue { background: var(--blue-400); }
+    .feature-dot.emerald { background: var(--emerald-400); }
+    .feature-dot.rose { background: #fb7185; }
+    .feature-dot.amber { background: #fbbf24; }
+    .feature-dot.cyan { background: var(--cyan-400); }
+    .usecase-result { background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.1); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+    .result-label { font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; }
+    .result-value { font-size: 13px; color: var(--emerald-400); font-weight: 500; }
+
     /* Capabilities */
     .capabilities-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
     .capability-card { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 24px; transition: all 0.2s; }
@@ -284,6 +306,7 @@
       .hero-stats { justify-content: center; }
       .hero-demo { max-width: 100%; }
       .steps-grid { grid-template-columns: 1fr; }
+      .usecases-grid { grid-template-columns: repeat(2, 1fr); }
       .capabilities-grid { grid-template-columns: repeat(2, 1fr); }
       .problem-grid { grid-template-columns: 1fr; }
       .footer-grid { grid-template-columns: repeat(2, 1fr); }
@@ -291,6 +314,7 @@
     @media (max-width: 768px) {
       .nav-links { display: none; }
       .nav-cta a:first-child { display: none; }
+      .usecases-grid { grid-template-columns: 1fr; }
       .capabilities-grid { grid-template-columns: 1fr; }
       .footer-grid { grid-template-columns: 1fr; }
     }
@@ -314,7 +338,7 @@
         <a href="#how-it-works">产品</a>
         <a href="#capabilities">能力</a>
         <a href="#use-cases">使用场景</a>
-        <a href="#">文档</a>
+        <a href="/docs">文档</a>
       </div>
 
       <div class="nav-cta">
@@ -533,6 +557,230 @@ validation → out_of_time_split</pre>
           <p class="step-desc">贝叶斯超参数搜索、模型结构选择、蒸馏压缩、一键打包成可调用 API 或 Web 应用。</p>
           <div class="step-example">
             <p>"每日流失风险名单 API 已就绪 — Precision@50: 0.84 / AUC: 0.923"</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Use Cases -->
+  <section id="use-cases" style="position: relative;">
+    <div class="section-divider"></div>
+    <div class="container">
+      <div class="section-header">
+        <div class="section-label">使用场景</div>
+        <h2 class="section-title">为真实业务场景而生的 ML 解决方案</h2>
+        <p class="section-desc">
+          从客户流失预测到库存优化，VibeML 将模糊的业务语言编译成精准的模型训练流，解决传统 AutoML 无法处理的精细化需求。
+        </p>
+      </div>
+
+      <div class="usecases-grid">
+        <div class="usecase-card">
+          <div class="usecase-header">
+            <div class="usecase-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 11C11.2091 11 13 9.20914 13 7C13 4.79086 11.2091 3 9 3C6.79086 3 5 4.79086 5 7C5 9.20914 6.79086 11 9 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89318 18.7122 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="usecase-tag">电商/零售</span>
+          </div>
+          <h3 class="usecase-title">高价值客户流失预警</h3>
+          <p class="usecase-desc">
+            <strong>业务诉求：</strong>找出 30 天内可能流失的高价值用户，但每天客服只能外呼 50 人。
+          </p>
+          <div class="usecase-features">
+            <div class="usecase-feature">
+              <span class="feature-dot violet"></span>
+              <span>预算约束：Top-50 精准定位</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot violet"></span>
+              <span>错误偏好：宁可误报也别漏报</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot violet"></span>
+              <span>定制损失：Weighted BCE + Ranking Loss</span>
+            </div>
+          </div>
+          <div class="usecase-result">
+            <span class="result-label">交付成果</span>
+            <span class="result-value">每日流失风险名单 API · Precision@50: 0.84</span>
+          </div>
+        </div>
+
+        <div class="usecase-card">
+          <div class="usecase-header">
+            <div class="usecase-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M6 2L3 6V20C3 20.5304 3.21071 21.0391 3.58579 21.4142C3.96086 21.7893 4.46957 22 5 22H19C19.5304 22 20.0391 21.7893 20.4142 21.4142C20.7893 21.0391 21 20.5304 21 20V6L18 2H6Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3 6H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16 10C16 11.0609 15.5786 12.0783 14.8284 12.8284C14.0783 13.5786 13.0609 14 12 14C10.9391 14 9.92172 13.5786 9.17157 12.8284C8.42143 12.0783 8 11.0609 8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="usecase-tag">供应链</span>
+          </div>
+          <h3 class="usecase-title">库存需求预测（非对称代价）</h3>
+          <p class="usecase-desc">
+            <strong>业务诉求：</strong>预测下月各 SKU 销量，但缺货导致停产损失远大于积压资金成本。
+          </p>
+          <div class="usecase-features">
+            <div class="usecase-feature">
+              <span class="feature-dot blue"></span>
+              <span>非对称损失：低估惩罚 10 倍于高估</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot blue"></span>
+              <span>概率预测：提供 95% 置信区间</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot blue"></span>
+              <span>时序建模：TCN + 节假日特征</span>
+            </div>
+          </div>
+          <div class="usecase-result">
+            <span class="result-label">交付成果</span>
+            <span class="result-value">分位数预测 API · 缺货率降低 67%</span>
+          </div>
+        </div>
+
+        <div class="usecase-card">
+          <div class="usecase-header">
+            <div class="usecase-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 16V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 8H12.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="usecase-tag">金融风控</span>
+          </div>
+          <h3 class="usecase-title">欺诈交易检测（可解释性优先）</h3>
+          <p class="usecase-desc">
+            <strong>业务诉求：</strong>实时识别欺诈交易，但风控团队需要知道为什么触发警报才能审批。
+          </p>
+          <div class="usecase-features">
+            <div class="usecase-feature">
+              <span class="feature-dot emerald"></span>
+              <span>可解释性：SHAP + 注意力机制</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot emerald"></span>
+              <span>实时推断：延迟 < 20ms</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot emerald"></span>
+              <span>模型压缩：蒸馏至 1/10 体积</span>
+            </div>
+          </div>
+          <div class="usecase-result">
+            <span class="result-label">交付成果</span>
+            <span class="result-value">实时风控 API + 决策解释 · 误杀率降低 45%</span>
+          </div>
+        </div>
+
+        <div class="usecase-card">
+          <div class="usecase-header">
+            <div class="usecase-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M22 12H18L15 21L9 3L6 12H2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="usecase-tag">医疗健康</span>
+          </div>
+          <h3 class="usecase-title">疾病风险筛查（高召回要求）</h3>
+          <p class="usecase-desc">
+            <strong>业务诉求：</strong>从体检数据识别糖尿病高危人群，必须覆盖 95% 以上潜在患者。
+          </p>
+          <div class="usecase-features">
+            <div class="usecase-feature">
+              <span class="feature-dot rose"></span>
+              <span>高召回约束：Recall ≥ 95%</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot rose"></span>
+              <span>类别不平衡：1:100 正样本</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot rose"></span>
+              <span>隐私保护：差分隐私训练</span>
+            </div>
+          </div>
+          <div class="usecase-result">
+            <span class="result-label">交付成果</span>
+            <span class="result-value">筛查模型 · Recall 96.3% / F1 0.78</span>
+          </div>
+        </div>
+
+        <div class="usecase-card">
+          <div class="usecase-header">
+            <div class="usecase-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="usecase-tag">智能制造</span>
+          </div>
+          <h3 class="usecase-title">设备故障预测（时序异常）</h3>
+          <p class="usecase-desc">
+            <strong>业务诉求：</strong>基于传感器时序数据，提前 7 天预警设备故障，减少非计划停机。
+          </p>
+          <div class="usecase-features">
+            <div class="usecase-feature">
+              <span class="feature-dot amber"></span>
+              <span>多变量时序：LSTM + Attention</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot amber"></span>
+              <span>预警窗口：7 天提前量</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot amber"></span>
+              <span>边缘部署：模型 < 10MB</span>
+            </div>
+          </div>
+          <div class="usecase-result">
+            <span class="result-label">交付成果</span>
+            <span class="result-value">边缘推断 SDK · 提前 7 天预警准确率 89%</span>
+          </div>
+        </div>
+
+        <div class="usecase-card">
+          <div class="usecase-header">
+            <div class="usecase-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M5 10H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7 16L17 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="usecase-tag">科学计算</span>
+          </div>
+          <h3 class="usecase-title">材料性能预测（小样本学习）</h3>
+          <p class="usecase-desc">
+            <strong>业务诉求：</strong>基于有限实验数据预测新材料性能，加速研发周期，降低实验成本。
+          </p>
+          <div class="usecase-features">
+            <div class="usecase-feature">
+              <span class="feature-dot cyan"></span>
+              <span>小样本：&lt; 100 样本</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot cyan"></span>
+              <span>GNN：分子结构图编码</span>
+            </div>
+            <div class="usecase-feature">
+              <span class="feature-dot cyan"></span>
+              <span>不确定性：贝叶斯神经网络</span>
+            </div>
+          </div>
+          <div class="usecase-result">
+            <span class="result-label">交付成果</span>
+            <span class="result-value">材料性能预测器 · R² 0.91</span>
           </div>
         </div>
       </div>
