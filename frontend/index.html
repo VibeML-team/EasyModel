@@ -153,7 +153,7 @@
     .hero-stats { display: flex; flex-wrap: wrap; gap: 32px; }
     .stat-item { display: flex; flex-direction: column; }
     .stat-value { font-size: 24px; font-weight: 600; color: var(--white); }
-    .stat-label { font-size: 14px; color: var(--gray-500); margin-top: 2px; }
+    .stat-label { font-size: 14px; color: var(--gray-300); margin-top: 2px; font-weight: 500; }
 
     /* Terminal Demo */
     .hero-demo { flex: 1; max-width: 560px; width: 100%; }
@@ -283,9 +283,6 @@
     .footer-grid { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 32px; margin-bottom: 48px; }
     .footer-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
     .footer-desc { font-size: 14px; color: var(--gray-600); line-height: 1.6; max-width: 288px; }
-    .footer-social { display: flex; gap: 12px; margin-top: 24px; }
-    .social-link { width: 32px; height: 32px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; color: var(--gray-500); text-decoration: none; font-size: 12px; transition: all 0.2s; }
-    .social-link:hover { color: var(--white); border-color: rgba(255, 255, 255, 0.15); }
     .footer-col h4 { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 16px; letter-spacing: 0.05em; }
     .footer-col ul { list-style: none; }
     .footer-col li { margin-bottom: 10px; }
@@ -293,9 +290,7 @@
     .footer-col a:hover { color: var(--gray-300); }
     .footer-bottom { border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
     .footer-copyright { font-size: 12px; color: var(--gray-700); }
-    .footer-links { display: flex; gap: 24px; }
-    .footer-links a { font-size: 12px; color: var(--gray-700); text-decoration: none; transition: color 0.2s; }
-    .footer-links a:hover { color: var(--gray-400); }
+
 
     /* Mobile Responsive */
     @media (max-width: 1024px) {
@@ -383,7 +378,7 @@
 
         <div class="hero-stats">
           <div class="stat-item">
-            <span class="stat-value">5层</span>
+            <span class="stat-value">五层</span>
             <span class="stat-label">自动化编译架构</span>
           </div>
           <div class="stat-item">
@@ -391,7 +386,7 @@
             <span class="stat-label">预处理 → 部署</span>
           </div>
           <div class="stat-item">
-            <span class="stat-value">零</span>
+            <span class="stat-value">零门槛</span>
             <span class="stat-label">ML 知识门槛</span>
           </div>
         </div>
@@ -421,7 +416,6 @@
     </div>
 
     <div class="scroll-indicator">
-      <span>向下滚动</span>
       <div class="scroll-line"></div>
     </div>
   </section>
@@ -430,10 +424,9 @@
   <section>
     <div class="container">
       <div style="max-width: 640px; margin-bottom: 64px;">
-        <div class="section-label">问题</div>
         <h2 class="section-title">
           软件开发进入了 vibe coding 时代，<br>
-          <span style="color: var(--gray-500);">但机器学习仍然停留在专家时代</span>
+          <span class="gradient-text">但机器学习仍然停留在专家时代</span>
         </h2>
         <p class="section-desc" style="text-align: left; margin: 0;">
           AI coding 工具让写软件变得前所未有的容易，但机器学习全流程仍高度依赖专家经验。
@@ -926,11 +919,6 @@ validation → out_of_time_split</pre>
           <p class="footer-desc">
             AI 原生的全自动机器学习 Agent。把人话需求编译成优化合同，全流程自动训练交付。
           </p>
-          <div class="footer-social">
-            <a href="#" class="social-link">G</a>
-            <a href="#" class="social-link">T</a>
-            <a href="#" class="social-link">D</a>
-          </div>
         </div>
 
         <div class="footer-col">
@@ -976,11 +964,6 @@ validation → out_of_time_split</pre>
 
       <div class="footer-bottom">
         <p class="footer-copyright">© 2026 VibeML. 保留所有权利。</p>
-        <div class="footer-links">
-          <a href="#">隐私政策</a>
-          <a href="#">服务条款</a>
-          <a href="#">Cookie 设置</a>
-        </div>
       </div>
     </div>
   </footer>
