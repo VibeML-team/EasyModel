@@ -4,6 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VibeML · 模型详情</title>
+  <style>
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-Regular (1).otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -70,7 +79,7 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: Inter, sans-serif;
+      font-family: "Avenir Next LT Pro", sans-serif;
       background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
       color: var(--white);
       min-height: 100vh;
@@ -321,7 +330,7 @@ LightGBM 的青出于蓝：彻底拥抱 Histogram 分桶，将连续特征离散
         ],
         principle: String.raw`背景与痛点：RNN/LSTM 的串行依赖导致训练慢，且长距离依赖在多步传递中容易衰减。
 
-Self-Attention 核心：\[ \mathrm{Attention}(Q,K,V)=\mathrm{softmax}(QK^T/\sqrt{d_k})V \]。每个 token 可一步访问全序列信息，长程关系建模从链式传递变为全局并行交互，GPU 友好。
+Self-Attention 核心：$$ \mathrm{Attention}(Q,K,V)=\mathrm{softmax}(QK^T/\sqrt{d_k})V $$ 每个 token 可一步访问全序列信息，长程关系建模从链式传递变为全局并行交互，GPU 友好。
 
 架构完善：Positional Encoding 补齐顺序信息；Multi-Head Attention 在不同子空间并行抽取关系；Residual + LayerNorm 保证深层训练稳定。这套设计奠定了 GPT、BERT、Llama 等主流基础模型底座。`
       },
@@ -375,7 +384,7 @@ FT-Transformer：先做 Feature Tokenizer，将数值与类别特征统一到同
         ],
         principle: String.raw`PPO：针对策略梯度更新不稳问题，引入 clipping 限制新旧策略比值偏离区间 [1-epsilon, 1+epsilon]，在稳定性与效率间取得极佳平衡，也是 RLHF 的关键算法之一。
 
-SAC：基于最大熵强化学习，在奖励目标中加入熵项 \[ J(\pi)=\mathbb{E}[R+\alpha H(\pi)] \]，鼓励高回报同时保持探索多样性。作为 off-policy 方法，样本效率高、鲁棒性强，常用于连续控制与机器人任务。`
+SAC：基于最大熵强化学习，在奖励目标中加入熵项 $$ J(\pi)=\mathbb{E}[R+\alpha H(\pi)] $$ 鼓励高回报同时保持探索多样性。作为 off-policy 方法，样本效率高、鲁棒性强，常用于连续控制与机器人任务。`
       },
       'neural-ode': {
         title: 'Neural ODE',
@@ -384,7 +393,7 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 \[ J(\pi)=\ma
         ],
         principle: String.raw`Neural ODE 将离散层堆叠推广为连续动力系统：dh(t)/dt=f(h(t),t,theta)。前向不再固定过若干层，而是交给 ODE 求解器按精度自适应积分。
 
-关键优势：伴随灵敏度方法（Adjoint Method）让反向传播无需保存全部中间激活，内存可近似 \(O(1)\)。这使其在不规则采样时序、生理监测、物理系统辨识等任务中具备显著优势。`
+关键优势：伴随灵敏度方法（Adjoint Method）让反向传播无需保存全部中间激活，内存可近似 $O(1)$。这使其在不规则采样时序、生理监测、物理系统辨识等任务中具备显著优势。`
       },
       'diffusion-model': {
         title: 'Diffusion Model',
@@ -412,7 +421,7 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 \[ J(\pi)=\ma
         ],
         principle: String.raw`共形预测是分布无关（distribution-free）的不确定性量化框架，可包裹任意黑盒模型。
 
-做法是：保留校准集 -> 计算不符合度分数 -> 取目标置信度对应分位数 -> 输出区间/集合预测。其理论保证是：在交换性假设下，覆盖率可达 \(1-\alpha\) 下界。
+做法是：保留校准集 -> 计算不符合度分数 -> 取目标置信度对应分位数 -> 输出区间/集合预测。其理论保证是：在交换性假设下，覆盖率可达 $1-\alpha$ 下界。
 
 这使模型不仅给“答案”，还给“可信边界”，尤其适用于医疗、金融、自动驾驶等安全关键场景。`
       },
@@ -461,6 +470,12 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 \[ J(\pi)=\ma
       }
     }
 
+    function forceMathRender() {
+      renderMath();
+      setTimeout(renderMath, 120);
+      setTimeout(renderMath, 360);
+    }
+
     function principleToHtml(text) {
       return text
         .split('\n\n')
@@ -507,14 +522,14 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 \[ J(\pi)=\ma
       });
 
       renderNav(key);
-      renderMath();
+      forceMathRender();
     }
 
     renderModel(defaultKey);
 
     function ensureMathRender(retry = 0) {
       if (window.MathJax?.typesetPromise && window.MathJax?.typesetClear) {
-        renderMath();
+        forceMathRender();
         return;
       }
       if (retry < 12) {
