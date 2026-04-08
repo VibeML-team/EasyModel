@@ -290,17 +290,14 @@
     .problem-card::before {
       content: "";
       position: absolute;
-      top: -120%;
-      left: -20%;
-      width: 42%;
-      height: 300%;
-      background: linear-gradient(180deg, transparent, rgba(157, 255, 224, 0.2), transparent);
-      transform: rotate(20deg);
-      transition: transform 0.55s ease;
+      inset: 0;
+      background: radial-gradient(circle at 0% 0%, rgba(157, 255, 224, 0.12), transparent 45%);
+      opacity: 0.6;
+      transition: opacity 0.35s ease;
       pointer-events: none;
     }
     .problem-card:hover { border-color: var(--border-strong); background: var(--surface-glass-strong); transform: translateY(-4px); box-shadow: 0 14px 28px rgba(7, 80, 60, 0.2); }
-    .problem-card:hover::before { transform: rotate(20deg) translateY(34%); }
+    .problem-card:hover::before { opacity: 0.9; }
     .problem-card-inner { display: flex; gap: 16px; }
     .problem-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px; background: rgba(136, 255, 216, 0.1); border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; color: var(--violet-500); }
     .problem-card:hover .problem-icon { background: rgba(136, 255, 216, 0.15); }
@@ -312,26 +309,77 @@
     .quote-text { color: var(--gray-300); font-size: 16px; line-height: 1.6; }
 
     /* How It Works */
-    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-    .step-card { background: var(--surface-glass); border-radius: 16px; padding: 28px; position: relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); transition: all 0.25s ease; backdrop-filter: blur(10px); overflow: hidden; }
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 18px;
+      position: relative;
+    }
+    .steps-grid::before {
+      content: "";
+      position: absolute;
+      inset: 20% 16% 20% 16%;
+      background-image:
+        linear-gradient(to right, rgba(136, 255, 216, 0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(136, 255, 216, 0.06) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+      opacity: 0.5;
+      z-index: 0;
+    }
+    .step-card {
+      --step-offset: 0px;
+      grid-column: span 4;
+      min-height: 320px;
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+      border-radius: 14px;
+      border: 1px solid var(--border-soft);
+      padding: 24px;
+      position: relative;
+      box-shadow: 0 8px 20px rgba(5, 46, 36, 0.08);
+      transition: transform 0.28s ease, border-color 0.24s ease, box-shadow 0.28s ease;
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+      transform: translateY(var(--step-offset));
+      z-index: 1;
+    }
+    .step-card:nth-child(1) { --step-offset: -10px; }
+    .step-card:nth-child(2) { --step-offset: 12px; }
+    .step-card:nth-child(3) { --step-offset: -2px; }
     .step-card::before {
       content: "";
       position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at -10% -20%, rgba(124, 246, 228, 0.2), transparent 50%);
-      opacity: 0;
-      transition: opacity 0.25s ease;
+      top: 0;
+      left: 0;
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, rgba(136, 255, 216, 0.18), transparent 70%);
       pointer-events: none;
     }
-    .step-card.violet { border: 1px solid var(--border-soft); box-shadow: 0 20px 25px -5px rgba(6, 95, 70, 0.2); }
-    .step-card.violet:hover { box-shadow: 0 30px 56px -18px rgba(6, 95, 70, 0.36); }
-    .step-card.blue { border: 1px solid rgba(136, 255, 216, 0.22); box-shadow: 0 20px 25px -5px rgba(16, 84, 65, 0.24); }
-    .step-card.blue:hover { box-shadow: 0 30px 56px -18px rgba(16, 84, 65, 0.38); }
-    .step-card.emerald { border: 1px solid rgba(136, 255, 216, 0.24); box-shadow: 0 20px 25px -5px rgba(8, 110, 80, 0.24); }
-    .step-card.emerald:hover { box-shadow: 0 30px 56px -18px rgba(8, 110, 80, 0.4); }
-    .step-card:hover { transform: translateY(-6px); }
-    .step-card:hover::before { opacity: 1; }
-    .step-number { font-size: 48px; font-weight: 700; opacity: 0.2; margin-bottom: 24px; }
+    .step-card::after {
+      content: "";
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      width: 108px;
+      height: 78px;
+      background-image:
+        radial-gradient(circle, rgba(136, 255, 216, 0.25) 1px, transparent 1px);
+      background-size: 12px 12px;
+      opacity: 0.28;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .step-card.violet,
+    .step-card.blue,
+    .step-card.emerald { border: 1px solid var(--border-soft); }
+    .step-card:hover {
+      transform: translateY(calc(var(--step-offset) - 10px)) rotate(-0.35deg);
+      border-color: var(--border-strong);
+      box-shadow: 0 18px 44px -20px rgba(6, 95, 70, 0.5);
+    }
+    .step-card:hover::after { opacity: 0.5; transform: translateY(-2px); }
+    .step-number { font-size: 48px; font-weight: 700; opacity: 0.18; margin-bottom: 20px; }
     .step-number.violet { color: var(--violet-500); }
     .step-number.blue { color: var(--blue-500); }
     .step-number.emerald { color: var(--emerald-500); }
@@ -341,9 +389,9 @@
     .step-tag.emerald { background: rgba(31, 215, 157, 0.12); color: var(--emerald-400); border: 1px solid var(--border-soft); }
     .step-title { font-size: 17px; font-weight: 600; margin-bottom: 12px; }
     .step-desc { font-size: 14px; color: var(--gray-500); margin-bottom: 20px; line-height: 1.5; }
-    .step-example { background: color-mix(in srgb, var(--bg-tertiary) 88%, #000 12%); border: 1px solid var(--border-soft); border-radius: 12px; padding: 16px; }
-    .step-example pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gray-400); line-height: 1.6; white-space: pre-wrap; overflow-x: auto; }
-    .step-example p { font-size: 12px; color: var(--gray-400); font-style: italic; line-height: 1.5; }
+    .step-example { background: linear-gradient(135deg, #061912, #04110c); border: 1px solid rgba(136, 255, 216, 0.22); border-radius: 12px; padding: 14px; }
+    .step-example pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #89f9d1; line-height: 1.6; white-space: pre-wrap; overflow-x: auto; }
+    .step-example p { font-size: 12px; color: #79e7bf; font-style: italic; line-height: 1.5; }
 
     /* Use Cases Drawer */
     .usecase-drawer {
@@ -418,31 +466,128 @@
       grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 16px;
       position: relative;
+      perspective: 1200px;
+    }
+    .capabilities-grid.has-active .capability-card {
+      opacity: 0.46;
+      filter: saturate(0.8);
     }
     .capability-card { grid-column: span 2; }
-    .capability-card:nth-child(2), .capability-card:nth-child(5) { transform: translateY(14px); }
-    .capability-card:nth-child(3), .capability-card:nth-child(6) { transform: translateY(-8px); }
-    .capability-card { background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 12px; padding: 24px; transition: all 0.25s ease; backdrop-filter: blur(10px); position: relative; overflow: hidden; }
+    .capability-card:nth-child(1), .capability-card:nth-child(4) { --cap-offset: -10px; }
+    .capability-card:nth-child(2), .capability-card:nth-child(5) { --cap-offset: 16px; }
+    .capability-card:nth-child(3), .capability-card:nth-child(6) { --cap-offset: 2px; }
+    .capability-card {
+      --cap-offset: 0px;
+      --cap-lift: 0px;
+      --pull-y: 0px;
+      --pull-scale: 1;
+      background: var(--surface-glass);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.28s ease;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+      transform: translateY(calc(var(--cap-offset) + var(--cap-lift) + var(--pull-y))) scale(var(--pull-scale));
+      transform-style: preserve-3d;
+      will-change: transform;
+      cursor: pointer;
+      user-select: none;
+    }
     .capability-card::before {
       content: "";
       position: absolute;
-      top: -140%;
-      left: -18%;
-      width: 36%;
-      height: 320%;
-      background: linear-gradient(180deg, transparent, rgba(136, 255, 216, 0.22), transparent);
-      transform: rotate(18deg);
-      transition: transform 0.6s ease;
+      inset: 0;
+      background: radial-gradient(circle at 12% 0%, rgba(136, 255, 216, 0.12), transparent 48%);
+      opacity: 0.55;
+      transition: opacity 0.35s ease;
       pointer-events: none;
     }
-    .capability-card:hover { border-color: var(--border-strong); background: var(--surface-glass-strong); transform: translateY(-4px); }
-    .capability-card:hover::before { transform: rotate(18deg) translateY(36%); }
+    .capability-card:hover { --cap-lift: -10px; border-color: var(--border-strong); background: var(--surface-glass-strong); box-shadow: 0 16px 32px -20px rgba(6, 95, 70, 0.52); }
+    .capability-card:hover::before { opacity: 0.9; }
+    .capability-card.is-selected {
+      --pull-y: -10px;
+      --pull-scale: 1.02;
+      opacity: 1 !important;
+      filter: none !important;
+      border-color: var(--border-strong);
+      background: var(--surface-glass-strong);
+      box-shadow: 0 26px 54px -28px rgba(5, 115, 82, 0.62);
+      z-index: 4;
+    }
+    .capability-card:focus-visible {
+      outline: 2px solid var(--violet-500);
+      outline-offset: 2px;
+    }
     .capability-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
     .capability-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(136, 255, 216, 0.1); border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; color: var(--violet-500); transition: all 0.2s; }
     .capability-card:hover .capability-icon { background: rgba(136, 255, 216, 0.15); }
     .capability-tag { font-size: 11px; color: var(--gray-500); border: 1px solid var(--border-soft); border-radius: 9999px; padding: 2px 8px; }
     .capability-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
     .capability-desc { font-size: 13px; color: var(--gray-500); line-height: 1.5; }
+    .capability-feature-deck {
+      margin-top: 0;
+      border: 1px solid var(--border-soft);
+      background: rgba(136, 255, 216, 0.06);
+      border-radius: 10px;
+      padding: 0 12px;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: max-height 0.32s ease, opacity 0.24s ease, transform 0.28s ease, margin-top 0.28s ease, padding 0.28s ease;
+    }
+    .capability-card.is-selected .capability-feature-deck {
+      margin-top: 14px;
+      padding: 12px;
+      max-height: 220px;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .capability-feature-hint {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .capability-feature-pill {
+      font-size: 16px;
+      color: var(--white);
+      font-weight: 700;
+      line-height: 1.45;
+      margin-bottom: 10px;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+    .capability-feature-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .capability-feature-option {
+      font-size: 11px;
+      border-radius: 9999px;
+      border: 1px solid var(--border-soft);
+      padding: 4px 10px;
+      color: var(--gray-500);
+      background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .capability-feature-option:hover {
+      border-color: var(--border-strong);
+      color: var(--gray-300);
+      transform: translateY(-1px);
+    }
+    .capability-feature-option.active {
+      color: var(--white);
+      border-color: var(--border-strong);
+      background: rgba(6, 182, 127, 0.16);
+    }
     .models-section { margin-top: 48px; background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 16px; padding: 24px; backdrop-filter: blur(10px); }
     .models-label { font-size: 12px; color: var(--gray-500); text-align: center; margin-bottom: 16px; }
     .models-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
@@ -486,11 +631,12 @@
       .hero-stats { justify-content: center; }
       .hero-demo { max-width: 100%; }
       .steps-grid { grid-template-columns: 1fr; }
+      .step-card { grid-column: auto; --step-offset: 0px; }
       .usecase-drawer { grid-template-columns: 1fr; }
       .usecase-rail { border-right: none; border-bottom: 1px solid var(--border-soft); }
       .usecase-panel { min-height: 340px; }
       .capabilities-grid { grid-template-columns: repeat(2, 1fr); }
-      .capability-card { grid-column: auto; transform: none !important; }
+      .capability-card { grid-column: auto; --cap-offset: 0px; }
       .problem-grid { grid-template-columns: 1fr; }
       .footer-grid { grid-template-columns: repeat(2, 1fr); }
     }
@@ -864,7 +1010,7 @@ validation → out_of_time_split</pre>
       </div>
 
       <div class="capabilities-grid">
-        <div class="capability-card">
+        <div class="capability-card" data-features="目标函数自动编译|标签与协议自动推断|需求变更可回放追踪">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -876,9 +1022,14 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">自然语言需求编译</h3>
           <p class="capability-desc">将模糊的业务语言翻译成结构化优化合同，自动识别任务类型、定义标签、选择评估协议。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <span class="capability-feature-hint">抽出的 Feature</span>
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="缺失值自动修复|高基数编码器选择|时间窗口特征组合">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -892,9 +1043,14 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">数据预处理 & 特征工程</h3>
           <p class="capability-desc">自动处理缺失值、异常值、类型转换、时间特征提取、高基数类别编码。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <span class="capability-feature-hint">抽出的 Feature</span>
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="搜索空间自动裁剪|算力预算约束优化|多目标权衡调参">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -906,9 +1062,14 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">贝叶斯超参数优化</h3>
           <p class="capability-desc">基于贝叶斯优化的高效超参数搜索，在给定算力约束下找到最优模型配置。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <span class="capability-feature-hint">抽出的 Feature</span>
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="表格/时序/GNN统一编排|模型候选自动路由|跨任务复用模板库">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -920,9 +1081,14 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">多模型家族支持</h3>
           <p class="capability-desc">覆盖表格、时序、图神经网络、强化学习、AI for Science 等主流 ML 场景。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <span class="capability-feature-hint">抽出的 Feature</span>
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="蒸馏链路自动生成|量化压缩组合推荐|边缘推断性能校准">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -934,9 +1100,14 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">模型蒸馏 & 压缩</h3>
           <p class="capability-desc">将大模型蒸馏成轻量级版本，支持边缘部署、低延迟推断、硬件约束场景。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <span class="capability-feature-hint">抽出的 Feature</span>
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="API/SDK 双交付|灰度发布与回滚|线上监控与再训练闭环">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -950,6 +1121,11 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">一键打包交付</h3>
           <p class="capability-desc">不只是模型权重——直接生成可调用 API、Web 应用或批量推断系统，可立即上线。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <span class="capability-feature-hint">抽出的 Feature</span>
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
       </div>
 
@@ -1110,6 +1286,119 @@ validation → out_of_time_split</pre>
           caseTabs[(index - 1 + caseTabs.length) % caseTabs.length].focus();
         }
       });
+    });
+
+    // Capability hand-draw interaction
+    const capabilityGrid = document.querySelector('.capabilities-grid');
+    const capabilityCards = Array.from(document.querySelectorAll('.capability-card'));
+    let activeCapabilityCard = null;
+
+    function closeCapabilityDrawer() {
+      capabilityGrid?.classList.remove('has-active');
+      capabilityCards.forEach((card) => {
+        card.classList.remove('is-selected');
+        card.setAttribute('aria-expanded', 'false');
+        const deck = card.querySelector('.capability-feature-deck');
+        if (deck) deck.setAttribute('aria-hidden', 'true');
+      });
+      activeCapabilityCard = null;
+    }
+
+    capabilityCards.forEach((card) => {
+      const features = (card.dataset.features || '')
+        .split('|')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      const featurePill = card.querySelector('.capability-feature-pill');
+      const featureList = card.querySelector('.capability-feature-list');
+      const deck = card.querySelector('.capability-feature-deck');
+      if (!features.length || !featurePill || !featureList) return;
+
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-expanded', 'false');
+
+      let featureIndex = 0;
+
+      const renderFeature = (index) => {
+        featureIndex = (index + features.length) % features.length;
+        featurePill.textContent = features[featureIndex];
+
+        Array.from(featureList.querySelectorAll('.capability-feature-option')).forEach((item, i) => {
+          item.classList.toggle('active', i === featureIndex);
+        });
+      };
+
+      features.forEach((feature, index) => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'capability-feature-option';
+        option.textContent = feature;
+
+        option.addEventListener('click', (event) => {
+          event.stopPropagation();
+          renderFeature(index);
+        });
+
+        featureList.appendChild(option);
+      });
+
+      renderFeature(0);
+
+      const selectCard = () => {
+        if (activeCapabilityCard === card) return;
+
+        capabilityGrid?.classList.add('has-active');
+        capabilityCards.forEach((item) => {
+          const isTarget = item === card;
+          item.classList.toggle('is-selected', isTarget);
+          item.setAttribute('aria-expanded', String(isTarget));
+          const itemDeck = item.querySelector('.capability-feature-deck');
+          if (itemDeck) itemDeck.setAttribute('aria-hidden', String(!isTarget));
+        });
+
+        activeCapabilityCard = card;
+      };
+
+      card.addEventListener('click', () => {
+        if (activeCapabilityCard === card) {
+          closeCapabilityDrawer();
+          return;
+        }
+        selectCard();
+      });
+
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          if (activeCapabilityCard === card) {
+            closeCapabilityDrawer();
+          } else {
+            selectCard();
+          }
+        }
+      });
+
+      if (deck) deck.setAttribute('aria-hidden', 'true');
+    });
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!activeCapabilityCard || !capabilityGrid) return;
+      if (!capabilityGrid.contains(event.target)) {
+        closeCapabilityDrawer();
+        return;
+      }
+
+      if (!activeCapabilityCard.contains(event.target)) {
+        closeCapabilityDrawer();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeCapabilityDrawer();
+      }
     });
 
     // Terminal typewriter animation
