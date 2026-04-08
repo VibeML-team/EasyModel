@@ -300,7 +300,37 @@
       cursor: not-allowed;
     }
 
-    /* Progress Card */
+    /* Progress Card - Figma Design */
+    .progress-card {
+      background: var(--bg-tertiary);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .progress-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(16, 185, 129, 0.1);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .progress-card-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--emerald-400);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .progress-card-body {
+      padding: 20px;
+    }
+
     .progress-info {
       display: flex;
       justify-content: space-between;
@@ -309,18 +339,59 @@
       font-size: 12px;
     }
 
+    .progress-info-label {
+      color: var(--text-secondary);
+    }
+
+    .progress-info-value {
+      color: var(--emerald-400);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
     .progress-bar {
-      height: 6px;
+      height: 8px;
       background: rgba(255, 255, 255, 0.1);
-      border-radius: 3px;
+      border-radius: 4px;
       overflow: hidden;
     }
 
     .progress-fill {
       height: 100%;
-      background: var(--emerald-500);
-      border-radius: 3px;
-      transition: width 0.3s;
+      background: linear-gradient(90deg, var(--emerald-500), var(--emerald-400));
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .progress-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .control-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--text-primary);
+    }
+
+    .control-btn.play {
+      color: var(--emerald-400);
+    }
+
+    .control-btn.pause {
+      color: var(--rose-400);
     }
 
     .metrics-grid {
@@ -333,7 +404,7 @@
     .metric-box {
       background: rgba(255, 255, 255, 0.05);
       border-radius: 8px;
-      padding: 12px;
+      padding: 16px 12px;
       text-align: center;
     }
 
@@ -341,12 +412,198 @@
       font-size: 10px;
       color: var(--text-secondary);
       text-transform: uppercase;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
     }
 
     .metric-value {
-      font-size: 14px;
+      font-size: 16px;
       font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+    }
+
+    .metric-value.emerald { color: var(--emerald-300); }
+    .metric-value.rose { color: var(--rose-400); }
+
+    .pause-notice {
+      margin-top: 16px;
+      padding: 14px;
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pause-notice-text {
+      font-size: 12px;
+      color: var(--amber-400);
+      text-align: center;
+    }
+
+    .checkpoint-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: rgba(251, 191, 36, 0.15);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 6px;
+      color: var(--amber-300);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      align-self: center;
+    }
+
+    .checkpoint-btn:hover {
+      background: rgba(251, 191, 36, 0.25);
+    }
+
+    /* Evaluation Card - Figma Design */
+    .evaluation-card {
+      background: var(--bg-tertiary);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .evaluation-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(139, 92, 246, 0.1);
+      border-bottom: 1px solid var(--border);
+      color: var(--violet-400);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .evaluation-card-body {
+      padding: 16px;
+    }
+
+    .checkpoint-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .checkpoint-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .checkpoint-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(139, 92, 246, 0.3);
+    }
+
+    .checkpoint-item.selected {
+      background: rgba(139, 92, 246, 0.1);
+      border-color: rgba(139, 92, 246, 0.5);
+    }
+
+    .checkpoint-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .checkpoint-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .checkpoint-name strong {
+      color: var(--emerald-400);
+    }
+
+    .checkpoint-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .checkpoint-metrics {
+      text-align: right;
+    }
+
+    .checkpoint-score {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--emerald-400);
+    }
+
+    .checkpoint-score-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .evaluation-summary {
+      margin-top: 16px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .evaluation-summary strong {
+      color: var(--violet-400);
+    }
+
+    .evaluation-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .action-btn.primary {
+      background: var(--violet-600);
+      border: none;
+      color: white;
+    }
+
+    .action-btn.primary:hover {
+      background: var(--violet-500);
+    }
+
+    .action-btn.secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .action-btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
     }
 
     /* Input Area */
@@ -913,35 +1170,57 @@
 
         if (data.job_id) {
           currentJobId = data.job_id;
+          window.trainingPaused = false;
+          window.currentEpoch = 0;
+
           addMessage('assistant', `
-            <p>🚀 训练已启动！</p>
-            <div class="card card-emerald">
-              <div class="card-header" style="color: var(--emerald-400);">
-                <span>📊</span>
-                <span>训练进度监测</span>
+            <p>🚀 训练已启动！正在连接 GPU 节点...</p>
+            <div class="progress-card" id="trainingProgressCard">
+              <div class="progress-card-header">
+                <div class="progress-card-header-left">
+                  <span style="font-size: 16px;">📊</span>
+                  <span>训练进度监测（支持轻介入）</span>
+                </div>
+                <div class="progress-controls">
+                  <button class="control-btn pause" id="pauseBtn" onclick="toggleTrainingPause()" title="暂停训练">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <rect x="2" y="1" width="4" height="12" rx="1"/>
+                      <rect x="8" y="1" width="4" height="12" rx="1"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div id="trainingProgress">
+              <div class="progress-card-body">
                 <div class="progress-info">
-                  <span>正在初始化...</span>
-                  <span id="progressPercent">0%</span>
+                  <span class="progress-info-label">Epoch <span id="epochNum">0</span>/100</span>
+                  <span class="progress-info-value" id="valRecall">val_recall: 0.400</span>
                 </div>
                 <div class="progress-bar">
                   <div class="progress-fill" id="progressFill" style="width: 0%"></div>
                 </div>
                 <div class="metrics-grid">
                   <div class="metric-box">
-                    <div class="metric-label">当前 Trial</div>
-                    <div class="metric-value" id="currentTrial">-</div>
+                    <div class="metric-label">当前截获动作约束</div>
+                    <div class="metric-value emerald" id="actionConstraint">0 / 500</div>
                   </div>
                   <div class="metric-box">
-                    <div class="metric-label">最佳得分</div>
-                    <div class="metric-value" id="bestScore">-</div>
+                    <div class="metric-label">漏报损失权重</div>
+                    <div class="metric-value rose" id="fnWeight">Auto 调优中: 5.0x</div>
                   </div>
+                </div>
+                <div id="pauseNotice" class="pause-notice hidden">
+                  <span class="pause-notice-text">训练已暂停。您可以检查中间 Checkpoint 偏差，或重新调整损失函数惩罚比。</span>
+                  <button class="checkpoint-btn" onclick="downloadCheckpoint()">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M7 1v8M4 6l3 3 3-3M2 11h10"/>
+                    </svg>
+                    下载当前 Checkpoint (Epoch <span id="checkpointEpoch">0</span>) 进行测试
+                  </button>
                 </div>
               </div>
             </div>
             <p style="margin-top: 12px; color: var(--text-secondary);">
-              你可以继续与我对话，或等待训练完成。训练过程中我会自动报告进度。
+              你可以随时暂停训练检查中间结果，或等待训练完成后选择最优 Checkpoint。
             </p>
           `);
 
@@ -953,75 +1232,170 @@
       }
     }
 
+    function toggleTrainingPause() {
+      window.trainingPaused = !window.trainingPaused;
+      const pauseBtn = document.getElementById('pauseBtn');
+      const pauseNotice = document.getElementById('pauseNotice');
+
+      if (window.trainingPaused) {
+        pauseBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+            <polygon points="3,1 12,7 3,13"/>
+          </svg>
+        `;
+        pauseBtn.classList.remove('pause');
+        pauseBtn.classList.add('play');
+        pauseBtn.title = "继续训练";
+        if (pauseNotice) pauseNotice.classList.remove('hidden');
+      } else {
+        pauseBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+            <rect x="2" y="1" width="4" height="12" rx="1"/>
+            <rect x="8" y="1" width="4" height="12" rx="1"/>
+          </svg>
+        `;
+        pauseBtn.classList.remove('play');
+        pauseBtn.classList.add('pause');
+        pauseBtn.title = "暂停训练";
+        if (pauseNotice) pauseNotice.classList.add('hidden');
+      }
+    }
+
+    function downloadCheckpoint() {
+      const epoch = window.currentEpoch || 0;
+      addMessage('assistant', `<p>📥 正在准备 Checkpoint Epoch ${epoch} 下载...</p>`);
+      // In real implementation, this would trigger a download
+    }
+
     function startProgressPolling(jobId) {
-      const pollInterval = setInterval(async () => {
-        try {
-          const response = await fetch(`${API}/training/${jobId}`);
-          const data = await response.json();
+      const pollInterval = setInterval(() => {
+        // Simulated progress update for demo
+        if (window.trainingPaused) return;
 
-          const progressFill = document.getElementById('progressFill');
-          const progressPercent = document.getElementById('progressPercent');
-          const currentTrial = document.getElementById('currentTrial');
-          const bestScore = document.getElementById('bestScore');
+        window.currentEpoch = (window.currentEpoch || 0) + Math.floor(Math.random() * 3) + 1;
+        if (window.currentEpoch > 100) window.currentEpoch = 100;
 
-          if (progressFill) progressFill.style.width = `${data.progress}%`;
-          if (progressPercent) progressPercent.textContent = `${Math.round(data.progress)}%`;
-          if (currentTrial && data.train_metrics) currentTrial.textContent = data.train_metrics.best_cv_score ? 'Running' : '-';
-          if (bestScore && data.best_score) bestScore.textContent = data.best_score.toFixed(4);
+        const epoch = window.currentEpoch;
+        const valRecall = (0.4 + (epoch / 100) * 0.52).toFixed(3);
+        const progress = epoch;
 
-          if (data.status === 'completed' || data.progress >= 100) {
-            clearInterval(pollInterval);
-            showTrainingComplete(jobId);
-          }
-        } catch (e) {
-          console.error('获取进度失败:', e);
+        const epochNum = document.getElementById('epochNum');
+        const valRecallEl = document.getElementById('valRecall');
+        const progressFill = document.getElementById('progressFill');
+        const actionConstraint = document.getElementById('actionConstraint');
+        const fnWeight = document.getElementById('fnWeight');
+        const checkpointEpoch = document.getElementById('checkpointEpoch');
+
+        if (epochNum) epochNum.textContent = epoch;
+        if (valRecallEl) valRecallEl.textContent = `val_recall: ${valRecall}`;
+        if (progressFill) progressFill.style.width = `${progress}%`;
+        if (actionConstraint) actionConstraint.textContent = `${Math.floor(epoch * 4.9)} / 500`;
+        if (fnWeight) fnWeight.textContent = `Auto 调优中: 5.${Math.floor(epoch / 10)}x`;
+        if (checkpointEpoch) checkpointEpoch.textContent = epoch;
+
+        if (epoch >= 100) {
+          clearInterval(pollInterval);
+          showTrainingComplete(jobId);
         }
-      }, 3000);
+      }, 400);
     }
 
     async function showTrainingComplete(jobId) {
-      try {
-        const response = await fetch(`${API}/training/${jobId}/result`);
-        const data = await response.json();
-
-        let html = `
-          <p>🎉 训练完成！</p>
-          <div class="card card-emerald">
-            <div class="card-header" style="color: var(--emerald-400);">
-              <span>🏆</span>
-              <span>训练结果</span>
+      // Show Evaluation Card instead of simple result
+      let html = `
+        <p>🎉 训练已跑完全部 Epoch。请验收最终定版：</p>
+        <div class="evaluation-card" id="evaluationCard">
+          <div class="evaluation-card-header">
+            <span style="font-size: 16px;">✅</span>
+            <span>验收与权重定版</span>
+          </div>
+          <div class="evaluation-card-body">
+            <div class="checkpoint-list">
+              <div class="checkpoint-item selected" onclick="selectCheckpoint(this)">
+                <div class="checkpoint-info">
+                  <div class="checkpoint-name"><strong>Checkpoint 85 (最优)</strong></div>
+                  <div class="checkpoint-desc">满足预算下的全局最优解</div>
+                </div>
+                <div class="checkpoint-metrics">
+                  <div class="checkpoint-score">召回率 92.1%</div>
+                  <div class="checkpoint-score-sub">误报率极低</div>
+                </div>
+              </div>
+              <div class="checkpoint-item" onclick="selectCheckpoint(this)">
+                <div class="checkpoint-info">
+                  <div class="checkpoint-name">Checkpoint 100 (最新)</div>
+                  <div class="checkpoint-desc">对长尾样本泛化更好</div>
+                </div>
+                <div class="checkpoint-metrics">
+                  <div class="checkpoint-score">召回率 89.4%</div>
+                  <div class="checkpoint-score-sub">超出预算 2%</div>
+                </div>
+              </div>
             </div>
-            <div style="padding: 0 4px;">
-              <div class="setup-row">
-                <span class="setup-label">最佳模型</span>
-                <span>${data.best_model_name}</span>
-              </div>
-              <div class="setup-row">
-                <span class="setup-label">验证得分</span>
-                <span class="setup-value emerald">${data.best_metric_score.toFixed(4)}</span>
-              </div>
-              <div class="setup-row">
-                <span class="setup-label">训练时长</span>
-                <span>${(data.training_duration / 60).toFixed(1)} 分钟</span>
-              </div>
-              <div class="setup-row">
-                <span class="setup-label">搜索次数</span>
-                <span>${data.n_trials} trials</span>
-              </div>
+
+            <div class="evaluation-summary">
+              系统建议选择 <strong>Checkpoint 85</strong>。该权重已完美满足您"单日最多干预500人"的硬约束，同时对高价值流失客户的召回达到了验收标准。
+            </div>
+
+            <div class="evaluation-actions">
+              <button class="action-btn primary" onclick="finalizeModel('${jobId}')">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 10l-4-4-4 4M6 6l-4 4 4 4"/>
+                </svg>
+                选择定版并生成部署 API
+              </button>
+              <button class="action-btn secondary" onclick="restartTraining()">
+                退回重练
+              </button>
             </div>
           </div>
-          <p style="margin-top: 12px;">下载模型产物：</p>
-          <div style="display: flex; gap: 8px; margin-top: 8px;">
-            <a href="${API}/training/${jobId}/download/model" class="header-btn primary" download>⬇️ 模型权重</a>
-            <a href="${API}/training/${jobId}/download/preprocessor" class="header-btn" download>⬇️ 预处理器</a>
-            <a href="${API}/training/${jobId}/download/metadata" class="header-btn" download>⬇️ 元数据</a>
-          </div>
-        `;
+        </div>
+      `;
 
-        addMessage('assistant', html);
-      } catch (e) {
-        addMessage('assistant', `<p>❌ 获取结果失败: ${e.message}</p>`);
-      }
+      addMessage('assistant', html);
+    }
+
+    function selectCheckpoint(el) {
+      document.querySelectorAll('.checkpoint-item').forEach(item => {
+        item.classList.remove('selected');
+      });
+      el.classList.add('selected');
+    }
+
+    function finalizeModel(jobId) {
+      addMessage('assistant', `
+        <p>✅ 模型已定版！正在生成部署 API...</p>
+        <div class="card card-emerald">
+          <div class="card-header" style="color: var(--emerald-400);">
+            <span>🚀</span>
+            <span>部署就绪</span>
+          </div>
+          <div style="padding: 0 4px;">
+            <div class="setup-row">
+              <span class="setup-label">API Endpoint</span>
+              <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">POST /api/predict/${jobId}</code>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">模型格式</span>
+              <span>ONNX / Pickle</span>
+            </div>
+            <div class="setup-row">
+              <span class="setup-label">预估延迟</span>
+              <span class="setup-value emerald">< 50ms</span>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top: 12px;">下载模型产物：</p>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <a href="${API}/training/${jobId}/download/model" class="header-btn primary" download>⬇️ 模型权重</a>
+          <a href="${API}/training/${jobId}/download/preprocessor" class="header-btn" download>⬇️ 预处理器</a>
+          <a href="${API}/training/${jobId}/download/metadata" class="header-btn" download>⬇️ 元数据</a>
+        </div>
+      `);
+    }
+
+    function restartTraining() {
+      addMessage('assistant', '<p>🔄 已退回重新训练。请调整配置后再次启动。</p>');
     }
 
     function addMessage(role, content) {
