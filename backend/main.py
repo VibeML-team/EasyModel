@@ -49,7 +49,7 @@ Mode = Literal["conservative", "standard", "aggressive"]
 # ============ Pydantic 模型 ============
 
 class ClarifyRequest(BaseModel):
-    user_goal: str = Field(min_length=5)
+    user_goal: str = Field(min_length=1)
     must_keep: list[str] = Field(default_factory=list)
     can_change: list[str] = Field(default_factory=list)
     worst_errors: list[str] = Field(default_factory=list)
