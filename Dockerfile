@@ -15,7 +15,8 @@ COPY backend/requirements.txt .
 # 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制代码
+# 复制代码（使用动态参数打破缓存）
+ARG CACHE_BUST=1
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 
