@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 
 # 导入新模块
 from backend.compiler import compile_objective, ObjectiveSpec
-from backend.data_manager import data_manager, DataSpec, DataManager
+from backend.data_manager import data_manager, DataSpec, DataManager, DATA_DIR
 from backend.trainer import AutoMLTrainer, TrainingConfig, TrainingResult, CHECKPOINT_DIR
 
 # 导入 V2 API
@@ -61,8 +61,10 @@ class ClarifyResponse(BaseModel):
     is_ambiguous: bool
     reasons: list[str]
     follow_up_questions: list[str]
-    compiled_intent: dict[str, Any]
+    compiled_intent: dict[str, Any] = {}
     objective_spec: dict[str, Any] | None = None
+    # 新增：个性化方案（双层结构）
+    personalized_plan: dict[str, Any] | None = None
 
 
 class StartTrainingRequest(BaseModel):
@@ -390,7 +392,8 @@ def health() -> dict[str, Any]:
     
     return {
         "status": "ok", 
-        "version": "1.0.0",
+        "version": "1.1.0-fix-ambiguity",
+        "deploy_tag": "20260408-v3",
         "llm_configured": llm_configured,
         "llm_model": llm_model,
         "features": {
@@ -446,47 +449,470 @@ async def upload_data(
         raise HTTPException(400, f"数据处理失败: {str(e)}")
 
 
-# ---- Google Drive 集成 API ----
+# ---- Google Drive / 链接导入 API ----
 
-@app.get("/api/drive/status")
-def google_drive_status() -> dict[str, Any]:
-    """检查 Google Drive 集成状态"""
-    # 检查是否配置了 Google Drive API
-    client_id = os.getenv("GOOGLE_CLIENT_ID")
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+class LinkImportRequest(BaseModel):
+    """通过链接导入数据"""
+    url: str = Field(min_length=5, description="Google Drive 分享链接、Google Sheets 链接或任何公开的 CSV/Excel 下载链接")
+    target_hint: str = ""
+
+
+def _parse_google_drive_url(url: str) -> tuple[str | None, str]:
+    """
+    解析 Google Drive/Sheets URL，返回 (direct_download_url, filename)
     
+    支持格式：
+    - https://drive.google.com/file/d/{FILE_ID}/view?usp=sharing
+    - https://drive.google.com/open?id={FILE_ID}
+    - https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid=0
+    - 直接下载链接
+    """
+    import re
+    
+    # Google Drive file link
+    match = re.search(r'drive\.google\.com/file/d/([a-zA-Z0-9_-]+)', url)
+    if match:
+        file_id = match.group(1)
+        return f"https://drive.google.com/uc?export=download&id={file_id}", f"gdrive_{file_id}.csv"
+    
+    # Google Drive open link
+    match = re.search(r'drive\.google\.com/open\?id=([a-zA-Z0-9_-]+)', url)
+    if match:
+        file_id = match.group(1)
+        return f"https://drive.google.com/uc?export=download&id={file_id}", f"gdrive_{file_id}.csv"
+    
+    # Google Sheets link → export as CSV
+    match = re.search(r'docs\.google\.com/spreadsheets/d/([a-zA-Z0-9_-]+)', url)
+    if match:
+        sheet_id = match.group(1)
+        # 提取 gid（子表ID），默认 0
+        gid_match = re.search(r'gid=(\d+)', url)
+        gid = gid_match.group(1) if gid_match else "0"
+        return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}", f"gsheet_{sheet_id}.csv"
+    
+    # 普通链接（直接下载）
+    return url, url.split('/')[-1].split('?')[0] or "downloaded_data.csv"
+
+
+@app.post("/api/data/import-link")
+async def import_from_link(req: LinkImportRequest) -> dict[str, Any]:
+    """
+    通过链接导入数据
+    
+    支持：
+    - Google Drive 分享链接（文件需设为"知道链接的人可查看"）
+    - Google Sheets 链接（自动导出为 CSV）
+    - 任何公开的 CSV/Excel 下载链接
+    """
+    import httpx
+    
+    download_url, filename = _parse_google_drive_url(req.url)
+    
+    if not download_url:
+        raise HTTPException(400, "无法解析链接。请确保是 Google Drive 分享链接、Google Sheets 链接或直接下载链接。")
+    
+    # 下载文件
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            response = await client.get(download_url)
+            response.raise_for_status()
+            content = response.content
+    except httpx.TimeoutException:
+        raise HTTPException(408, "下载超时。文件可能过大或网络不稳定，请稍后重试。")
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            raise HTTPException(404, "文件不存在或无访问权限。请检查链接是否正确，且文件已设为公开分享。")
+        raise HTTPException(502, f"下载失败 (HTTP {e.response.status_code})。请检查链接权限。")
+    except Exception as e:
+        raise HTTPException(502, f"下载失败: {str(e)}")
+    
+    if len(content) < 10:
+        raise HTTPException(400, "下载的文件为空。请检查链接权限，确保文件已设为'知道链接的人可查看'。")
+    
+    # 检测文件格式（如果 filename 没有扩展名，尝试从 content 推断）
+    if not any(filename.lower().endswith(ext) for ext in ['.csv', '.xlsx', '.xls', '.zip', '.7z']):
+        # 尝试检测内容格式
+        content_type = response.headers.get('content-type', '')
+        if 'spreadsheet' in content_type or 'excel' in content_type:
+            filename = filename + '.xlsx'
+        elif 'zip' in content_type:
+            filename = filename + '.zip'
+        else:
+            filename = filename + '.csv'  # 默认当 CSV 处理
+    
+    # 交给 data_manager 统一处理
+    try:
+        spec = data_manager.upload_file(
+            content=content,
+            filename=filename,
+            target_hint=req.target_hint if req.target_hint else None,
+        )
+        return {
+            "success": True,
+            "source": "link_import",
+            "original_url": req.url,
+            "dataset_id": spec.dataset_id,
+            "filename": spec.filename,
+            "n_rows": spec.n_rows,
+            "n_cols": spec.n_cols,
+            "target_column": spec.target_column,
+            "feature_columns": spec.feature_columns,
+            "columns": [c.to_dict() for c in spec.columns],
+        }
+    except Exception as e:
+        raise HTTPException(400, f"数据解析失败: {str(e)}")
+
+
+@app.post("/api/data/{dataset_id}/explore")
+def explore_dataset(dataset_id: str, user_goal: str = "") -> dict[str, Any]:
+    """
+    LLM 驱动的数据探索 Agent
+    
+    让 LLM 像数据科学家一样浏览数据：
+    - 理解每列的业务含义
+    - 识别 feature vs target
+    - 发现数据质量问题
+    - 给出通俗的数据摘要
+    """
+    try:
+        spec = data_manager.get_dataset(dataset_id)
+    except ValueError:
+        raise HTTPException(404, f"数据集不存在: {dataset_id}")
+    
+    # 加载 DataFrame 获取样本行
+    try:
+        df = data_manager.load_dataframe(dataset_id)
+        # 取前几行作为样本给 LLM 看
+        sample_rows = df.head(8).to_dict(orient='records')
+        # 让 NaN 变成 null（JSON 兼容）
+        for row in sample_rows:
+            for k, v in row.items():
+                if pd.isna(v):
+                    row[k] = None
+    except Exception:
+        sample_rows = []
+    
+    # 构建列信息
+    columns_info = [c.to_dict() for c in spec.columns] if spec.columns else []
+    
+    # 调用 LLM 数据探索
+    from backend.compiler import _use_llm_compiler
+    if _use_llm_compiler():
+        try:
+            from backend.llm_client import get_llm_client
+            client = get_llm_client()
+            
+            exploration = client.explore_data(
+                columns_info=columns_info,
+                sample_rows=sample_rows,
+                n_rows=spec.n_rows,
+                n_cols=spec.n_cols,
+                filename=spec.filename,
+                user_goal=user_goal if user_goal else None,
+            )
+            
+            # 如果 LLM 推荐了不同的 target，更新 DataSpec
+            target_rec = exploration.get("target_recommendation", {})
+            if target_rec.get("column") and target_rec.get("confidence", 0) > 0.6:
+                recommended_target = target_rec["column"]
+                if recommended_target in [c["name"] for c in columns_info]:
+                    spec.target_column = recommended_target
+                    spec.feature_columns = [
+                        c["name"] for c in columns_info
+                        if c["name"] != recommended_target and c.get("column_type") != "id"
+                    ]
+                    # 更新持久化的元数据
+                    meta_path = DATA_DIR / f"{dataset_id}_meta.json"
+                    with open(meta_path, 'w', encoding='utf-8') as f:
+                        json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
+                    data_manager.datasets[dataset_id] = spec
+            
+            return {
+                "success": True,
+                "dataset_id": dataset_id,
+                "exploration": exploration,
+                "updated_spec": {
+                    "target_column": spec.target_column,
+                    "feature_columns": spec.feature_columns,
+                },
+            }
+        except Exception as e:
+            # LLM 失败，返回基础信息
+            return {
+                "success": True,
+                "dataset_id": dataset_id,
+                "exploration": {
+                    "business_summary": f"数据集包含 {spec.n_rows} 行 × {spec.n_cols} 列。LLM 分析暂时不可用。",
+                    "data_understanding": {"summary": f"基本信息：{spec.n_rows} 行, {spec.n_cols} 列"},
+                },
+                "updated_spec": {
+                    "target_column": spec.target_column,
+                    "feature_columns": spec.feature_columns,
+                },
+                "llm_error": str(e)[:200],
+            }
+    else:
+        return {
+            "success": True,
+            "dataset_id": dataset_id,
+            "exploration": {
+                "business_summary": f"数据集 '{spec.filename}' 包含 {spec.n_rows} 行 × {spec.n_cols} 列。配置 LLM 后可获得智能数据分析。",
+                "data_understanding": {
+                    "summary": f"{spec.n_rows} 行, {spec.n_cols} 列",
+                    "columns_analysis": [
+                        {"name": c.to_dict()["name"], "role": "target" if c.name == spec.target_column else "feature"}
+                        for c in (spec.columns or [])
+                    ],
+                },
+                "target_recommendation": {
+                    "column": spec.target_column,
+                    "confidence": 0.5,
+                    "reasoning": "基于规则推断（未使用 LLM）",
+                },
+            },
+            "updated_spec": {
+                "target_column": spec.target_column,
+                "feature_columns": spec.feature_columns,
+            },
+        }
+
+
+class DataSearchRequest(BaseModel):
+    """搜索公开数据集"""
+    user_goal: str = Field(min_length=3)
+    task_type: str | None = None
+
+
+class SyntheticDataRequest(BaseModel):
+    """生成合成数据"""
+    user_goal: str = Field(min_length=3)
+    schema: list[dict] = Field(default_factory=list)
+    target_column: str = "target"
+    n_rows: int = Field(default=500, ge=50, le=5000)
+
+
+class DownloadPublicDatasetRequest(BaseModel):
+    """下载公开数据集"""
+    url: str = Field(min_length=5)
+    dataset_name: str = ""
+    target_hint: str = ""
+
+
+@app.post("/api/data/search-public")
+def search_public_datasets(req: DataSearchRequest) -> dict[str, Any]:
+    """
+    搜索公开数据集
+    
+    1. LLM 推荐最匹配的公开数据集（HuggingFace, GitHub, ModelScope, Kaggle 等）
+    2. 实际查询 HuggingFace API 验证数据集存在性
+    3. 提供合成数据方案作为备选
+    """
+    from backend.compiler import _use_llm_compiler
+
+    # LLM 推荐
+    llm_suggestions = None
+    if _use_llm_compiler():
+        try:
+            from backend.llm_client import get_llm_client
+            client = get_llm_client()
+            llm_suggestions = client.suggest_data_sources(
+                user_goal=req.user_goal,
+                task_type=req.task_type,
+            )
+        except Exception as e:
+            llm_suggestions = {"error": str(e)[:200]}
+
+    # 实际查询 HuggingFace Datasets API
+    hf_results = []
+    try:
+        import httpx
+        keywords = []
+        if llm_suggestions and llm_suggestions.get("search_keywords"):
+            keywords = llm_suggestions["search_keywords"].get("en", [])[:3]
+        if not keywords:
+            keywords = [req.user_goal[:50]]
+
+        for kw in keywords[:2]:  # 最多查 2 个关键词
+            resp = httpx.get(
+                "https://huggingface.co/api/datasets",
+                params={"search": kw, "limit": 5, "sort": "downloads", "direction": -1},
+                timeout=10.0,
+            )
+            if resp.status_code == 200:
+                for ds in resp.json():
+                    hf_results.append({
+                        "name": ds.get("id", ""),
+                        "source": "huggingface",
+                        "url": f"https://huggingface.co/datasets/{ds.get('id', '')}",
+                        "description": ds.get("description", "")[:200] if ds.get("description") else "",
+                        "downloads": ds.get("downloads", 0),
+                        "likes": ds.get("likes", 0),
+                        "tags": ds.get("tags", [])[:5],
+                    })
+    except Exception:
+        pass  # HuggingFace API 不可用时静默失败
+
+    # 去重
+    seen = set()
+    unique_hf = []
+    for r in hf_results:
+        if r["name"] not in seen:
+            seen.add(r["name"])
+            unique_hf.append(r)
+
     return {
-        "enabled": bool(client_id and client_secret),
-        "client_id_configured": bool(client_id),
-        "auth_url": "/api/drive/auth" if client_id else None,
+        "success": True,
+        "llm_suggestions": llm_suggestions,
+        "huggingface_results": unique_hf[:8],
+        "has_synthetic_plan": bool(llm_suggestions and llm_suggestions.get("synthetic_data_plan")),
     }
 
 
-@app.get("/api/drive/auth")
-def google_drive_auth():
-    """获取 Google Drive 授权 URL"""
-    # 预留：实际实现需要 Google OAuth 流程
-    raise HTTPException(501, "Google Drive 集成需要配置 OAuth 凭证。请联系管理员。")
-
-
-@app.post("/api/drive/import")
-async def import_from_drive(
-    file_id: str = Form(...),
-    file_name: str = Form(...),
-    target_hint: str = Form(""),
-) -> dict[str, Any]:
+@app.post("/api/data/generate-synthetic")
+async def generate_synthetic_data(req: SyntheticDataRequest) -> dict[str, Any]:
     """
-    从 Google Drive 导入文件
+    用 AI 生成合成训练数据
     
-    需要：
-    1. 用户已完成 Google OAuth 授权
-    2. 有有效的 access_token
+    基于用户的业务描述和 schema，让 LLM 生成符合业务逻辑的合成数据。
+    生成后自动注册为数据集，可直接用于训练。
     """
-    # 预留：实际实现需要：
-    # 1. 验证用户 access_token
-    # 2. 调用 Google Drive API 下载文件
-    # 3. 保存并解析文件
-    raise HTTPException(501, "Google Drive 导入功能开发中。请直接上传文件。")
+    from backend.compiler import _use_llm_compiler
+
+    if not _use_llm_compiler():
+        raise HTTPException(501, "合成数据生成需要配置 LLM。请设置 LLM_API_KEY 环境变量。")
+
+    try:
+        from backend.llm_client import get_llm_client
+        client = get_llm_client()
+
+        # 如果没有提供 schema，让 LLM 先设计 schema
+        schema = req.schema
+        target_column = req.target_column
+        if not schema:
+            suggestions = client.suggest_data_sources(
+                user_goal=req.user_goal,
+                task_type=None,
+            )
+            plan = suggestions.get("synthetic_data_plan", {})
+            schema = plan.get("schema", [])
+            target_column = plan.get("target_column", "target")
+
+            if not schema:
+                raise ValueError("无法自动设计数据 schema，请提供列定义。")
+
+        # 生成合成数据 CSV
+        csv_text = client.generate_synthetic_data(
+            user_goal=req.user_goal,
+            schema=schema,
+            target_column=target_column,
+            n_rows=min(req.n_rows, 2000),  # LLM 单次上限
+        )
+
+        if not csv_text or len(csv_text.strip()) < 20:
+            raise ValueError("生成的数据为空，请重试。")
+
+        # 注册为数据集
+        content = csv_text.encode('utf-8')
+        spec = data_manager.upload_file(
+            content=content,
+            filename=f"synthetic_{int(time.time())}.csv",
+            target_hint=target_column,
+        )
+
+        return {
+            "success": True,
+            "source": "synthetic",
+            "dataset_id": spec.dataset_id,
+            "filename": spec.filename,
+            "n_rows": spec.n_rows,
+            "n_cols": spec.n_cols,
+            "target_column": spec.target_column,
+            "feature_columns": spec.feature_columns,
+            "columns": [c.to_dict() for c in spec.columns],
+            "caveat": "这是 AI 生成的合成数据，适合验证模型流程和原型测试。建议后续替换为真实业务数据以获得生产级效果。",
+        }
+
+    except Exception as e:
+        raise HTTPException(400, f"合成数据生成失败: {str(e)}")
+
+
+@app.post("/api/data/download-public")
+async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str, Any]:
+    """
+    下载公开数据集并注册
+    
+    支持 HuggingFace datasets、GitHub raw 文件链接、
+    以及任何返回 CSV/Excel 的公开 URL。
+    """
+    import httpx
+
+    url = req.url
+    filename = req.dataset_name or url.split('/')[-1].split('?')[0] or "public_dataset"
+
+    # HuggingFace datasets 特殊处理
+    if "huggingface.co/datasets/" in url and "/resolve/" not in url:
+        # 尝试通过 datasets API 获取下载链接
+        # e.g. huggingface.co/datasets/scikit-learn/iris → 尝试直接获取 parquet/csv
+        import re
+        match = re.search(r'huggingface\.co/datasets/([^/?#]+/[^/?#]+)', url)
+        if match:
+            ds_id = match.group(1)
+            # 尝试下载默认 split 的 CSV
+            url = f"https://huggingface.co/datasets/{ds_id}/resolve/main/data/train.csv"
+            filename = f"hf_{ds_id.replace('/', '_')}.csv"
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            content = response.content
+    except Exception as e:
+        raise HTTPException(502, f"下载失败: {str(e)[:200]}。请检查链接是否可公开访问。")
+
+    if len(content) < 10:
+        raise HTTPException(400, "下载的文件为空。")
+
+    # 确保有文件扩展名
+    if not any(filename.lower().endswith(ext) for ext in ['.csv', '.xlsx', '.xls', '.zip', '.7z', '.parquet']):
+        content_type = response.headers.get('content-type', '')
+        if 'parquet' in content_type:
+            filename += '.parquet'
+        elif 'excel' in content_type or 'spreadsheet' in content_type:
+            filename += '.xlsx'
+        else:
+            filename += '.csv'
+
+    # 处理 parquet
+    if filename.lower().endswith('.parquet'):
+        try:
+            import io
+            df = pd.read_parquet(io.BytesIO(content))
+            csv_buf = df.to_csv(index=False)
+            content = csv_buf.encode('utf-8')
+            filename = filename.replace('.parquet', '.csv')
+        except Exception as e:
+            raise HTTPException(400, f"Parquet 解析失败: {str(e)[:200]}")
+
+    try:
+        spec = data_manager.upload_file(
+            content=content,
+            filename=filename,
+            target_hint=req.target_hint if req.target_hint else None,
+        )
+        return {
+            "success": True,
+            "source": "public_download",
+            "original_url": req.url,
+            "dataset_id": spec.dataset_id,
+            "filename": spec.filename,
+            "n_rows": spec.n_rows,
+            "n_cols": spec.n_cols,
+            "target_column": spec.target_column,
+            "feature_columns": spec.feature_columns,
+            "columns": [c.to_dict() for c in spec.columns],
+        }
+    except Exception as e:
+        raise HTTPException(400, f"数据解析失败: {str(e)}")
 
 
 @app.get("/api/data/list")
@@ -515,37 +941,85 @@ def clarify_intent(req: ClarifyRequest) -> ClarifyResponse:
     """
     意图澄清 API
     
-    将自然语言需求编译为 ObjectiveSpec
+    流程：
+    1. LLM 判断是否为 ML 需求、是否足够清晰
+    2. 如果清晰 → 生成个性化双层方案（业务层 + 技术层）
+    3. 如果模糊 → 返回引导追问
     """
-    is_ambiguous, reasons, follow_ups = detect_ambiguity(req)
+    # 空输入快速拒绝
+    if not req.user_goal or not req.user_goal.strip():
+        return ClarifyResponse(
+            is_ambiguous=True,
+            reasons=["请输入你的需求"],
+            follow_up_questions=["请描述你的业务场景和数据，我来帮你设计训练方案。"],
+        )
     
-    # 即使模糊，也尝试编译
-    spec = compile_objective(
-        user_goal=req.user_goal,
-        must_keep=req.must_keep,
-        can_change=req.can_change,
-        worst_errors=req.worst_errors,
-        priority=req.priority,
-    )
+    # LLM 判断：1) 是否是 ML 需求  2) 是否足够清晰
+    _debug_info = {"goal_len": len(req.user_goal.strip()), "deploy_tag": "20260408-v3"}
+    try:
+        is_ambiguous, reasons, follow_ups = detect_ambiguity(req)
+        _debug_info["detect_result"] = {"is_ambiguous": is_ambiguous, "reasons": reasons[:2]}
+    except Exception as e:
+        _debug_info["detect_error"] = str(e)[:200]
+        is_ambiguous, reasons, follow_ups = False, [], []
     
-    compiled = {
-        "objective": req.user_goal,
-        "must_keep": req.must_keep,
-        "can_change": req.can_change,
-        "worst_errors": req.worst_errors,
-        "priority": req.priority,
-        "recommended_mode": "conservative" if is_ambiguous else "standard",
-    }
+    personalized_plan = None
     
-    response = ClarifyResponse(
+    if not is_ambiguous:
+        # 需求清晰 → 生成个性化方案
+        from backend.compiler import _use_llm_compiler
+        if _use_llm_compiler():
+            try:
+                from backend.llm_client import get_llm_client
+                client = get_llm_client()
+                
+                # 获取数据 schema（如果有）
+                data_schema = None
+                if req.dataset_id:
+                    try:
+                        ds = data_manager.get_dataset(req.dataset_id)
+                        data_schema = {
+                            "columns": [
+                                {"name": c.name, "type": c.column_type.value,
+                                 "sample": c.sample_values[:3] if c.sample_values else []}
+                                for c in ds.columns
+                            ],
+                            "target_column": ds.target_column,
+                            "n_rows": ds.n_rows,
+                        }
+                    except Exception:
+                        pass
+                
+                personalized_plan = client.compile_personalized_plan(
+                    user_goal=req.user_goal,
+                    must_keep=req.must_keep if req.must_keep else None,
+                    worst_errors=req.worst_errors if req.worst_errors else None,
+                    priority=req.priority,
+                    data_schema=data_schema,
+                )
+            except Exception as e:
+                # LLM 方案生成失败 → 标记需要更多信息
+                personalized_plan = {
+                    "business_layer": {
+                        "understanding": "我理解了你的需求，但生成个性化方案时遇到了问题。",
+                        "personalized_approach": "请稍后重试，或提供更多细节。",
+                        "core_promises": [],
+                        "vs_standard": "",
+                    },
+                    "technical_layer": {},
+                    "confidence": 0.2,
+                    "needs_more_info": [f"方案生成异常：{str(e)[:100]}"],
+                }
+    
+    resp = ClarifyResponse(
         is_ambiguous=is_ambiguous,
         reasons=reasons,
         follow_up_questions=follow_ups,
-        compiled_intent=compiled,
-        objective_spec=spec.to_dict(),
+        personalized_plan=personalized_plan,
     )
-    
-    return response
+    # 临时 debug：在 compiled_intent 里塞诊断信息
+    resp.compiled_intent = _debug_info
+    return resp
 
 
 @app.post("/api/intent/compile")

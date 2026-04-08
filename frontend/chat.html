@@ -274,6 +274,214 @@
       color: white;
     }
 
+    /* === 个性化方案双层 UI === */
+    .plan-business {
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05));
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 12px;
+      margin-top: 12px;
+    }
+
+    .plan-understanding {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+
+    .plan-approach {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border-left: 3px solid var(--violet-500);
+      margin-bottom: 16px;
+    }
+
+    .plan-promises {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0;
+    }
+
+    .plan-promises li {
+      padding: 8px 0 8px 24px;
+      position: relative;
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .plan-promises li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--emerald-400);
+      font-weight: 700;
+    }
+
+    .plan-vs-standard {
+      font-size: 13px;
+      color: var(--amber-400);
+      padding: 10px 14px;
+      background: rgba(251, 191, 36, 0.08);
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    .plan-vs-standard::before {
+      content: '⚡ ';
+    }
+
+    /* 技术详情展开区域 */
+    .tech-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 0;
+      margin-top: 16px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      transition: color 0.2s;
+    }
+
+    .tech-toggle:hover { color: var(--text-primary); }
+
+    .tech-toggle .arrow {
+      transition: transform 0.2s;
+      font-size: 10px;
+    }
+
+    .tech-toggle.expanded .arrow {
+      transform: rotate(90deg);
+    }
+
+    .tech-details {
+      display: none;
+      margin-top: 8px;
+    }
+
+    .tech-details.visible {
+      display: block;
+    }
+
+    .tech-section {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .tech-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .tech-section-header:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tech-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .tech-section-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .tech-section-body {
+      display: none;
+      padding: 0 16px 14px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+
+    .tech-section-body.visible {
+      display: block;
+    }
+
+    .tech-section-body .reasoning {
+      padding: 8px 12px;
+      background: rgba(139, 92, 246, 0.06);
+      border-radius: 6px;
+      margin-bottom: 10px;
+      color: var(--violet-400);
+      font-size: 12px;
+    }
+
+    .tech-section-body .details {
+      white-space: pre-wrap;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+    }
+
+    .risk-item {
+      padding: 8px 12px;
+      background: rgba(251, 113, 133, 0.06);
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
+
+    .risk-item .risk-label {
+      color: var(--rose-400);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .risk-item .risk-mitigation {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .needs-more-info {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(59, 130, 246, 0.08);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--blue-400);
+    }
+
+    .confidence-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .confidence-track {
+      flex: 1;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.5s;
+    }
+
     .confirm-btn {
       width: 100%;
       margin-top: 16px;
@@ -834,6 +1042,9 @@
           <button class="toolbar-btn" onclick="document.getElementById('fileInput').click()">
             📎 上传文件
           </button>
+          <button class="toolbar-btn" onclick="promptLinkImport()">
+            🔗 链接导入
+          </button>
           <button class="toolbar-btn" onclick="showHelp()">
             ❓ 帮助
           </button>
@@ -919,6 +1130,8 @@
       if (uploadArea) uploadArea.style.display = 'block';
     }
 
+    // isBusinessQuery 已移除 — 是否是 ML 需求由后端 LLM 判断
+
     function formatFileSize(bytes) {
       if (bytes === 0) return '0 Bytes';
       const k = 1024;
@@ -942,34 +1155,13 @@
         const data = await response.json();
 
         if (data.success || data.dataset_id) {
-          hideLoading();
           currentDatasetId = data.dataset_id;
           addMessage('assistant', `
-            <p>✅ 数据上传成功！</p>
-            <div class="card">
-              <div class="card-header">📊 数据概览</div>
-              <div style="padding: 0 4px;">
-                <div class="setup-row">
-                  <span class="setup-label">数据集 ID</span>
-                  <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">${data.dataset_id}</code>
-                </div>
-                <div class="setup-row">
-                  <span class="setup-label">数据规模</span>
-                  <span>${data.n_rows} 行 × ${data.n_cols} 列</span>
-                </div>
-                <div class="setup-row">
-                  <span class="setup-label">目标列</span>
-                  <span class="setup-value ${data.target_column ? 'emerald' : 'rose'}">${data.target_column || '未自动识别'}</span>
-                </div>
-              </div>
-            </div>
-            <p style="margin-top: 12px;">请描述你的预测目标和业务约束，例如：</p>
-            <ul style="margin: 8px 0; padding-left: 20px; color: var(--text-secondary);">
-              <li>"预测用户是否会流失，宁可误报也别漏报"</li>
-              <li>"预测房价，避免高估"</li>
-              <li>"判断是否为欺诈交易，误报成本很高"</li>
-            </ul>
+            <p>📂 数据已接收（${data.n_rows} 行 × ${data.n_cols} 列），正在让 AI 分析数据结构...</p>
           `);
+
+          // 自动触发 LLM 数据探索
+          await exploreDataset(data.dataset_id);
         } else {
           throw new Error(data.message || '上传失败');
         }
@@ -979,12 +1171,428 @@
       }
     }
 
+    async function importFromLink(url) {
+      showLoading();
+      addMessage('user', `通过链接导入数据：${url}`);
+
+      try {
+        const response = await fetch(`${API}/data/import-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url })
+        });
+
+        const data = await response.json();
+
+        if (data.success || data.dataset_id) {
+          currentDatasetId = data.dataset_id;
+          addMessage('assistant', `
+            <p>📂 数据已从链接导入（${data.n_rows} 行 × ${data.n_cols} 列），正在让 AI 分析数据结构...</p>
+          `);
+          await exploreDataset(data.dataset_id);
+        } else {
+          throw new Error(data.detail || data.message || '导入失败');
+        }
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>❌ 链接导入失败: ${e.message}</p><p style="color: var(--text-secondary); font-size: 13px;">请确保链接可公开访问。Google Drive 文件需设为"知道链接的人可查看"。</p>`);
+      }
+    }
+
+    async function exploreDataset(datasetId) {
+      try {
+        const response = await fetch(`${API}/data/${datasetId}/explore`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_goal: '' })
+        });
+
+        const data = await response.json();
+        hideLoading();
+
+        if (data.exploration) {
+          showDataExploration(data);
+        } else {
+          addMessage('assistant', '<p>数据分析完成，但未获得详细结果。请描述你的业务目标。</p>');
+        }
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>⚠️ AI 数据分析暂时不可用。请直接描述你的业务目标。</p>`);
+      }
+    }
+
+    function showDataExploration(data) {
+      const exp = data.exploration;
+      const spec = data.updated_spec || {};
+      const understanding = exp.data_understanding || {};
+      const targetRec = exp.target_recommendation || {};
+      const qualityReport = exp.data_quality_report || {};
+      const colAnalysis = understanding.columns_analysis || [];
+
+      // 业务摘要
+      let html = `<p>🔍 <strong>AI 数据分析完成</strong></p>`;
+
+      if (exp.business_summary) {
+        html += `<div class="plan-business" style="margin-top: 8px;">
+          <div class="plan-understanding">${exp.business_summary}</div>
+        </div>`;
+      }
+
+      // Target 推荐
+      if (targetRec.column) {
+        const confPct = Math.round((targetRec.confidence || 0) * 100);
+        const confColor = confPct >= 70 ? 'var(--emerald-400)' : confPct >= 40 ? 'var(--amber-400)' : 'var(--rose-400)';
+        html += `
+          <div class="card card-emerald" style="margin-top: 12px;">
+            <div class="card-header"><span>🎯</span><span>AI 识别的预测目标</span></div>
+            <div style="padding: 4px 0;">
+              <div class="setup-row">
+                <span class="setup-label">推荐目标列</span>
+                <span class="setup-value emerald" style="font-weight: 600;">${targetRec.column}</span>
+              </div>
+              <div class="setup-row">
+                <span class="setup-label">任务类型</span>
+                <span>${targetRec.task_type || '待确认'}</span>
+              </div>
+              <div class="setup-row">
+                <span class="setup-label">判断依据</span>
+                <span style="font-size: 12px; color: var(--text-secondary);">${targetRec.reasoning || ''}</span>
+              </div>
+              <div class="confidence-bar" style="margin-top: 8px;">
+                <span>置信度</span>
+                <div class="confidence-track">
+                  <div class="confidence-fill" style="width: ${confPct}%; background: ${confColor};"></div>
+                </div>
+                <span style="color: ${confColor}">${confPct}%</span>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      // 列角色分析（展开查看）
+      if (colAnalysis.length > 0) {
+        const exploreId = 'col-explore-' + Date.now();
+        html += `
+          <button class="tech-toggle" onclick="toggleTechDetails('${exploreId}', this)">
+            <span class="arrow">▶</span>
+            <span>📋 查看每列的详细分析（${colAnalysis.length} 列）</span>
+          </button>
+          <div class="tech-details" id="${exploreId}">`;
+
+        for (const col of colAnalysis) {
+          const roleColors = { target: 'var(--emerald-400)', feature: 'var(--blue-400)', id: 'var(--text-secondary)', exclude: 'var(--rose-400)', datetime_index: 'var(--amber-400)' };
+          const roleColor = roleColors[col.role] || 'var(--text-secondary)';
+          const roleLabels = { target: '🎯 目标', feature: '📊 特征', id: '🔑 ID', exclude: '🚫 排除', datetime_index: '📅 时间索引' };
+          const roleLabel = roleLabels[col.role] || col.role;
+
+          html += `
+            <div class="tech-section">
+              <div class="tech-section-header" onclick="toggleSection('col-${col.name}')">
+                <div>
+                  <div class="tech-section-title">${col.name} <span style="color: ${roleColor}; font-size: 11px; font-weight: normal;">${roleLabel}</span></div>
+                  <div class="tech-section-subtitle">${col.business_meaning || ''}</div>
+                </div>
+                <span style="color: var(--text-secondary); font-size: 10px;">▼</span>
+              </div>
+              <div class="tech-section-body" id="col-${col.name}">
+                ${col.role_reason ? `<div class="reasoning">💡 ${col.role_reason}</div>` : ''}
+                ${col.data_quality ? `<div class="details" style="margin-bottom: 6px;"><strong>数据质量：</strong>${col.data_quality}</div>` : ''}
+                ${col.engineering_hint ? `<div class="details"><strong>工程建议：</strong>${col.engineering_hint}</div>` : ''}
+              </div>
+            </div>`;
+        }
+        html += '</div>';
+      }
+
+      // 数据质量问题
+      if (qualityReport.issues && qualityReport.issues.length > 0) {
+        html += `<div class="needs-more-info" style="margin-top: 12px;">
+          ⚠️ <strong>数据质量提醒</strong>（${qualityReport.issues.length} 个问题）：
+          <ul style="margin: 6px 0 0 16px; font-size: 12px;">
+            ${qualityReport.issues.map(issue =>
+              `<li style="color: ${issue.severity === 'high' ? 'var(--rose-400)' : 'var(--text-secondary)'};">${issue.description}${issue.suggestion ? ' → ' + issue.suggestion : ''}</li>`
+            ).join('')}
+          </ul>
+        </div>`;
+      }
+
+      // 下一步引导
+      html += `<p style="margin-top: 16px;">现在请描述你的<strong>业务目标和约束</strong>，我会根据数据结构定制训练方案。</p>`;
+
+      if (exp.suggested_next_steps && exp.suggested_next_steps.length > 0) {
+        html += `<div style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">
+          💡 建议：${exp.suggested_next_steps.join('；')}
+        </div>`;
+      }
+
+      addMessage('assistant', html);
+    }
+
+    function promptLinkImport() {
+      const url = prompt('请粘贴数据链接：\n\n支持：\n• Google Drive 分享链接\n• Google Sheets 链接\n• 任何公开的 CSV/Excel 下载链接');
+      if (url && url.trim()) {
+        importFromLink(url.trim());
+      }
+    }
+
+    // ===== 公开数据集搜索 + 合成数据 =====
+
+    async function searchPublicDatasets() {
+      showLoading();
+      addMessage('assistant', '<p>🔍 正在搜索匹配你需求的公开数据集...</p>');
+
+      // 从最近的对话中提取用户目标
+      const msgs = document.querySelectorAll('.message');
+      let userGoal = '';
+      msgs.forEach(m => {
+        const author = m.querySelector('.message-author');
+        const text = m.querySelector('.message-text');
+        if (author && author.textContent === 'You' && text) {
+          const t = text.textContent.trim();
+          if (t.length > 5) userGoal = t;
+        }
+      });
+
+      if (!userGoal) {
+        hideLoading();
+        addMessage('assistant', '<p>请先描述你的业务需求，我再帮你搜索数据。</p>');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API}/data/search-public`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_goal: userGoal })
+        });
+
+        const data = await response.json();
+        hideLoading();
+        showDataSearchResults(data, userGoal);
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>❌ 搜索失败: ${e.message}</p>`);
+      }
+    }
+
+    function showDataSearchResults(data, userGoal) {
+      const llm = data.llm_suggestions || {};
+      const hfResults = data.huggingface_results || [];
+      const llmDatasets = llm.recommended_datasets || [];
+      const synPlan = llm.synthetic_data_plan;
+
+      let html = '<p>📦 <strong>为你找到以下数据源选项：</strong></p>';
+
+      // LLM 综合建议
+      if (llm.recommendation) {
+        html += `<div class="plan-approach" style="margin-top: 8px;">${llm.recommendation}</div>`;
+      }
+
+      // LLM 推荐的数据集
+      if (llmDatasets.length > 0) {
+        html += '<div style="margin-top: 12px; font-size: 13px; color: var(--text-secondary);">🤖 AI 推荐的数据集：</div>';
+        for (const ds of llmDatasets.slice(0, 5)) {
+          const score = ds.relevance_score ? `匹配度 ${Math.round(ds.relevance_score * 100)}%` : '';
+          html += `
+            <div class="tech-section" style="margin-top: 6px;">
+              <div style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-weight: 600; font-size: 13px;">${ds.name}</div>
+                  <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                    ${ds.source || ''} ${ds.size_hint ? '· ' + ds.size_hint : ''} ${score ? '· ' + score : ''}
+                  </div>
+                  <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${ds.description || ''}</div>
+                </div>
+                <button class="option-btn" style="flex: none; padding: 6px 14px;" onclick="usePublicDataset('${encodeURIComponent(ds.url || '')}', '${encodeURIComponent(ds.name)}')">
+                  使用
+                </button>
+              </div>
+            </div>`;
+        }
+      }
+
+      // HuggingFace 实际搜索结果
+      if (hfResults.length > 0) {
+        html += '<div style="margin-top: 16px; font-size: 13px; color: var(--text-secondary);">🤗 HuggingFace 搜索结果：</div>';
+        for (const ds of hfResults.slice(0, 5)) {
+          html += `
+            <div class="tech-section" style="margin-top: 6px;">
+              <div style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-weight: 600; font-size: 13px;">${ds.name}</div>
+                  <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                    ⬇ ${ds.downloads?.toLocaleString() || '?'} 下载 · ❤ ${ds.likes || 0}
+                  </div>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                  <a href="${ds.url}" target="_blank" class="option-btn" style="text-decoration: none; padding: 6px 10px; font-size: 11px;">查看</a>
+                  <button class="option-btn" style="padding: 6px 14px;" onclick="usePublicDataset('${encodeURIComponent(ds.url)}', '${encodeURIComponent(ds.name)}')">
+                    使用
+                  </button>
+                </div>
+              </div>
+            </div>`;
+        }
+      }
+
+      // 合成数据选项
+      if (synPlan) {
+        html += `
+          <div style="margin-top: 16px; padding: 14px; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px;">
+            <div style="font-weight: 600; font-size: 13px; color: var(--emerald-400);">🧪 备选：AI 合成数据</div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">${synPlan.description || ''}</div>
+            ${synPlan.caveats ? `<div style="font-size: 11px; color: var(--amber-400); margin-top: 6px;">⚠ ${synPlan.caveats}</div>` : ''}
+            <button class="confirm-btn" onclick="confirmGenerateSynthetic()" style="margin-top: 10px; background: var(--emerald-500); font-size: 12px; padding: 8px;">
+              🧪 生成 ${synPlan.suggested_rows || 500} 行合成数据
+            </button>
+          </div>`;
+
+        // 存储 plan 供后续使用
+        window._syntheticPlan = synPlan;
+        window._userGoal = userGoal;
+      }
+
+      addMessage('assistant', html);
+    }
+
+    async function usePublicDataset(encodedUrl, encodedName) {
+      const url = decodeURIComponent(encodedUrl);
+      const name = decodeURIComponent(encodedName);
+
+      showLoading();
+      addMessage('user', `使用公开数据集：${name}`);
+
+      try {
+        const response = await fetch(`${API}/data/download-public`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url, dataset_name: name })
+        });
+
+        const data = await response.json();
+
+        if (data.success || data.dataset_id) {
+          currentDatasetId = data.dataset_id;
+          addMessage('assistant', `<p>📂 公开数据集已导入（${data.n_rows} 行 × ${data.n_cols} 列），正在分析...</p>`);
+          await exploreDataset(data.dataset_id);
+        } else {
+          throw new Error(data.detail || '下载失败');
+        }
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>❌ 数据集下载失败: ${e.message}</p><p style="font-size: 12px; color: var(--text-secondary);">提示：部分数据集需要特殊格式处理，你可以手动从 HuggingFace 下载后上传。</p>`);
+      }
+    }
+
+    async function generateSyntheticData() {
+      window._userGoal = '';
+      // 提取用户目标
+      const msgs = document.querySelectorAll('.message');
+      msgs.forEach(m => {
+        const author = m.querySelector('.message-author');
+        const text = m.querySelector('.message-text');
+        if (author && author.textContent === 'You' && text) {
+          const t = text.textContent.trim();
+          if (t.length > 5) window._userGoal = t;
+        }
+      });
+
+      if (!window._userGoal) {
+        addMessage('assistant', '<p>请先描述你的业务需求，我再帮你生成合成数据。</p>');
+        return;
+      }
+
+      showLoading();
+      addMessage('assistant', '<p>🧪 正在根据你的需求生成合成训练数据...</p>');
+
+      try {
+        const response = await fetch(`${API}/data/generate-synthetic`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_goal: window._userGoal,
+            schema: [],
+            n_rows: 500
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success || data.dataset_id) {
+          currentDatasetId = data.dataset_id;
+          hideLoading();
+          addMessage('assistant', `
+            <p>✅ 合成数据已生成！（${data.n_rows} 行 × ${data.n_cols} 列）</p>
+            ${data.caveat ? `<div class="needs-more-info" style="margin-top: 8px;">💡 ${data.caveat}</div>` : ''}
+          `);
+          await exploreDataset(data.dataset_id);
+        } else {
+          throw new Error(data.detail || '生成失败');
+        }
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>❌ 合成数据生成失败: ${e.message}</p>`);
+      }
+    }
+
+    async function confirmGenerateSynthetic() {
+      const plan = window._syntheticPlan;
+      const userGoal = window._userGoal || '';
+
+      showLoading();
+      addMessage('user', '确认生成合成数据');
+
+      try {
+        const response = await fetch(`${API}/data/generate-synthetic`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_goal: userGoal,
+            schema: plan ? plan.schema : [],
+            target_column: plan ? plan.target_column : 'target',
+            n_rows: plan ? (plan.suggested_rows || 500) : 500
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success || data.dataset_id) {
+          currentDatasetId = data.dataset_id;
+          hideLoading();
+          addMessage('assistant', `
+            <p>✅ 合成数据已生成！（${data.n_rows} 行 × ${data.n_cols} 列）</p>
+            ${data.caveat ? `<div class="needs-more-info" style="margin-top: 8px;">💡 ${data.caveat}</div>` : ''}
+          `);
+          await exploreDataset(data.dataset_id);
+        } else {
+          throw new Error(data.detail || '生成失败');
+        }
+      } catch (e) {
+        hideLoading();
+        addMessage('assistant', `<p>❌ 合成数据生成失败: ${e.message}</p>`);
+      }
+    }
+
     async function sendMessage() {
       const input = document.getElementById('messageInput');
       const text = input.value.trim();
 
       if (!text || isWaitingResponse) return;
 
+      // 检测是否是数据链接（Google Drive / Sheets / CSV 下载链接）
+      const linkPatterns = [
+        /drive\.google\.com\/(file\/d|open\?id)/,
+        /docs\.google\.com\/spreadsheets/,
+        /^https?:\/\/.+\.(csv|xlsx|xls|zip)(\?|$)/i,
+      ];
+      if (linkPatterns.some(p => p.test(text))) {
+        input.value = '';
+        input.style.height = 'auto';
+        importFromLink(text);
+        return;
+      }
+
+      // 所有其他输入发给后端，由 LLM 判断
       addMessage('user', text);
       input.value = '';
       input.style.height = 'auto';
@@ -1025,95 +1633,102 @@
     }
 
     function showClarification(data) {
-      let html = '<p>🤔 我需要更多信息来准确理解你的需求：</p>';
-      data.follow_up_questions.forEach((q, idx) => {
-        html += `<div style="margin: 8px 0; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border);">
-          <div style="font-size: 14px; margin-bottom: 8px;">${idx + 1}. ${q}</div>
-          <input type="text" placeholder="请输入你的回答..." style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary);">
-        </div>`;
-      });
-      html += '<button class="confirm-btn" onclick="submitClarification()">提交回答</button>';
+      let html = '';
+
+      // 展示 LLM 给出的原因/引导语
+      if (data.reasons && data.reasons.length > 0) {
+        html += '<p>💬 ' + data.reasons.map(r => `<span>${r}</span>`).join('；') + '</p>';
+      } else {
+        html += '<p>🤔 我需要更多信息来准确理解你的需求：</p>';
+      }
+
+      // 展示追问/引导问题
+      if (data.follow_up_questions && data.follow_up_questions.length > 0) {
+        data.follow_up_questions.forEach((q, idx) => {
+          html += `<div style="margin: 8px 0; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 14px; margin-bottom: 8px;">${idx + 1}. ${q}</div>
+            <input type="text" placeholder="请输入你的回答..." style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary);">
+          </div>`;
+        });
+        html += '<button class="confirm-btn" onclick="submitClarification()">提交回答</button>';
+      }
+
       addMessage('assistant', html);
     }
 
     function showSetupCards(data) {
-      const spec = data.objective_spec || {};
+      const plan = data.personalized_plan;
+
+      // 如果没有个性化方案（旧版兼容），显示简单提示
+      if (!plan || !plan.business_layer) {
+        addMessage('assistant', '<p>✅ 方案已生成，但缺少详细信息。请重新描述你的需求。</p>');
+        return;
+      }
+
+      const biz = plan.business_layer;
+      const tech = plan.technical_layer || {};
+      const confidence = plan.confidence || 0;
+      const needsMoreInfo = plan.needs_more_info || [];
+
+      // 置信度颜色
+      const confColor = confidence >= 0.7 ? 'var(--emerald-400)' : confidence >= 0.4 ? 'var(--amber-400)' : 'var(--rose-400)';
+      const confPct = Math.round(confidence * 100);
+
+      const cardId = 'plan-' + Date.now();
 
       let html = `
-        <p>✅ 我已理解你的需求，这是编译后的训练方案：</p>
-        <div class="setup-cards">
-          <!-- Intent Card -->
-          <div class="card card-violet">
-            <div class="card-header">
-              <span>⚙️</span>
-              <span>需求编译卡（Intent Compilation）</span>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">任务定义</span>
-              <span>${spec.task_family || '自动检测'}</span>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">最痛的错误</span>
-              <span class="setup-value rose">${spec.error_preference || '待确认'}</span>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">核心约束</span>
-              <span class="setup-value emerald">${spec.constraints ? '已设置' : '待确认'}</span>
-            </div>
-            <div style="margin-top: 12px;">
-              <span class="setup-label" style="display: block; margin-bottom: 8px;">方案偏好</span>
-              <div class="setup-options">
-                <button class="option-btn ${selectedPriority === 'quality' ? 'selected' : ''}" onclick="selectPriority('quality', this)">质量优先</button>
-                <button class="option-btn ${selectedPriority === 'speed' ? 'selected' : ''}" onclick="selectPriority('speed', this)">速度优先</button>
-                <button class="option-btn ${selectedPriority === 'cost' ? 'selected' : ''}" onclick="selectPriority('cost', this)">成本优先</button>
-              </div>
-            </div>
-          </div>
+        <p>✅ 我已理解你的需求，这是为你的场景<strong>量身定制</strong>的方案：</p>
 
-          <!-- Data Card -->
-          <div class="card card-cyan" style="margin-top: 12px;">
-            <div class="card-header">
-              <span>🗄️</span>
-              <span>数据与样本构造卡</span>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">允许变化</span>
-              <span>时间特征微小波动</span>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">绝不可变</span>
-              <span class="setup-value rose">标签反转，序列顺序打乱</span>
-            </div>
-            <div style="margin-top: 12px;">
-              <span class="setup-label" style="display: block; margin-bottom: 8px;">数据增强偏好</span>
-              <div class="setup-options">
-                <button class="option-btn ${selectedAugStrength === 'conservative' ? 'selected' : ''}" onclick="selectAugStrength('conservative', this)">保守</button>
-                <button class="option-btn ${selectedAugStrength === 'standard' ? 'selected' : ''}" onclick="selectAugStrength('standard', this)">标准</button>
-                <button class="option-btn ${selectedAugStrength === 'aggressive' ? 'selected' : ''}" onclick="selectAugStrength('aggressive', this)">激进</button>
-              </div>
-            </div>
-          </div>
+        <!-- 业务层：非专业人士看到的 -->
+        <div class="plan-business">
+          <div class="plan-understanding">${biz.understanding || ''}</div>
 
-          <!-- Training Card -->
-          <div class="card card-blue" style="margin-top: 12px;">
-            <div class="card-header">
-              <span>🔧</span>
-              <span>训练方案卡</span>
+          ${biz.personalized_approach ? `<div class="plan-approach">${biz.personalized_approach}</div>` : ''}
+
+          ${biz.core_promises && biz.core_promises.length > 0 ? `
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;">我们的方案会特别保证：</div>
+            <ul class="plan-promises">
+              ${biz.core_promises.map(p => `<li>${p}</li>`).join('')}
+            </ul>
+          ` : ''}
+
+          ${biz.vs_standard ? `<div class="plan-vs-standard">${biz.vs_standard}</div>` : ''}
+
+          <!-- 置信度 -->
+          <div class="confidence-bar">
+            <span>方案置信度</span>
+            <div class="confidence-track">
+              <div class="confidence-fill" style="width: ${confPct}%; background: ${confColor};"></div>
             </div>
-            <div class="setup-row">
-              <span class="setup-label">基础模型架构</span>
-              <span>${spec.recommended_models ? spec.recommended_models[0] : 'AutoML'}</span>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">定制损失函数</span>
-              <span class="setup-value emerald">${spec.surrogate_loss || 'Weighted BCE'}</span>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">验收指标</span>
-              <span class="setup-value blue">${spec.primary_metric || 'Accuracy'}</span>
-            </div>
+            <span style="color: ${confColor}">${confPct}%</span>
           </div>
         </div>
+
+        <!-- 需要更多信息 -->
+        ${needsMoreInfo.length > 0 ? `
+          <div class="needs-more-info">
+            💡 如果你能补充以下信息，方案会更精准：
+            <ul style="margin: 6px 0 0 16px; font-size: 12px;">
+              ${needsMoreInfo.map(item => `<li>${item}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+
+        <!-- 技术层展开按钮 -->
+        <button class="tech-toggle" onclick="toggleTechDetails('${cardId}', this)">
+          <span class="arrow">▶</span>
+          <span>🔬 ML 专家：查看技术细节与方案依据</span>
+        </button>
+
+        <!-- 技术层：ML专家展开查看 -->
+        <div class="tech-details" id="${cardId}">
+          ${renderTechSection('📊 数据策略', tech.data_strategy)}
+          ${renderTechSection('🧠 模型策略', tech.model_strategy)}
+          ${renderTechSection('⚖️ 损失函数', tech.loss_function)}
+          ${renderTechSection('📏 评估方案', tech.evaluation)}
+          ${renderRisks(tech.risks_and_alternatives)}
+        </div>
+
         <button class="confirm-btn" onclick="confirmAndStartTraining()" style="margin-top: 16px;">
           <span>✓</span>
           <span>方案确认无误，开始训练</span>
@@ -1123,25 +1738,82 @@
       addMessage('assistant', html);
     }
 
-    function selectPriority(value, btn) {
-      selectedPriority = value;
-      document.querySelectorAll('.option-btn').forEach(b => {
-        if (b.textContent.includes('优先')) b.classList.remove('selected');
-      });
-      btn.classList.add('selected');
+    function renderTechSection(icon, section) {
+      if (!section || (!section.title && !section.details && !section.reasoning)) return '';
+      const sectionId = 'ts-' + Math.random().toString(36).slice(2, 8);
+      return `
+        <div class="tech-section">
+          <div class="tech-section-header" onclick="toggleSection('${sectionId}')">
+            <div>
+              <div class="tech-section-title">${icon} ${section.title || ''}</div>
+              ${section.reasoning ? `<div class="tech-section-subtitle">${section.reasoning.slice(0, 80)}${section.reasoning.length > 80 ? '...' : ''}</div>` : ''}
+            </div>
+            <span style="color: var(--text-secondary); font-size: 10px;">▼</span>
+          </div>
+          <div class="tech-section-body" id="${sectionId}">
+            ${section.reasoning ? `<div class="reasoning">💡 ${section.reasoning}</div>` : ''}
+            ${section.details ? `<div class="details">${section.details}</div>` : ''}
+          </div>
+        </div>`;
     }
 
-    function selectAugStrength(value, btn) {
-      selectedAugStrength = value;
-      document.querySelectorAll('.option-btn').forEach(b => {
-        if (['保守', '标准', '激进'].includes(b.textContent)) b.classList.remove('selected');
-      });
-      btn.classList.add('selected');
+    function renderRisks(risksSection) {
+      if (!risksSection || !risksSection.items || risksSection.items.length === 0) return '';
+      const sectionId = 'ts-' + Math.random().toString(36).slice(2, 8);
+      return `
+        <div class="tech-section">
+          <div class="tech-section-header" onclick="toggleSection('${sectionId}')">
+            <div>
+              <div class="tech-section-title">⚠️ ${risksSection.title || '风险与备选'}</div>
+              <div class="tech-section-subtitle">${risksSection.items.length} 个已识别风险</div>
+            </div>
+            <span style="color: var(--text-secondary); font-size: 10px;">▼</span>
+          </div>
+          <div class="tech-section-body" id="${sectionId}">
+            ${risksSection.items.map(item => `
+              <div class="risk-item">
+                <div class="risk-label">⚠ ${item.risk || ''}</div>
+                <div class="risk-mitigation">→ ${item.mitigation || ''}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+    }
+
+    function toggleTechDetails(id, btn) {
+      const el = document.getElementById(id);
+      const isVisible = el.classList.toggle('visible');
+      btn.classList.toggle('expanded', isVisible);
+    }
+
+    function toggleSection(id) {
+      document.getElementById(id).classList.toggle('visible');
     }
 
     async function confirmAndStartTraining() {
       if (!currentDatasetId) {
-        addMessage('assistant', '<p>❌ 请先上传数据集</p>');
+        // 没有数据 → 帮用户找数据或生成数据
+        addMessage('assistant', `
+          <p>📭 你还没有提供训练数据。别担心，我可以帮你：</p>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+            <button class="confirm-btn" onclick="searchPublicDatasets()" style="background: var(--blue-500);">
+              <span>🔍</span>
+              <span>搜索公开数据集（HuggingFace / GitHub / Kaggle）</span>
+            </button>
+            <button class="confirm-btn" onclick="generateSyntheticData()" style="background: var(--emerald-500);">
+              <span>🧪</span>
+              <span>用 AI 生成合成训练数据（快速原型验证）</span>
+            </button>
+            <button class="confirm-btn" onclick="document.getElementById('fileInput').click()" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border);">
+              <span>📎</span>
+              <span>上传本地文件</span>
+            </button>
+            <button class="confirm-btn" onclick="promptLinkImport()" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border);">
+              <span>🔗</span>
+              <span>通过链接导入（Google Drive / Sheets）</span>
+            </button>
+          </div>
+        `);
         return;
       }
 

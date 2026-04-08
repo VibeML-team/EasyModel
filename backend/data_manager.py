@@ -454,29 +454,41 @@ class DataManager:
             raise ValueError("处理 7Z 文件需要安装 py7zr: pip install py7zr")
     
     def _find_data_file(self, directory: str) -> str:
-        """在目录中查找数据文件"""
+        """在目录中递归查找数据文件"""
         dir_path = Path(directory)
-        for pattern in ['*.csv', '*.xlsx', '*.xls']:
-            files = list(dir_path.glob(pattern))
+        for pattern in ['**/*.csv', '**/*.xlsx', '**/*.xls']:
+            files = sorted(dir_path.glob(pattern), key=lambda f: f.stat().st_size, reverse=True)
+            # 跳过隐藏文件和 macOS 元数据
+            files = [f for f in files if not f.name.startswith('.') and '__MACOSX' not in str(f)]
             if files:
                 return files[0].name
         return "data.csv"
     
     def _read_data_from_dir(self, directory: str) -> pd.DataFrame:
-        """从目录中读取数据文件"""
+        """从目录中递归查找并读取数据文件"""
         dir_path = Path(directory)
         
+        def _find_files(patterns):
+            """递归搜索，跳过隐藏文件和 macOS 元数据目录"""
+            results = []
+            for pat in patterns:
+                for f in dir_path.glob(pat):
+                    if not f.name.startswith('.') and '__MACOSX' not in str(f):
+                        results.append(f)
+            # 按文件大小降序（优先读最大的数据文件）
+            return sorted(results, key=lambda f: f.stat().st_size, reverse=True)
+        
         # 优先读取 CSV
-        csv_files = list(dir_path.glob('*.csv'))
+        csv_files = _find_files(['**/*.csv'])
         if csv_files:
             return pd.read_csv(csv_files[0])
         
         # 然后尝试 Excel
-        excel_files = list(dir_path.glob('*.xlsx')) + list(dir_path.glob('*.xls'))
+        excel_files = _find_files(['**/*.xlsx', '**/*.xls'])
         if excel_files:
             return pd.read_excel(excel_files[0])
         
-        raise ValueError("压缩包中未找到 CSV 或 Excel 文件")
+        raise ValueError("压缩包中未找到 CSV 或 Excel 文件。支持的格式：.csv, .xlsx, .xls")
     
     def upload_csv(
         self,

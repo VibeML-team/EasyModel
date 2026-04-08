@@ -181,30 +181,39 @@ def detect_ambiguity(req) -> tuple[bool, list[str], list[str]]:
                 worst_errors=req.worst_errors,
             )
         except Exception as e:
-            # LLM 失败时回退到规则
-            pass
+            # LLM 失败时回退到规则，但记录错误
+            import traceback
+            print(f"[WARN] LLM clarify_ambiguity 失败，回退到规则: {e}")
+            traceback.print_exc()
     
-    # 规则回退
-    reasons = []
-    follow_ups = []
+    # 规则回退（LLM 不可用时的兜底）
+    #
+    # 核心原则：用户的自然语言描述本身就包含了需求信息。
+    # 如果描述足够详细，不应该因为 must_keep/worst_errors 表单字段为空就拒绝。
+    # 这些信息应该由系统从描述中自动提取，而不是要求用户填表。
     
-    if not req.must_keep:
-        reasons.append("缺少必须保留项")
-        follow_ups.append("哪些元素绝对不能被改变？请至少给 1-3 条。")
+    goal_text = req.user_goal.strip()
+    goal_len = len(goal_text)
     
-    if not req.worst_errors:
-        reasons.append("缺少不可接受错误定义")
-        follow_ups.append("最不能接受的错误是什么（例如漏报、误报、格式错误）？")
+    # 过短 → 确实需要更多信息
+    if goal_len < 15:
+        return True, \
+            ["描述信息不足，无法判断你的需求"], \
+            ["请用一两句话描述：你有什么数据、想解决什么业务问题？例如：'预测用户是否会流失，宁可误报也别漏报'"]
     
-    if len(req.user_goal) < 15:
-        reasons.append("目标描述过短")
-        follow_ups.append("请补充一句：谁在什么场景使用、怎样才算成功。")
+    # 描述足够详细（>50字）→ 认为需求清晰，直接进入方案生成
+    # 用户在自然语言里已经表达了约束和偏好，不需要再填表
+    if goal_len >= 50:
+        return False, [], []
     
-    if not req.dataset_id:
-        reasons.append("未上传数据集")
-        follow_ups.append("请上传包含训练数据的 CSV 文件。")
+    # 中等长度（15-50字）→ 温和提示，但不阻塞
+    # 只在缺少数据且描述也不够详细时才标记为模糊
+    if not req.dataset_id and goal_len < 30:
+        return True, \
+            ["建议补充更多细节"], \
+            ["请补充描述：你的数据是什么样的、具体想预测/检测什么、有什么约束？"]
     
-    return len(reasons) > 0, reasons, follow_ups
+    return False, [], []
 
 
 def compile_objective(
