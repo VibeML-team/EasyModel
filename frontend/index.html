@@ -595,9 +595,9 @@
       filter: saturate(0.8);
     }
     .capability-card { grid-column: span 2; }
-    .capability-card:nth-child(1), .capability-card:nth-child(4) { --cap-offset: -10px; }
-    .capability-card:nth-child(2), .capability-card:nth-child(5) { --cap-offset: 16px; }
-    .capability-card:nth-child(3), .capability-card:nth-child(6) { --cap-offset: 2px; }
+    .capability-card:nth-child(1), .capability-card:nth-child(4) { --cap-offset: 0px; }
+    .capability-card:nth-child(2), .capability-card:nth-child(5) { --cap-offset: 0px; }
+    .capability-card:nth-child(3), .capability-card:nth-child(6) { --cap-offset: 0px; }
     .capability-card {
       --cap-offset: 0px;
       --cap-lift: 0px;
@@ -702,7 +702,7 @@
       border-color: var(--border-strong);
       background: rgba(6, 182, 127, 0.16);
     }
-    .models-section { margin-top: 48px; background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 16px; padding: 24px; backdrop-filter: blur(10px); }
+    .models-section { margin-top: 48px; background: transparent; border: none; border-radius: 0; padding: 0; backdrop-filter: none; }
     .models-title { font-size: 34px; color: var(--gray-200); text-align: center; margin-bottom: 16px; font-weight: 600; letter-spacing: 0.01em; }
     .models-marquee {
       overflow: hidden;
@@ -731,6 +731,53 @@
     }
     .model-tag { font-size: 17px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 18px; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
     .model-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: color-mix(in srgb, rgba(16, 202, 144, 0.22) 52%, var(--bg-tertiary)); }
+    .universities-section {
+      margin-top: 30px;
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 0 24px;
+    }
+    .universities-title {
+      font-size: 24px;
+      color: var(--gray-200);
+      text-align: center;
+      margin-bottom: 16px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .universities-section .models-marquee {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    .university-logo-item {
+      height: 86px;
+      min-width: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+      background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent);
+      flex: 0 0 auto;
+    }
+    .university-logo {
+      max-width: 100%;
+      max-height: 62px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+    .university-logo.ustc {
+      max-height: 70px;
+    }
+    .university-logo.mbzuai {
+      max-height: 50px;
+    }
+    .university-logo.hkustgz {
+      max-height: 40px;
+    }
     @keyframes models-scroll {
       from { transform: translateX(0); }
       to { transform: translateX(calc(-50% - 7px)); }
@@ -880,8 +927,8 @@
 
         <div class="hero-stats">
           <div class="stat-item">
-            <span class="stat-value">五层</span>
-            <span class="stat-label">自动化编译架构</span>
+            <span class="stat-value">全自动</span>
+            <span class="stat-label">数据 → 训练 → 部署</span>
           </div>
           <div class="stat-item">
             <span class="stat-value">全流程</span>
@@ -997,6 +1044,7 @@
             </div>
           </div>
         </div>
+
       </div>
 
       <div class="quote-box">
@@ -1021,6 +1069,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </section>
 
@@ -1333,6 +1382,28 @@ validation → out_of_time_split</pre>
               <a class="model-tag" href="./model-detail.html?model=causal-ml">Causal ML</a>
               <a class="model-tag" href="./model-detail.html?model=conformal-prediction">Conformal Prediction</a>
               <a class="model-tag" href="./model-detail.html?model=automl-pipeline">AutoML Pipeline</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="universities-section">
+        <h3 class="universities-title"><span class="brand-italic">VibeML</span> 的开发者正在/即将就读的高校</h3>
+        <div class="models-marquee" aria-label="高校轮播条">
+          <div class="models-track">
+            <div class="models-list">
+              <div class="university-logo-item"><img class="university-logo ustc" src="./USTC_logo_2008.svg.png" alt="中国科学技术大学"></div>
+              <div class="university-logo-item"><img class="university-logo mbzuai" src="./mbzuai-brand-logo.svg" alt="MBZUAI"></div>
+              <div class="university-logo-item"><img class="university-logo hkustgz" src="./logo-e-blue-2x.png" alt="香港科技大学（广州）"></div>
+              <div class="university-logo-item"><img class="university-logo" src="./Adobe%20Express%20-%20file.png" alt="University of Illinois"></div>
+              <div class="university-logo-item"><img class="university-logo" src="./aa3c134c-29c6-4aaf-9e73-84538de005ab-removebg-preview.png" alt="University of Wisconsin–Madison"></div>
+            </div>
+            <div class="models-list" aria-hidden="true">
+              <div class="university-logo-item"><img class="university-logo ustc" src="./USTC_logo_2008.svg.png" alt="中国科学技术大学"></div>
+              <div class="university-logo-item"><img class="university-logo mbzuai" src="./mbzuai-brand-logo.svg" alt="MBZUAI"></div>
+              <div class="university-logo-item"><img class="university-logo hkustgz" src="./logo-e-blue-2x.png" alt="香港科技大学（广州）"></div>
+              <div class="university-logo-item"><img class="university-logo" src="./Adobe%20Express%20-%20file.png" alt="University of Illinois"></div>
+              <div class="university-logo-item"><img class="university-logo" src="./aa3c134c-29c6-4aaf-9e73-84538de005ab-removebg-preview.png" alt="University of Wisconsin–Madison"></div>
             </div>
           </div>
         </div>
