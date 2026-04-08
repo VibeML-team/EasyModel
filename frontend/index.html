@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VibeML - 将模糊业务语言编译成专属训练流</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -322,6 +323,14 @@
     }
     .problem-headline .headline-line + .headline-line { margin-top: 8px; }
     .vibe-italic { font-style: italic; }
+    .theme-highlight {
+      background: linear-gradient(120deg, var(--violet-500), var(--cyan-400));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      color: var(--violet-500);
+    }
+    .brand-italic { font-style: italic; }
     .problem-lead {
       text-align: left;
       margin: 0;
@@ -649,14 +658,6 @@
       pointer-events: auto;
       transform: translateY(0);
     }
-    .capability-feature-hint {
-      display: block;
-      font-size: 10px;
-      letter-spacing: 0.06em;
-      color: var(--gray-600);
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
     .capability-feature-pill {
       font-size: 16px;
       color: var(--white);
@@ -723,6 +724,19 @@
     [data-theme="light"] .terminal-dot.red { background: #f97171; }
     [data-theme="light"] .terminal-dot.yellow { background: #f6b84c; }
     [data-theme="light"] .terminal-dot.green { background: #1fb97d; }
+    [data-theme="light"] .step-card {
+      background: color-mix(in srgb, #ffffff 90%, var(--bg-tertiary) 10%);
+      box-shadow: 0 10px 24px rgba(8, 80, 60, 0.08);
+    }
+    [data-theme="light"] .step-card:hover {
+      box-shadow: 0 18px 34px rgba(8, 80, 60, 0.16);
+    }
+    [data-theme="light"] .step-example {
+      background: linear-gradient(135deg, #f3fdf9, #e9f8f2);
+      border-color: rgba(4, 138, 97, 0.26);
+    }
+    [data-theme="light"] .step-example pre { color: #0a7f5a; }
+    [data-theme="light"] .step-example p { color: #0b8f64; }
 
 
     /* Mobile Responsive */
@@ -768,14 +782,13 @@
             <circle cx="9" cy="9" r="2" fill="white"/>
           </svg>
         </div>
-        <span class="logo-text">Vibe<span>ML</span></span>
+        <span class="logo-text brand-italic">Vibe<span>ML</span></span>
       </a>
 
       <div class="nav-links">
         <a href="#how-it-works">产品</a>
         <a href="#capabilities">能力</a>
         <a href="#use-cases">使用场景</a>
-        <a href="/docs">文档</a>
       </div>
 
       <div class="nav-cta">
@@ -804,17 +817,17 @@
         <h1 class="hero-title">
           将模糊的自然语言<br>
           <span class="gradient-text">编译成专属训练流</span><br>
-          让顶尖机器学习Specialists触手可及
+          让顶尖机器学习<span class="brand-italic">Specialists</span>触手可及
         </h1>
 
         <p class="hero-desc">
-          开源论文的标准 Loss 和模板往往无法契合真实的精细业务诉求。VibeML 能够深刻理解你模糊的自然语言描述，并将其转化为量身定制的端到端 ML 训练流（包含特制数据清洗、自定义损失函数与专属模型架构）。<br>
+          开源论文的标准 Loss 和模板往往无法契合真实的精细业务诉求。<span class="brand-italic">VibeML</span> 能够深刻理解你模糊的自然语言描述，并将其转化为量身定制的端到端 ML 训练流（包含特制数据清洗、自定义损失函数与专属模型架构）。<br>
           <strong>跨越从「业务诉求」到「算法落地」最稀缺的那道鸿沟。</strong>
         </p>
 
         <div class="hero-actions">
           <a href="/chat.html" class="btn-large btn-gradient">
-            开始使用 VibeML
+            开始使用 <span class="brand-italic">VibeML</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -844,7 +857,7 @@
             <span class="terminal-dot red"></span>
             <span class="terminal-dot yellow"></span>
             <span class="terminal-dot green"></span>
-            <span class="terminal-title">vibeml — objective compiler</span>
+            <span class="terminal-title"><span class="brand-italic">vibeml</span> — objective compiler</span>
           </div>
           <div class="terminal-body" id="terminalBody">
           </div>
@@ -871,12 +884,12 @@
     <div class="container">
       <div class="problem-intro">
         <h2 class="problem-headline">
-          <span class="headline-line">软件开发进入了 <span class="vibe-italic">Vibe Coding</span> 时代，</span>
-          <span class="headline-line gradient-text">但机器学习仍然停留在专家时代</span>
+          <span class="headline-line">软件开发进入了 <span class="vibe-italic theme-highlight">Vibe Coding</span> 时代，</span>
+          <span class="headline-line">但机器学习仍然停留在 <span class="vibe-italic theme-highlight">Expert</span> 时代</span>
         </h2>
         <p class="section-desc problem-lead">
           AI Coding 让软件开发门槛更低，机器学习全链路仍需专家深耕。<br>
-          以数据与标准化流程为始，Vibe ML重构机器学习效率，击穿AI-Driven Machine Learning技术壁垒。
+          以数据与标准化流程为始，Vibe ML 重构机器学习效率，击穿 AI-Driven Machine Learning 的技术壁垒。
         </p>
       </div>
 
@@ -921,7 +934,7 @@
             </div>
             <div>
               <div class="problem-title">训出权重，然后呢？</div>
-              <div class="problem-desc">就算模型训好了，还要解决部署、API封装、监控、再训练……大多数人卡在这里就放弃了。</div>
+              <div class="problem-desc">就算模型训好了，还要解决部署、API 封装、监控、再训练……大多数人卡在这里就放弃了。</div>
             </div>
           </div>
         </div>
@@ -975,7 +988,7 @@
         <div class="section-label">工作原理</div>
         <h2 class="section-title">三步从人话需求到可交付产品</h2>
         <p class="section-desc">
-          VibeML 不是帮你写训练代码，而是自动做三件传统上必须由算法工程师完成的高价值判断。
+          <span class="brand-italic">VibeML</span> 不是帮你写训练代码，而是自动做三件传统上必须由算法工程师完成的高价值判断。
         </p>
       </div>
 
@@ -984,7 +997,7 @@
           <div class="step-number violet">01</div>
           <span class="step-tag violet">自然语言输入</span>
           <h3 class="step-title">用自然语言描述你的需求</h3>
-          <p class="step-desc">告诉 VibeML 你有什么数据、想解决什么问题、以及你的约束。不需要任何 ML 知识。</p>
+          <p class="step-desc">告诉 <span class="brand-italic">VibeML</span> 你有什么数据、想解决什么问题、以及你的约束。不需要任何 ML 知识。</p>
           <div class="step-example">
             <p>"我有用户历史购买数据，想找出 30 天内会流失的高价值用户，每天预算只能打扰 50 个人。"</p>
           </div>
@@ -1024,7 +1037,7 @@ validation → out_of_time_split</pre>
         <div class="section-label">使用场景</div>
         <h2 class="section-title">为真实业务场景而生的 ML 解决方案</h2>
         <p class="section-desc">
-          从客户流失预测到库存优化，VibeML 将模糊的业务语言编译成精准的模型训练流，解决传统 AutoML 无法处理的精细化需求。
+          从客户流失预测到库存优化，<span class="brand-italic">VibeML</span> 将模糊的业务语言编译成精准的模型训练流，解决传统 AutoML 无法处理的精细化需求。
         </p>
       </div>
 
@@ -1052,7 +1065,7 @@ validation → out_of_time_split</pre>
           <article class="usecase-pane active" data-case-pane="retail">
             <div class="usecase-meta">电商增长 · Top-K 排序任务</div>
             <h3 class="usecase-pane-title">每天只触达 50 人，仍要覆盖最高流失风险用户</h3>
-            <p class="usecase-pane-desc">VibeML 将“宁可误报也别漏报”的业务偏好编译成可训练目标，自动选择预算约束排序策略并生成可执行交付接口。</p>
+            <p class="usecase-pane-desc"><span class="brand-italic">VibeML</span> 将“宁可误报也别漏报”的业务偏好编译成可训练目标，自动选择预算约束排序策略并生成可执行交付接口。</p>
             <div class="usecase-chips">
               <span class="usecase-chip">Budgeted Ranking</span>
               <span class="usecase-chip">Weighted BCE + Ranking Loss</span>
@@ -1084,7 +1097,7 @@ validation → out_of_time_split</pre>
           <article class="usecase-pane" data-case-pane="finance">
             <div class="usecase-meta">金融风控 · 实时决策</div>
             <h3 class="usecase-pane-title">20ms 内完成欺诈识别，还要给出可审计解释</h3>
-            <p class="usecase-pane-desc">VibeML 自动组合高效模型与解释模块，在低延迟上线约束下交付实时风控接口和可追踪的触发原因。</p>
+            <p class="usecase-pane-desc"><span class="brand-italic">VibeML</span> 自动组合高效模型与解释模块，在低延迟上线约束下交付实时风控接口和可追踪的触发原因。</p>
             <div class="usecase-chips">
               <span class="usecase-chip">Low-latency Inference</span>
               <span class="usecase-chip">SHAP Explanation</span>
@@ -1125,7 +1138,7 @@ validation → out_of_time_split</pre>
         <div class="section-label">能力全览</div>
         <h2 class="section-title">不只是功能堆料，而是不可替代的能力</h2>
         <p class="section-desc">
-          VibeML 自动完成三件传统上必须由算法工程师完成的高价值判断：问题建模、约束下的方案选择、结果可交付化。
+          <span class="brand-italic">VibeML</span> 自动完成三件传统上必须由算法工程师完成的高价值判断：问题建模、约束下的方案选择、结果可交付化。
         </p>
       </div>
 
@@ -1143,7 +1156,6 @@ validation → out_of_time_split</pre>
           <h3 class="capability-title">自然语言需求编译</h3>
           <p class="capability-desc">将模糊的业务语言翻译成结构化优化合同，自动识别任务类型、定义标签、选择评估协议。</p>
           <div class="capability-feature-deck" aria-hidden="true">
-            <span class="capability-feature-hint">抽出的 Feature</span>
             <div class="capability-feature-pill"></div>
             <div class="capability-feature-list"></div>
           </div>
@@ -1164,7 +1176,6 @@ validation → out_of_time_split</pre>
           <h3 class="capability-title">数据预处理 & 特征工程</h3>
           <p class="capability-desc">自动处理缺失值、异常值、类型转换、时间特征提取、高基数类别编码。</p>
           <div class="capability-feature-deck" aria-hidden="true">
-            <span class="capability-feature-hint">抽出的 Feature</span>
             <div class="capability-feature-pill"></div>
             <div class="capability-feature-list"></div>
           </div>
@@ -1183,13 +1194,12 @@ validation → out_of_time_split</pre>
           <h3 class="capability-title">贝叶斯超参数优化</h3>
           <p class="capability-desc">基于贝叶斯优化的高效超参数搜索，在给定算力约束下找到最优模型配置。</p>
           <div class="capability-feature-deck" aria-hidden="true">
-            <span class="capability-feature-hint">抽出的 Feature</span>
             <div class="capability-feature-pill"></div>
             <div class="capability-feature-list"></div>
           </div>
         </div>
 
-        <div class="capability-card" data-features="表格/时序/GNN统一编排|模型候选自动路由|跨任务复用模板库">
+        <div class="capability-card" data-features="表格/时序/GNN 统一编排|模型候选自动路由|跨任务复用模板库">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -1202,7 +1212,6 @@ validation → out_of_time_split</pre>
           <h3 class="capability-title">多模型家族支持</h3>
           <p class="capability-desc">覆盖表格、时序、图神经网络、强化学习、AI for Science 等主流 ML 场景。</p>
           <div class="capability-feature-deck" aria-hidden="true">
-            <span class="capability-feature-hint">抽出的 Feature</span>
             <div class="capability-feature-pill"></div>
             <div class="capability-feature-list"></div>
           </div>
@@ -1221,7 +1230,6 @@ validation → out_of_time_split</pre>
           <h3 class="capability-title">模型蒸馏 & 压缩</h3>
           <p class="capability-desc">将大模型蒸馏成轻量级版本，支持边缘部署、低延迟推断、硬件约束场景。</p>
           <div class="capability-feature-deck" aria-hidden="true">
-            <span class="capability-feature-hint">抽出的 Feature</span>
             <div class="capability-feature-pill"></div>
             <div class="capability-feature-list"></div>
           </div>
@@ -1242,7 +1250,6 @@ validation → out_of_time_split</pre>
           <h3 class="capability-title">一键打包交付</h3>
           <p class="capability-desc">不只是模型权重——直接生成可调用 API、Web 应用或批量推断系统，可立即上线。</p>
           <div class="capability-feature-deck" aria-hidden="true">
-            <span class="capability-feature-hint">抽出的 Feature</span>
             <div class="capability-feature-pill"></div>
             <div class="capability-feature-list"></div>
           </div>
@@ -1250,7 +1257,8 @@ validation → out_of_time_split</pre>
       </div>
 
       <div class="models-section">
-        <div class="models-label">支持的模型家族</div>
+        <div class="models-label"><span class="brand-italic">VibeML</span>支持训练以下模型
+        </div>
         <div class="models-list">
           <a class="model-tag" href="./model-detail.html?model=xgboost-lightgbm">XGBoost / LightGBM</a>
           <a class="model-tag" href="./model-detail.html?model=transformer">Transformer</a>
@@ -1281,10 +1289,11 @@ validation → out_of_time_split</pre>
                 <circle cx="9" cy="9" r="2" fill="white"/>
               </svg>
             </div>
-            <span class="logo-text">Vibe<span>ML</span></span>
+            <span class="logo-text brand-italic">Vibe<span>ML</span></span>
           </div>
           <p class="footer-desc">
-            AI 原生的全自动机器学习 Agent。把人话需求编译成优化合同，全流程自动训练交付。
+            原生 AI 全自动机器学习 Agent<br>
+            把自然语言需求编译成优化机器学习工作流，全流程自主训练交付。
           </p>
         </div>
 
@@ -1330,7 +1339,7 @@ validation → out_of_time_split</pre>
       </div>
 
       <div class="footer-bottom">
-        <p class="footer-copyright">© 2026 VibeML. 保留所有权利。</p>
+        <p class="footer-copyright">© 2026 <span class="brand-italic">VibeML</span>. 保留所有权利。</p>
       </div>
     </div>
   </footer>
