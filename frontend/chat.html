@@ -78,11 +78,15 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: "Avenir Next LT Pro", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      font-family: "Avenir Next LT Pro", sans-serif;
       background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
       color: var(--text-primary);
       height: 100vh;
       overflow: hidden;
+    }
+
+    input, textarea, select, button {
+      font-family: inherit;
     }
 
     body::before {
@@ -278,6 +282,7 @@
     .message-content {
       flex: 1;
       padding-top: 6px;
+      font-family: sans-serif;
     }
 
     .message-header {
@@ -969,7 +974,7 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 12px;
-      align-items: flex-end;
+      align-items: center;
     }
 
     .input-box:focus-within { border-color: var(--border-strong); box-shadow: 0 0 0 3px rgba(16, 202, 144, 0.1); }
@@ -979,13 +984,17 @@
       background: transparent;
       border: none;
       color: var(--text-primary);
-      font-size: 15px;
-      line-height: 1.5;
+      font-size: 16px;
+      line-height: 1.45;
+      font-weight: 500;
       resize: none;
       outline: none;
-      min-height: 24px;
+      min-height: 36px;
       max-height: 200px;
       font-family: inherit;
+      display: flex;
+      align-items: center;
+      padding: 6px 0;
     }
 
     textarea::placeholder { color: var(--text-secondary); }
