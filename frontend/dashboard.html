@@ -6,6 +6,20 @@
   <title>VibeML Agent - 全自动炼丹平台</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <style>
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-Regular (1).otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-It.otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: italic;
+      font-display: swap;
+    }
     :root {
       color-scheme: dark;
       /* Figma Design System - Aligned with VibeML Brand */
@@ -26,7 +40,7 @@
       --emerald-400: #34d399;
     }
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: "Avenir Next LT Pro", "Microsoft YaHei", "PingFang SC", sans-serif;
       margin: 0;
       padding: 20px;
       background: var(--bg);
@@ -35,13 +49,44 @@
     }
     .wrap { max-width: 1400px; margin: 0 auto; }
     .header { text-align: center; margin-bottom: 30px; }
+    .brand-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .brand-link:hover {
+      transform: translateY(-2px);
+      border-color: var(--violet-500);
+      box-shadow: 0 10px 22px -16px rgba(139, 92, 246, 0.65);
+    }
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--violet-500), var(--cyan-400));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px rgba(139, 92, 246, 0.32);
+    }
+    .brand-text { font-size: 28px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+    .brand-italic { font-style: italic; }
+    .brand-text span { color: var(--emerald-400); }
     .header h1 { margin: 0; font-size: 2.5rem; background: linear-gradient(135deg, var(--violet-500) 0%, var(--cyan-400) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .header p { color: var(--text-secondary); margin-top: 8px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(400px,1fr)); gap: 16px; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; }
-    .card:hover { border-color: var(--violet-500); }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease; }
+    .card:hover { border-color: var(--violet-500); transform: translateY(-3px); box-shadow: 0 16px 30px -22px rgba(139, 92, 246, 0.62); background: #101327; }
     h2 { margin: 0 0 15px; font-size: 18px; color: #fff; display: flex; align-items: center; gap: 8px; }
-    h2 .step { background: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    h2 .step { background: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+    .card:hover h2 .step { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.15); }
     label { display: block; margin-top: 12px; font-size: 14px; color: var(--text-secondary); }
     input, textarea, select, button {
       width: 100%;
@@ -55,6 +100,7 @@
       box-sizing: border-box;
     }
     input:focus, textarea:focus, select:focus { outline: none; border-color: var(--violet-500); }
+    input:hover, textarea:hover, select:hover { border-color: rgba(139, 92, 246, 0.55); }
     .row { display: flex; gap: 8px; margin-top: 12px; }
     .row button { flex: 1; }
     .btn {
@@ -62,9 +108,9 @@
       font-weight: 600;
       background: var(--primary);
       border: 0;
-      transition: all 0.2s;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
-    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 10px 20px -14px rgba(124, 58, 237, 0.75); }
     .btn.secondary { background: #2b3d78; }
     .btn.secondary:hover { background: #364a94; }
     .btn.success { background: #2d6a4f; }
@@ -112,7 +158,8 @@
 
     /* 指标卡片 */
     .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
-    .metric { background: #0c142a; padding: 12px; border-radius: 8px; text-align: center; }
+    .metric { background: #0c142a; padding: 12px; border-radius: 8px; text-align: center; transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; border: 1px solid transparent; }
+    .metric:hover { transform: translateY(-2px); border-color: rgba(52, 211, 153, 0.45); box-shadow: 0 10px 22px -18px rgba(52, 211, 153, 0.7); }
     .metric-value { font-size: 24px; font-weight: bold; color: var(--success); }
     .metric-label { font-size: 11px; color: #8b9dc3; margin-top: 4px; }
 
@@ -130,7 +177,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      transition: transform 0.2s ease, background 0.2s ease;
     }
+    .collapsible-header:hover { transform: translateX(2px); background: #111a33; }
     .collapsible-content { display: none; padding: 10px; }
     .collapsible-content.active { display: block; }
 
@@ -154,15 +203,24 @@
       padding: 30px;
       text-align: center;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
     }
-    .file-drop:hover { border-color: var(--primary); background: rgba(79, 102, 255, 0.05); }
+    .file-drop:hover { border-color: var(--primary); background: rgba(79, 102, 255, 0.05); transform: translateY(-2px); }
     .file-drop.dragover { border-color: var(--primary); background: rgba(79, 102, 255, 0.1); }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="header">
+      <a class="brand-link" href="./index.html" aria-label="返回 VibeML 首页">
+        <span class="brand-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 2L17 6V14L10 18L3 14V6L10 2Z" stroke="white" stroke-width="1.6" fill="none"/>
+            <circle cx="10" cy="10" r="2.2" fill="white"/>
+          </svg>
+        </span>
+        <span class="brand-text"><span class="brand-italic">Vibe</span><span>ML</span></span>
+      </a>
       <h1>🧪 VibeML Agent</h1>
       <p>从自然语言需求到可部署模型权重的全自动 ML 平台</p>
     </div>

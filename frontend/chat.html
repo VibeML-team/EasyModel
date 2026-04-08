@@ -7,45 +7,114 @@
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-Regular (1).otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: normal;
+      font-display: swap;
+    }
     :root {
-      --bg-primary: #07070f;
-      --bg-secondary: #0d0d1a;
-      --bg-tertiary: #05050a;
-      --border: rgba(255, 255, 255, 0.1);
-      --text-primary: #e6edf3;
-      --text-secondary: #7d8590;
-      --violet-400: #a78bfa;
-      --violet-500: #8b5cf6;
-      --violet-600: #7c3aed;
-      --cyan-400: #22d3ee;
-      --cyan-500: #06b6d4;
-      --blue-400: #60a5fa;
-      --blue-500: #3b82f6;
-      --emerald-400: #34d399;
-      --emerald-500: #10b981;
+      color-scheme: dark light;
+      --bg-primary: #03070a;
+      --bg-secondary: #08110f;
+      --bg-tertiary: #0d1916;
+      --violet-400: #9dffe0;
+      --violet-500: #47f5b7;
+      --violet-600: #10ca90;
+      --blue-400: #d4fff2;
+      --blue-500: #84ffd5;
+      --emerald-300: #82ffd9;
+      --emerald-400: #57f8c2;
+      --emerald-500: #1fd79d;
+      --cyan-400: #7cf6e4;
+      --cyan-500: #42e6d2;
+      --gray-300: #d8f3ea;
+      --gray-400: #9bc2b5;
+      --gray-500: #70958a;
+      --gray-600: #4b6760;
+      --white: #f4fff9;
+      --surface-glass: rgba(14, 31, 26, 0.58);
+      --surface-glass-strong: rgba(10, 24, 20, 0.78);
+      --border-soft: rgba(136, 255, 216, 0.16);
+      --border-strong: rgba(136, 255, 216, 0.34);
+      --border: var(--border-soft);
+      --text-primary: var(--white);
+      --text-secondary: var(--gray-500);
       --rose-400: #fb7185;
       --amber-400: #fbbf24;
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f5f9f7;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f0f6f3;
+      --violet-400: #06b67f;
+      --violet-500: #059d6f;
+      --violet-600: #048a61;
+      --blue-400: #0f172a;
+      --blue-500: #0b1220;
+      --emerald-300: #06b67f;
+      --emerald-400: #049f70;
+      --emerald-500: #04825c;
+      --cyan-400: #0f766e;
+      --cyan-500: #0a8f83;
+      --gray-300: #1f3630;
+      --gray-400: #35564d;
+      --gray-500: #527167;
+      --gray-600: #708880;
+      --white: #07130f;
+      --surface-glass: rgba(255, 255, 255, 0.75);
+      --surface-glass-strong: rgba(255, 255, 255, 0.92);
+      --border-soft: rgba(4, 138, 97, 0.16);
+      --border-strong: rgba(4, 138, 97, 0.3);
+      --border: var(--border-soft);
+      --text-primary: var(--white);
+      --text-secondary: var(--gray-500);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg-primary);
+      font-family: "Avenir Next LT Pro", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
       color: var(--text-primary);
       height: 100vh;
       overflow: hidden;
     }
 
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 10% 14%, rgba(31, 215, 157, 0.15), transparent 28%),
+        radial-gradient(circle at 88% 84%, rgba(124, 246, 228, 0.11), transparent 30%);
+      z-index: -1;
+    }
+
+    [data-theme="light"] body::before {
+      background:
+        radial-gradient(circle at 12% 18%, rgba(6, 182, 127, 0.14), transparent 30%),
+        radial-gradient(circle at 88% 82%, rgba(15, 118, 110, 0.1), transparent 32%);
+    }
+
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: var(--gray-600); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gray-500); }
+
     /* Header */
     .header {
       position: fixed;
       top: 0; left: 0; right: 0;
-      height: 60px;
+      height: 64px;
       border-bottom: 1px solid var(--border);
-      background: var(--bg-primary);
+      background: var(--surface-glass-strong);
+      backdrop-filter: blur(16px);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -62,20 +131,33 @@
     .logo {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       text-decoration: none;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .logo:hover {
+      transform: translateY(-1px);
+      border-color: var(--border-strong);
+      box-shadow: 0 10px 22px -16px rgba(16, 202, 144, 0.6);
     }
 
     .logo-icon {
       width: 32px; height: 32px;
       border-radius: 8px;
-      background: linear-gradient(135deg, var(--violet-500), var(--cyan-500));
+      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 0 24px rgba(16, 202, 144, 0.28);
     }
 
-    .logo-text { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+    .logo-text { font-size: 18px; font-weight: 600; color: var(--text-primary); font-style: normal; }
+    .brand-italic { font-style: italic; }
     .logo-text span { color: var(--violet-400); }
 
     .header-divider {
@@ -94,9 +176,34 @@
       gap: 12px;
     }
 
+    .theme-toggle {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-glass);
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(6, 160, 115, 0.2);
+    }
+
+    .theme-icon-light { display: none; }
+    [data-theme="light"] .theme-icon-light { display: inline; }
+    [data-theme="light"] .theme-icon-dark { display: none; }
+
     .header-btn {
       padding: 8px 16px;
-      background: transparent;
+      background: var(--surface-glass);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text-secondary);
@@ -107,14 +214,15 @@
     }
 
     .header-btn:hover {
-      border-color: var(--violet-500);
+      border-color: var(--border-strong);
       color: var(--text-primary);
+      transform: translateY(-1px);
     }
 
     .header-btn.primary {
-      background: var(--violet-600);
-      border-color: var(--violet-600);
-      color: white;
+      background: linear-gradient(120deg, var(--violet-600), var(--emerald-400));
+      border-color: rgba(16, 202, 144, 0.36);
+      color: var(--white);
     }
 
     .header-btn.primary:hover {
@@ -123,7 +231,7 @@
 
     /* Main Layout */
     .main {
-      padding-top: 60px;
+      padding-top: 64px;
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -200,7 +308,7 @@
 
     /* Cards */
     .card {
-      background: var(--bg-tertiary);
+      background: color-mix(in srgb, var(--surface-glass) 86%, var(--bg-secondary) 14%);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px;
@@ -819,7 +927,8 @@
     .input-area {
       border-top: 1px solid var(--border);
       padding: 16px 24px;
-      background: var(--bg-primary);
+      background: var(--surface-glass-strong);
+      backdrop-filter: blur(12px);
     }
 
     .input-container {
@@ -835,9 +944,9 @@
 
     .toolbar-btn {
       padding: 6px 12px;
-      background: var(--bg-secondary);
+      background: color-mix(in srgb, var(--surface-glass) 82%, var(--bg-secondary) 18%);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
       color: var(--text-secondary);
       font-size: 12px;
       cursor: pointer;
@@ -848,21 +957,22 @@
     }
 
     .toolbar-btn:hover {
-      border-color: var(--violet-500);
+      border-color: var(--border-strong);
       color: var(--text-primary);
+      transform: translateY(-1px);
     }
 
     .input-box {
       display: flex;
       gap: 12px;
-      background: var(--bg-secondary);
+      background: color-mix(in srgb, var(--surface-glass) 80%, var(--bg-secondary) 20%);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 12px;
       align-items: flex-end;
     }
 
-    .input-box:focus-within { border-color: var(--violet-500); }
+    .input-box:focus-within { border-color: var(--border-strong); box-shadow: 0 0 0 3px rgba(16, 202, 144, 0.1); }
 
     textarea {
       flex: 1;
@@ -882,9 +992,9 @@
 
     .send-btn {
       width: 36px; height: 36px;
-      background: var(--violet-600);
+      background: linear-gradient(120deg, var(--violet-600), var(--emerald-400));
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       color: white;
       cursor: pointer;
       display: flex;
@@ -894,12 +1004,12 @@
       flex-shrink: 0;
     }
 
-    .send-btn:hover { background: var(--violet-500); }
+    .send-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
     .send-btn:disabled { background: rgba(255, 255, 255, 0.1); cursor: not-allowed; }
 
     /* File Upload */
     .upload-area {
-      background: var(--bg-secondary);
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
       border: 2px dashed var(--border);
       border-radius: 12px;
       padding: 32px;
@@ -909,7 +1019,7 @@
       transition: all 0.2s;
     }
 
-    .upload-area:hover { border-color: var(--cyan-500); }
+    .upload-area:hover { border-color: var(--border-strong); background: color-mix(in srgb, rgba(31, 215, 157, 0.12) 40%, var(--surface-glass)); }
 
     .upload-icon { font-size: 32px; margin-bottom: 8px; }
     .upload-text { font-size: 14px; color: var(--text-secondary); }
@@ -1122,30 +1232,22 @@
   <!-- Header -->
   <header class="header">
     <div class="header-left">
-      <a href="/" class="logo">
+      <a href="./index.html" class="logo">
         <div class="logo-icon">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
             <circle cx="9" cy="9" r="2" fill="white"/>
           </svg>
         </div>
-        <span class="logo-text">Vibe<span>ML</span></span>
+        <span class="logo-text"><span class="brand-italic" style="color: var(--text-primary);">Vibe</span><span>ML</span></span>
       </a>
-      <div class="header-divider"></div>
-      <span class="header-title">Chat / 新对话</span>
     </div>
-    <div class="header-actions" style="display: flex; align-items: center; gap: 12px;">
-      <div class="mode-toggle" id="modeToggle">
-        <button class="mode-btn active" id="modeUser" onclick="setMode('user')">
-          <span class="mode-icon">👤</span>
-          <span>User</span>
-        </button>
-        <button class="mode-btn" id="modeDev" onclick="setMode('developer')">
-          <span class="mode-icon">🛠</span>
-          <span>Developer</span>
-        </button>
-      </div>
-      <a href="/" class="header-btn">返回首页</a>
+    <div class="header-actions">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换明暗主题">
+        <span class="theme-icon-dark">◐</span>
+        <span class="theme-icon-light">◑</span>
+      </button>
+      <a href="./index.html" class="header-btn">返回首页</a>
       <button class="header-btn primary" onclick="startNewChat()">+ 新对话</button>
     </div>
   </header>
@@ -1215,6 +1317,25 @@
   </main>
 
   <script>
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('vibeml-theme');
+
+    if (savedTheme === 'light') {
+      root.setAttribute('data-theme', 'light');
+    }
+
+    themeToggle?.addEventListener('click', () => {
+      const isLight = root.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        root.removeAttribute('data-theme');
+        localStorage.setItem('vibeml-theme', 'dark');
+      } else {
+        root.setAttribute('data-theme', 'light');
+        localStorage.setItem('vibeml-theme', 'light');
+      }
+    });
+
     const API = '/api';
     let currentSessionId = null;
     let currentFile = null;
