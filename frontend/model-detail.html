@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeML · 模型详情</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <style>
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-Regular (1).otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        displayAlign: 'left',
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root {
+      --bg-primary: #03070a;
+      --bg-secondary: #08110f;
+      --bg-tertiary: #0d1916;
+      --violet-400: #9dffe0;
+      --violet-500: #47f5b7;
+      --violet-600: #10ca90;
+      --blue-400: #d4fff2;
+      --blue-500: #84ffd5;
+      --emerald-400: #57f8c2;
+      --emerald-500: #1fd79d;
+      --cyan-400: #7cf6e4;
+      --gray-300: #d8f3ea;
+      --gray-400: #9bc2b5;
+      --gray-500: #70958a;
+      --gray-600: #4b6760;
+      --gray-700: #334943;
+      --white: #f4fff9;
+      --surface-glass: rgba(14, 31, 26, 0.58);
+      --surface-glass-strong: rgba(10, 24, 20, 0.78);
+      --border-soft: rgba(136, 255, 216, 0.16);
+      --border-strong: rgba(136, 255, 216, 0.34);
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f5f9f7;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f0f6f3;
+      --violet-400: #06b67f;
+      --violet-500: #059d6f;
+      --violet-600: #048a61;
+      --blue-400: #0f172a;
+      --blue-500: #0b1220;
+      --emerald-400: #049f70;
+      --emerald-500: #04825c;
+      --cyan-400: #0f766e;
+      --gray-300: #1f3630;
+      --gray-400: #35564d;
+      --gray-500: #527167;
+      --gray-600: #708880;
+      --gray-700: #8ca199;
+      --white: #07130f;
+      --surface-glass: rgba(255, 255, 255, 0.75);
+      --surface-glass-strong: rgba(255, 255, 255, 0.92);
+      --border-soft: rgba(4, 138, 97, 0.16);
+      --border-strong: rgba(4, 138, 97, 0.3);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Avenir Next LT Pro", sans-serif;
+      background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
+      color: var(--white);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 8% 12%, rgba(31, 215, 157, 0.16), transparent 28%),
+        radial-gradient(circle at 92% 88%, rgba(124, 246, 228, 0.14), transparent 30%);
+      z-index: -1;
+    }
+
+    .topbar {
+      max-width: 1320px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .back-link {
+      color: var(--gray-300);
+      text-decoration: none;
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: var(--surface-glass);
+      transition: all 0.2s ease;
+      font-size: 13px;
+    }
+
+    .back-link:hover {
+      color: var(--white);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .theme-toggle {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid var(--border-soft);
+      background: var(--surface-glass);
+      color: var(--gray-300);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .theme-toggle:hover {
+      color: var(--white);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .layout {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--surface-glass);
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+    }
+
+    .model-nav {
+      padding: 18px;
+      position: sticky;
+      top: 20px;
+    }
+
+    .model-nav h3 {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+
+    .model-links {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .model-link {
+      text-decoration: none;
+      color: var(--gray-400);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .model-link:hover,
+    .model-link.active {
+      color: var(--white);
+      border-color: var(--border-strong);
+      background: rgba(71, 245, 183, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .detail {
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+      transition: transform 0.18s ease-out;
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
+    }
+
+    .detail-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-soft);
+      padding-bottom: 14px;
+    }
+
+    .title {
+      font-size: clamp(1.5rem, 2.6vw, 2.3rem);
+      line-height: 1.2;
+    }
+
+    .section-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--gray-500);
+      margin-bottom: 10px;
+    }
+
+    .repo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .repo-card {
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 12px;
+      background: color-mix(in srgb, var(--surface-glass) 82%, var(--bg-secondary) 18%);
+    }
+
+    .repo-name {
+      font-size: 13px;
+      margin-bottom: 10px;
+      color: var(--gray-300);
+      font-weight: 600;
+    }
+
+    .repo-btn {
+      display: inline-block;
+      text-decoration: none;
+      font-size: 12px;
+      color: var(--white);
+      border-radius: 9px;
+      border: 1px solid var(--border-strong);
+      padding: 8px 12px;
+      background: linear-gradient(135deg, rgba(16, 202, 144, 0.35), rgba(31, 215, 157, 0.2));
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .repo-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -14px rgba(31, 215, 157, 0.8);
+    }
+
+    .principle {
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 14px;
+      color: var(--gray-300);
+      line-height: 1.7;
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+      word-break: normal;
+      overflow-wrap: anywhere;
+    }
+    .principle p { margin-bottom: 12px; }
+    .principle p:last-child { margin-bottom: 0; }
+    .principle mjx-container[display="true"] {
+      margin: 0.45em 0 !important;
+      text-align: left !important;
+    }
+
+    @media (max-width: 1024px) {
+      .layout { grid-template-columns: 1fr; }
+      .model-nav { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back-link" href="./index.html#capabilities">← 返回主页模型区</a>
+    <button id="themeToggle" class="theme-toggle" aria-label="切换明暗主题">◐</button>
+  </header>
+
+  <main class="layout">
+    <aside class="panel model-nav">
+      <h3>模型目录</h3>
+      <nav id="modelNav" class="model-links"></nav>
+    </aside>
+
+    <section id="detailPanel" class="panel detail">
+      <div class="detail-head">
+        <h1 id="modelTitle" class="title"></h1>
+      </div>
+
+      <div>
+        <div class="section-title">官方仓库</div>
+        <div id="repoList" class="repo-grid"></div>
+      </div>
+
+      <div>
+        <div class="section-title">核心原理解释</div>
+        <article id="principle" class="principle"></article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const MODEL_DATA = {
+      'xgboost-lightgbm': {
+        title: 'XGBoost / LightGBM',
+        repos: [
+          { name: 'XGBoost (DMLC 官方)', url: 'https://github.com/dmlc/xgboost' },
+          { name: 'LightGBM (微软官方)', url: 'https://github.com/microsoft/LightGBM' }
+        ],
+        principle: String.raw`背景与痛点：传统 GBDT 仅利用一阶导数，收敛慢，且在海量样本下分裂点搜索代价极高。
+
+XGBoost 的核心突破：目标函数做二阶泰勒展开，同时使用 Gradient 与 Hessian，逼近更精确；显式加入结构正则（叶子数与叶子权重）控制复杂度；再结合稀疏感知与缺失值自动分流机制，大幅增强工程可用性与泛化稳定性。
+
+LightGBM 的青出于蓝：彻底拥抱 Histogram 分桶，将连续特征离散化，显著降低内存；树生长从 Level-wise 改为 Leaf-wise（带深度限制），在同等切分预算下更快逼近更低损失；并通过 GOSS 与 EFB 在样本与特征两端同时提速，是大规模表格任务的工业首选。`
+      },
+      transformer: {
+        title: 'Transformer',
+        repos: [
+          { name: 'Transformers (Hugging Face 官方)', url: 'https://github.com/huggingface/transformers' }
+        ],
+        principle: String.raw`背景与痛点：RNN/LSTM 的串行依赖导致训练慢，且长距离依赖在多步传递中容易衰减。
+
+Self-Attention 核心：$\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(QK^T/\sqrt{d_k})V$。每个 token 可一步访问全序列信息，长程关系建模从链式传递变为全局并行交互，GPU 友好。
+
+架构完善：Positional Encoding 补齐顺序信息；Multi-Head Attention 在不同子空间并行抽取关系；Residual + LayerNorm 保证深层训练稳定。这套设计奠定了 GPT、BERT、Llama 等主流基础模型底座。`
+      },
+      'lstm-tcn': {
+        title: 'LSTM / TCN',
+        repos: [
+          { name: 'LSTM (PyTorch 官方)', url: 'https://github.com/pytorch/pytorch' },
+          { name: 'TCN (原论文官方库)', url: 'https://github.com/locuslab/TCN' }
+        ],
+        principle: String.raw`LSTM：通过 Cell State 与遗忘门/输入门/输出门实现“受控记忆写入与释放”，避免标准 RNN 的梯度连乘灾难，让长程依赖变得可训练。
+
+TCN：以因果卷积保证时间因果性，以空洞卷积让感受野指数扩展（dilation 1,2,4,8...），在不显著增加参数量下捕获长历史规律。其并行计算特性在大规模时序训练中通常快于循环网络。`
+      },
+      'gnn-graph-transformer': {
+        title: 'GNN / Graph Transformer',
+        repos: [
+          { name: 'PyTorch Geometric (PyG 官方)', url: 'https://github.com/pyg-team/pytorch_geometric' },
+          { name: 'Graph Transformer (原作者官方库)', url: 'https://github.com/graphdeeplearning/graphtransformer' }
+        ],
+        principle: String.raw`GNN 的消息传递范式：节点在每层执行“聚合-更新”，堆叠 K 层后获得 K 阶邻域结构信息，适配社交网络、推荐图、分子图等非欧空间数据。
+
+经典痛点：过度平滑与表达能力上限（受 1-WL 约束）。Graph Transformer 引入全局注意力并叠加图结构编码（如拉普拉斯特征、随机游走），既保留拓扑感知又获得全局建模能力，在药物发现与蛋白结构等任务表现突出。`
+      },
+      'tabular-dnn': {
+        title: 'Tabular DNN',
+        repos: [
+          { name: 'TabNet (DreamQuark 官方实现)', url: 'https://github.com/dreamquark-network/tabnet' },
+          { name: 'FT-Transformer (Yandex 原论文库)', url: 'https://github.com/yandex-research/rtdl' }
+        ],
+        principle: String.raw`背景痛点：表格数据异构、尺度不一、稀疏高基数混合，传统 MLP 常输给树模型。
+
+TabNet：通过序列化决策步骤与稀疏特征选择（Sparsemax/Entmax），在每个样本上动态挑选关键列，兼顾性能与可解释性。
+
+FT-Transformer：先做 Feature Tokenizer，将数值与类别特征统一到同维 embedding，再用标准 Transformer 建模列间交互，形成稳定且泛化强的表格深度学习基线。`
+      },
+      'random-forest': {
+        title: 'Random Forest',
+        repos: [
+          { name: 'Scikit-Learn (官方主仓库)', url: 'https://github.com/scikit-learn/scikit-learn' }
+        ],
+        principle: String.raw`随机森林的本质是 Bagging + 双重随机性：
+1) 样本随机：Bootstrap 抽样训练多棵树；
+2) 特征随机：每次分裂仅在随机特征子集内搜索最优切分。
+
+这使树之间相关性显著下降，集成后方差被有效削弱。再配合 OOB 估计可直接做内部验证，通常无需复杂调参即可得到稳定结果，因此长期是结构化数据任务的首发验证模型。`
+      },
+      'ppo-sac-rl': {
+        title: 'PPO / SAC (RL)',
+        repos: [
+          { name: 'Stable-Baselines3 (DLR-RM 官方标准)', url: 'https://github.com/DLR-RM/stable-baselines3' }
+        ],
+        principle: String.raw`PPO：针对策略梯度更新不稳问题，引入 clipping 限制新旧策略比值偏离区间 $[1-\epsilon,\,1+\epsilon]$，在稳定性与效率间取得极佳平衡，也是 RLHF 的关键算法之一。
+
+SAC：基于最大熵强化学习，在奖励目标中加入熵项 $J(\pi)=\mathbb{E}[R+\alpha H(\pi)]$，鼓励高回报同时保持探索多样性。作为 off-policy 方法，样本效率高、鲁棒性强，常用于连续控制与机器人任务。`
+      },
+      'neural-ode': {
+        title: 'Neural ODE',
+        repos: [
+          { name: 'torchdiffeq (原作者官方库)', url: 'https://github.com/rtqichen/torchdiffeq' }
+        ],
+        principle: String.raw`Neural ODE 将离散层堆叠推广为连续动力系统：$\frac{dh(t)}{dt}=f_{\theta}(h(t),t)$。前向不再固定过若干层，而是交给 ODE 求解器按精度自适应积分。
+
+关键优势：伴随灵敏度方法（Adjoint Method）让反向传播无需保存全部中间激活，内存可近似 $O(1)$。这使其在不规则采样时序、生理监测、物理系统辨识等任务中具备显著优势。`
+      },
+      'diffusion-model': {
+        title: 'Diffusion Model',
+        repos: [
+          { name: 'Diffusers (Hugging Face 官方标准库)', url: 'https://github.com/huggingface/diffusers' }
+        ],
+        principle: String.raw`扩散模型由两个马尔可夫过程构成：前向逐步加噪 $q(x_t\mid x_{t-1})$，反向逐步去噪 $p_{\theta}(x_{t-1}\mid x_t)$。训练时常令网络预测噪声 $\epsilon$。经典简化目标可写为：$$\mathcal{L}_{\text{simple}}=\mathbb{E}_{t,x_0,\epsilon}\left[\|\epsilon-\epsilon_{\theta}(x_t,t)\|_2^2\right]$$
+
+相较 GAN，扩散模型训练更稳定、模式崩溃更少；相较 VAE，生成细节更强。尽管采样步数较多，但在图像/视频生成质量与可控性上已成为主流基础范式。`
+      },
+      'causal-ml': {
+        title: 'Causal ML',
+        repos: [
+          { name: 'CausalML (Uber 官方库)', url: 'https://github.com/uber/causalml' },
+          { name: 'DoWhy (微软及 PyWhy 官方库)', url: 'https://github.com/py-why/dowhy' }
+        ],
+        principle: String.raw`传统 ML 估计的是相关关系 $P(Y\mid X)$，而因果 ML 关注干预效应 $P(Y\mid do(X))$，核心目标是回答“做了这个动作是否真的引发变化”。
+
+工程上常见 Uplift/CATE 估计与 Meta-learners（T-learner 等）。DoWhy 强调因果图建模、效应识别、估计与反驳检验的完整闭环，适合高风险决策场景。CausalML 则在增益建模与营销干预上提供更直接可用的工业工具。`
+      },
+      'conformal-prediction': {
+        title: 'Conformal Prediction',
+        repos: [
+          { name: 'MAPIE (Scikit-learn Contrib 官方认证)', url: 'https://github.com/scikit-learn-contrib/MAPIE' }
+        ],
+        principle: String.raw`共形预测是分布无关（distribution-free）的不确定性量化框架，可包裹任意黑盒模型。
+
+做法是：保留校准集 -> 计算不符合度分数 -> 取目标置信度对应分位数 -> 输出区间/集合预测。其理论保证是：在交换性假设下，覆盖率可达 $1-\alpha$ 下界。
+
+这使模型不仅给“答案”，还给“可信边界”，尤其适用于医疗、金融、自动驾驶等安全关键场景。`
+      },
+      'automl-pipeline': {
+        title: 'AutoML Pipeline',
+        repos: [
+          { name: 'AutoGluon (AWS 官方)', url: 'https://github.com/autogluon/autogluon' },
+          { name: 'FLAML (微软官方)', url: 'https://github.com/microsoft/FLAML' }
+        ],
+        principle: String.raw`传统 AutoML 常陷入 CASH 搜索（算法选择+超参优化）的巨大计算开销。
+
+新范式（如 AutoGluon）更强调“异构模型并行 + 多层堆叠集成”：先快速训练多类模型（树模型+深度模型），再把 OOF 预测作为新特征交给上层元学习器，层层纠偏。
+
+这种以融合为核心的策略在有限时间内通常比深度调参更稳、更强，显著降低企业把 AI 落地到生产的门槛。`
+      }
+    };
+
+    const MODEL_ORDER = [
+      'xgboost-lightgbm',
+      'transformer',
+      'lstm-tcn',
+      'gnn-graph-transformer',
+      'tabular-dnn',
+      'random-forest',
+      'ppo-sac-rl',
+      'neural-ode',
+      'diffusion-model',
+      'causal-ml',
+      'conformal-prediction',
+      'automl-pipeline'
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    const selected = params.get('model');
+    const defaultKey = MODEL_ORDER.includes(selected) ? selected : 'xgboost-lightgbm';
+
+    const titleEl = document.getElementById('modelTitle');
+    const repoListEl = document.getElementById('repoList');
+    const principleEl = document.getElementById('principle');
+    const navEl = document.getElementById('modelNav');
+
+    function renderMath() {
+      if (window.MathJax?.typesetPromise && window.MathJax?.typesetClear) {
+        window.MathJax.typesetClear([principleEl]);
+        window.MathJax.typesetPromise([principleEl]).catch(() => {});
+      }
+    }
+
+    function forceMathRender() {
+      renderMath();
+      setTimeout(renderMath, 120);
+      setTimeout(renderMath, 360);
+    }
+
+    function principleToHtml(text) {
+      return text
+        .split('\n\n')
+        .map((block) => `<p>${block.trim().replace(/\n/g, '<br>')}</p>`)
+        .join('');
+    }
+
+    function renderNav(activeKey) {
+      navEl.innerHTML = '';
+      MODEL_ORDER.forEach((key) => {
+        const model = MODEL_DATA[key];
+        const link = document.createElement('a');
+        link.href = `./model-detail.html?model=${key}`;
+        link.textContent = model.title;
+        link.className = `model-link${key === activeKey ? ' active' : ''}`;
+        navEl.appendChild(link);
+      });
+    }
+
+    function renderModel(key) {
+      const model = MODEL_DATA[key];
+      titleEl.textContent = model.title;
+      principleEl.innerHTML = principleToHtml(model.principle);
+
+      repoListEl.innerHTML = '';
+      model.repos.forEach((repo) => {
+        const card = document.createElement('div');
+        card.className = 'repo-card';
+
+        const name = document.createElement('div');
+        name.className = 'repo-name';
+        name.textContent = repo.name;
+
+        const btn = document.createElement('a');
+        btn.className = 'repo-btn';
+        btn.href = repo.url;
+        btn.target = '_blank';
+        btn.rel = 'noopener noreferrer';
+        btn.textContent = '前往 GitHub 仓库';
+
+        card.appendChild(name);
+        card.appendChild(btn);
+        repoListEl.appendChild(card);
+      });
+
+      renderNav(key);
+      forceMathRender();
+    }
+
+    renderModel(defaultKey);
+
+    function ensureMathRender(retry = 0) {
+      if (window.MathJax?.typesetPromise && window.MathJax?.typesetClear) {
+        forceMathRender();
+        return;
+      }
+      if (retry < 12) {
+        setTimeout(() => ensureMathRender(retry + 1), 120);
+      }
+    }
+
+    const mjScript = document.getElementById('MathJax-script');
+    if (mjScript) {
+      mjScript.addEventListener('load', () => {
+        ensureMathRender();
+      });
+    }
+    ensureMathRender();
+
+    const detailPanel = document.getElementById('detailPanel');
+    const canUsePointerMotion = window.matchMedia('(pointer: fine)').matches;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (detailPanel && canUsePointerMotion && !reduceMotion) {
+      const maxShift = 6;
+      let rafId = null;
+
+      const applyShift = (x, y) => {
+        detailPanel.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      };
+
+      const onPointerMove = (event) => {
+        const rect = detailPanel.getBoundingClientRect();
+        const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+        const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+        const nextX = Math.max(-maxShift, Math.min(maxShift, offsetX * maxShift));
+        const nextY = Math.max(-maxShift, Math.min(maxShift, offsetY * maxShift));
+
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+        }
+        rafId = requestAnimationFrame(() => applyShift(nextX, nextY));
+      };
+
+      const onPointerLeave = () => {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        applyShift(0, 0);
+      };
+
+      detailPanel.addEventListener('pointermove', onPointerMove, { passive: true });
+      detailPanel.addEventListener('pointerleave', onPointerLeave);
+    }
+
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('vibeml-theme');
+
+    if (savedTheme === 'light') {
+      root.setAttribute('data-theme', 'light');
+    }
+
+    themeToggle?.addEventListener('click', () => {
+      const isLight = root.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        root.removeAttribute('data-theme');
+        localStorage.setItem('vibeml-theme', 'dark');
+      } else {
+        root.setAttribute('data-theme', 'light');
+        localStorage.setItem('vibeml-theme', 'light');
+      }
+    });
+  </script>
+</body>
+</html>

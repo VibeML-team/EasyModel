@@ -4,38 +4,93 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VibeML - 将模糊业务语言编译成专属训练流</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-Regular (1).otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-It.otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: italic;
+      font-display: swap;
+    }
+
     :root {
-      --bg-primary: #07070f;
-      --bg-secondary: #0d0d1a;
-      --bg-tertiary: #10101f;
-      --violet-400: #a78bfa;
-      --violet-500: #8b5cf6;
-      --violet-600: #7c3aed;
-      --blue-400: #60a5fa;
-      --blue-500: #3b82f6;
-      --emerald-400: #34d399;
-      --emerald-500: #10b981;
-      --cyan-400: #22d3ee;
-      --gray-300: #d1d5db;
-      --gray-400: #9ca3af;
-      --gray-500: #6b7280;
-      --gray-600: #4b5563;
-      --gray-700: #374151;
-      --white: #ffffff;
+      --bg-primary: #03070a;
+      --bg-secondary: #08110f;
+      --bg-tertiary: #0d1916;
+      --violet-400: #9dffe0;
+      --violet-500: #47f5b7;
+      --violet-600: #10ca90;
+      --blue-400: #d4fff2;
+      --blue-500: #84ffd5;
+      --emerald-400: #57f8c2;
+      --emerald-500: #1fd79d;
+      --cyan-400: #7cf6e4;
+      --gray-300: #d8f3ea;
+      --gray-400: #9bc2b5;
+      --gray-500: #70958a;
+      --gray-600: #4b6760;
+      --gray-700: #334943;
+      --white: #f4fff9;
+      --surface-glass: rgba(14, 31, 26, 0.58);
+      --surface-glass-strong: rgba(10, 24, 20, 0.78);
+      --border-soft: rgba(136, 255, 216, 0.16);
+      --border-strong: rgba(136, 255, 216, 0.34);
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f5f9f7;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f0f6f3;
+      --violet-400: #06b67f;
+      --violet-500: #059d6f;
+      --violet-600: #048a61;
+      --blue-400: #0f172a;
+      --blue-500: #0b1220;
+      --emerald-400: #049f70;
+      --emerald-500: #04825c;
+      --cyan-400: #0f766e;
+      --gray-300: #1f3630;
+      --gray-400: #35564d;
+      --gray-500: #527167;
+      --gray-600: #708880;
+      --gray-700: #8ca199;
+      --white: #07130f;
+      --surface-glass: rgba(255, 255, 255, 0.75);
+      --surface-glass-strong: rgba(255, 255, 255, 0.92);
+      --border-soft: rgba(4, 138, 97, 0.16);
+      --border-strong: rgba(4, 138, 97, 0.3);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: "Avenir Next LT Pro", sans-serif;
       background-color: var(--bg-primary);
       color: var(--white);
       line-height: 1.6;
       overflow-x: hidden;
+      transition: background-color 0.35s ease, color 0.35s ease;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 12% 18%, rgba(71, 245, 183, 0.14), transparent 30%),
+        radial-gradient(circle at 88% 82%, rgba(124, 246, 228, 0.1), transparent 32%);
+      z-index: -1;
     }
 
     ::-webkit-scrollbar { width: 8px; }
@@ -52,9 +107,9 @@
       background: transparent;
     }
     .navbar.scrolled {
-      background: rgba(7, 7, 15, 0.9);
+      background: var(--surface-glass-strong);
       backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid var(--border-soft);
     }
     .navbar-inner {
       max-width: 1280px;
@@ -71,6 +126,7 @@
       border-radius: 8px;
       background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
       display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 24px rgba(16, 202, 144, 0.28);
     }
     .logo-text { font-size: 18px; font-weight: 600; color: var(--white); }
     .logo-text span { color: var(--violet-400); }
@@ -80,6 +136,24 @@
     .nav-cta { display: flex; align-items: center; gap: 12px; }
     .nav-cta a { color: var(--gray-400); text-decoration: none; font-size: 14px; padding: 6px 16px; transition: color 0.2s; }
     .nav-cta a:hover { color: var(--white); }
+    .theme-toggle {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--border-soft);
+      background: var(--surface-glass);
+      color: var(--white);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      backdrop-filter: blur(10px);
+    }
+    .theme-toggle:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(6, 160, 115, 0.2); }
+    .theme-icon-light { display: none; }
+    [data-theme="light"] .theme-icon-light { display: inline; }
+    [data-theme="light"] .theme-icon-dark { display: none; }
     .btn-primary {
       background: var(--violet-600);
       color: var(--white) !important;
@@ -95,10 +169,21 @@
       padding-top: 64px;
       position: relative; overflow: hidden;
     }
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -1px;
+      height: 180px;
+      background: linear-gradient(to bottom, transparent, var(--bg-primary) 88%);
+      pointer-events: none;
+      z-index: 2;
+    }
     .hero-bg {
       position: absolute; inset: 0;
-      background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124, 58, 237, 0.25), transparent),
-                  radial-gradient(ellipse 50% 30% at 80% 60%, rgba(59, 130, 246, 0.1), transparent);
+      background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(71, 245, 183, 0.2), transparent),
+                  radial-gradient(ellipse 50% 30% at 80% 60%, rgba(124, 246, 228, 0.1), transparent);
     }
     .hero-grid {
       position: absolute; inset: 0;
@@ -117,8 +202,8 @@
     .hero-content { flex: 1; max-width: 640px; }
     .badge {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(139, 92, 246, 0.1);
-      border: 1px solid rgba(139, 92, 246, 0.2);
+      background: rgba(136, 255, 216, 0.1);
+      border: 1px solid var(--border-soft);
       border-radius: 9999px;
       padding: 6px 16px;
       margin-bottom: 32px;
@@ -146,10 +231,10 @@
       font-size: 15px; font-weight: 500;
       text-decoration: none; transition: all 0.2s;
     }
-    .btn-gradient { background: var(--violet-600); color: var(--white); }
-    .btn-gradient:hover { background: var(--violet-500); box-shadow: 0 0 30px rgba(124, 58, 237, 0.4); }
-    .btn-outline { border: 1px solid rgba(255, 255, 255, 0.1); color: var(--gray-300); }
-    .btn-outline:hover { border-color: rgba(255, 255, 255, 0.2); color: var(--white); }
+    .btn-gradient { background: linear-gradient(120deg, var(--violet-600), var(--emerald-400)); color: var(--white); box-shadow: 0 0 24px rgba(16, 202, 144, 0.3); }
+    .btn-gradient:hover { transform: translateY(-2px); box-shadow: 0 0 34px rgba(16, 202, 144, 0.42); }
+    .btn-outline { border: 1px solid var(--border-soft); color: var(--gray-300); background: var(--surface-glass); backdrop-filter: blur(8px); }
+    .btn-outline:hover { border-color: var(--border-strong); color: var(--white); transform: translateY(-2px); }
     .hero-stats { display: flex; flex-wrap: wrap; gap: 32px; }
     .stat-item { display: flex; flex-direction: column; }
     .stat-value { font-size: 24px; font-weight: 600; color: var(--white); }
@@ -158,25 +243,50 @@
     /* Terminal Demo */
     .hero-demo { flex: 1; max-width: 560px; width: 100%; }
     .terminal {
-      background: var(--bg-secondary);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--surface-glass);
+      border: 1px solid var(--border-soft);
       border-radius: 16px; overflow: hidden;
-      box-shadow: 0 25px 50px -12px rgba(124, 58, 237, 0.2);
+      box-shadow: 0 25px 50px -12px rgba(8, 120, 90, 0.28);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      backdrop-filter: blur(12px);
+      position: relative;
+      isolation: isolate;
+      --terminal-shift-x: 0px;
+      --terminal-shift-y: 0px;
+    }
+    .terminal:hover {
+      transform: translate3d(var(--terminal-shift-x), calc(var(--terminal-shift-y) - 3px), 0);
+      box-shadow: 0 30px 58px -14px rgba(8, 120, 90, 0.34);
+    }
+    .terminal::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid var(--border-soft);
+      pointer-events: none;
+      z-index: 1;
     }
     .terminal-header {
       display: flex; align-items: center; gap: 8px;
       padding: 12px 16px;
-      background: rgba(10, 10, 21, 0.8);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      background: color-mix(in srgb, var(--bg-tertiary) 88%, #000 12%);
+      border-bottom: 1px solid var(--border-soft);
     }
     .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
     .terminal-dot.red { background: #ff5f57; }
     .terminal-dot.yellow { background: #febb2d; }
     .terminal-dot.green { background: #28c840; }
-    .terminal-title { margin-left: auto; margin-right: auto; font-size: 12px; color: var(--gray-500); font-family: 'JetBrains Mono', monospace; }
+    .terminal-title {
+      margin-left: auto;
+      margin-right: auto;
+      font-size: 12px;
+      color: var(--gray-500);
+      font-family: 'JetBrains Mono', 'Avenir Next LT Pro', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+    }
     .terminal-body {
       padding: 20px; min-height: 360px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'JetBrains Mono', 'Avenir Next LT Pro', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
       font-size: 13px; line-height: 1.8;
     }
     .terminal-line { min-height: 1.5em; }
@@ -188,7 +298,8 @@
     .cursor { animation: blink 1s infinite; }
     @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
     .demo-tags { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-    .demo-tag { font-size: 12px; color: var(--gray-500); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 9999px; padding: 4px 12px; }
+    .demo-tag { font-size: 12px; color: var(--gray-500); border: 1px solid var(--border-soft); border-radius: 9999px; padding: 4px 12px; background: rgba(136, 255, 216, 0.05); text-decoration: none; display: inline-block; transition: all 0.2s ease; }
+    .demo-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: rgba(31, 215, 157, 0.12); }
 
     /* Scroll Indicator */
     .scroll-indicator { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--gray-600); font-size: 12px; }
@@ -196,7 +307,7 @@
 
     /* Section Styles */
     section { padding: 96px 24px; position: relative; }
-    .section-divider { position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.2), transparent); }
+    .section-divider { position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(136, 255, 216, 0.32), transparent); }
     .section-header { text-align: center; margin-bottom: 64px; }
     .section-label { font-size: 14px; font-weight: 500; color: var(--violet-400); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
     .section-title { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 700; margin-bottom: 20px; }
@@ -205,80 +316,428 @@
 
     /* Problem Section */
     .problem-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-    .problem-card { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 24px; transition: all 0.2s; }
-    .problem-card:hover { border-color: rgba(139, 92, 246, 0.2); background: var(--bg-tertiary); }
+    .problem-intro { max-width: 980px; margin-bottom: 64px; }
+    .problem-headline {
+      font-size: clamp(2.1rem, 4.2vw, 3.8rem);
+      font-weight: 700;
+      line-height: 1.12;
+      margin-bottom: 18px;
+      letter-spacing: -0.01em;
+    }
+    .problem-headline .headline-line {
+      display: block;
+      white-space: nowrap;
+    }
+    .problem-headline .headline-line + .headline-line { margin-top: 8px; }
+    .vibe-italic { font-style: italic; }
+    .theme-highlight {
+      background: linear-gradient(120deg, var(--violet-500), var(--cyan-400));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      color: var(--violet-500);
+    }
+    .brand-italic { font-style: italic; }
+    .problem-lead {
+      text-align: left;
+      margin: 0;
+      max-width: 760px;
+      font-size: 1.03rem;
+      line-height: 1.7;
+    }
+    .problem-card { background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 12px; padding: 24px; transition: all 0.25s ease; backdrop-filter: blur(10px); position: relative; overflow: hidden; }
+    .problem-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 0% 0%, rgba(157, 255, 224, 0.12), transparent 45%);
+      opacity: 0.6;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+    }
+    .problem-card:hover { border-color: var(--border-strong); background: var(--surface-glass-strong); transform: translateY(-4px); box-shadow: 0 14px 28px rgba(7, 80, 60, 0.2); }
+    .problem-card:hover::before { opacity: 0.9; }
     .problem-card-inner { display: flex; gap: 16px; }
-    .problem-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; color: var(--violet-400); }
-    .problem-card:hover .problem-icon { background: rgba(139, 92, 246, 0.15); }
+    .problem-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px; background: rgba(136, 255, 216, 0.1); border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; color: var(--violet-500); }
+    .problem-card:hover .problem-icon { background: rgba(136, 255, 216, 0.15); }
     .problem-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
     .problem-desc { font-size: 14px; color: var(--gray-500); line-height: 1.5; }
-    .quote-box { margin-top: 80px; position: relative; display: flex; justify-content: center; }
-    .quote-line { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, 0.05); }
-    .quote-content { position: relative; background: var(--bg-primary); padding: 24px 32px; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; max-width: 768px; text-align: center; }
-    .quote-text { color: var(--gray-300); font-size: 16px; line-height: 1.6; }
+    .quote-box { margin-top: 92px; position: relative; display: flex; justify-content: center; }
+    .quote-line { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border-soft); }
+    .quote-content {
+      position: relative;
+      background: var(--surface-glass);
+      padding: 34px 38px;
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      max-width: 1040px;
+      width: 100%;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.26s ease, box-shadow 0.26s ease, transform 0.26s ease;
+    }
+    .quote-content:hover {
+      border-color: var(--border-strong);
+      box-shadow: 0 26px 56px -24px rgba(6, 95, 70, 0.6);
+      transform: translateY(-4px);
+    }
+    .quote-text {
+      color: var(--gray-300);
+      font-size: 17px;
+      line-height: 1.65;
+      max-width: 720px;
+      margin: 0 auto;
+      text-wrap: balance;
+    }
+    .quote-metrics {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .quote-metric {
+      border: 1px solid var(--border-soft);
+      border-radius: 14px;
+      padding: 20px 18px;
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+      box-shadow: inset 0 0 0 1px rgba(136, 255, 216, 0.06);
+      transition: all 0.24s ease;
+    }
+    .quote-metric:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 16px 32px -20px rgba(6, 95, 70, 0.52);
+      background: color-mix(in srgb, rgba(16, 202, 144, 0.18) 50%, var(--surface-glass));
+    }
+    .quote-metric-value {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--violet-500);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+    .quote-metric-label {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--gray-500);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
 
     /* How It Works */
-    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-    .step-card { background: var(--bg-secondary); border-radius: 16px; padding: 28px; position: relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); transition: all 0.2s; }
-    .step-card.violet { border: 1px solid rgba(139, 92, 246, 0.2); box-shadow: 0 20px 25px -5px rgba(91, 33, 182, 0.3); }
-    .step-card.violet:hover { box-shadow: 0 25px 50px -12px rgba(91, 33, 182, 0.4); }
-    .step-card.blue { border: 1px solid rgba(59, 130, 246, 0.2); box-shadow: 0 20px 25px -5px rgba(30, 64, 175, 0.3); }
-    .step-card.blue:hover { box-shadow: 0 25px 50px -12px rgba(30, 64, 175, 0.4); }
-    .step-card.emerald { border: 1px solid rgba(16, 185, 129, 0.2); box-shadow: 0 20px 25px -5px rgba(6, 95, 70, 0.3); }
-    .step-card.emerald:hover { box-shadow: 0 25px 50px -12px rgba(6, 95, 70, 0.4); }
-    .step-number { font-size: 48px; font-weight: 700; opacity: 0.2; margin-bottom: 24px; }
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 18px;
+      position: relative;
+    }
+    .steps-grid::before {
+      content: "";
+      position: absolute;
+      inset: 20% 16% 20% 16%;
+      background-image:
+        linear-gradient(to right, rgba(136, 255, 216, 0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(136, 255, 216, 0.06) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+      opacity: 0.5;
+      z-index: 0;
+    }
+    .step-card {
+      --step-offset: 0px;
+      grid-column: span 4;
+      min-height: 320px;
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+      border-radius: 14px;
+      border: 1px solid var(--border-soft);
+      padding: 24px;
+      position: relative;
+      box-shadow: 0 8px 20px rgba(5, 46, 36, 0.08);
+      transition: transform 0.28s ease, border-color 0.24s ease, box-shadow 0.28s ease;
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+      transform: translateY(var(--step-offset));
+      z-index: 1;
+    }
+    .step-card:nth-child(1) { --step-offset: -10px; }
+    .step-card:nth-child(2) { --step-offset: 12px; }
+    .step-card:nth-child(3) { --step-offset: -2px; }
+    .step-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, rgba(136, 255, 216, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+    .step-card::after {
+      content: "";
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      width: 108px;
+      height: 78px;
+      background-image:
+        radial-gradient(circle, rgba(136, 255, 216, 0.25) 1px, transparent 1px);
+      background-size: 12px 12px;
+      opacity: 0.28;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .step-card.violet,
+    .step-card.blue,
+    .step-card.emerald { border: 1px solid var(--border-soft); }
+    .step-card:hover {
+      transform: translateY(calc(var(--step-offset) - 10px)) rotate(-0.35deg);
+      border-color: var(--border-strong);
+      box-shadow: 0 18px 44px -20px rgba(6, 95, 70, 0.5);
+    }
+    .step-card:hover::after { opacity: 0.5; transform: translateY(-2px); }
+    .step-number { font-size: 48px; font-weight: 700; opacity: 0.18; margin-bottom: 20px; }
     .step-number.violet { color: var(--violet-500); }
     .step-number.blue { color: var(--blue-500); }
     .step-number.emerald { color: var(--emerald-500); }
     .step-tag { display: inline-flex; align-items: center; border-radius: 9999px; padding: 4px 12px; font-size: 12px; margin-bottom: 16px; }
-    .step-tag.violet { background: rgba(139, 92, 246, 0.1); color: var(--violet-400); border: 1px solid rgba(139, 92, 246, 0.2); }
-    .step-tag.blue { background: rgba(59, 130, 246, 0.1); color: var(--blue-400); border: 1px solid rgba(59, 130, 246, 0.2); }
-    .step-tag.emerald { background: rgba(16, 185, 129, 0.1); color: var(--emerald-400); border: 1px solid rgba(16, 185, 129, 0.2); }
+    .step-tag.violet { background: rgba(136, 255, 216, 0.14); color: var(--violet-500); border: 1px solid var(--border-soft); }
+    .step-tag.blue { background: rgba(124, 246, 228, 0.12); color: var(--cyan-400); border: 1px solid var(--border-soft); }
+    .step-tag.emerald { background: rgba(31, 215, 157, 0.12); color: var(--emerald-400); border: 1px solid var(--border-soft); }
     .step-title { font-size: 17px; font-weight: 600; margin-bottom: 12px; }
     .step-desc { font-size: 14px; color: var(--gray-500); margin-bottom: 20px; line-height: 1.5; }
-    .step-example { background: #080810; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; }
-    .step-example pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gray-400); line-height: 1.6; white-space: pre-wrap; overflow-x: auto; }
-    .step-example p { font-size: 12px; color: var(--gray-400); font-style: italic; line-height: 1.5; }
+    .step-example { background: linear-gradient(135deg, #061912, #04110c); border: 1px solid rgba(136, 255, 216, 0.22); border-radius: 12px; padding: 14px; }
+    .step-example pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #89f9d1; line-height: 1.6; white-space: pre-wrap; overflow-x: auto; }
+    .step-example p { font-size: 12px; color: #79e7bf; font-style: italic; line-height: 1.5; }
 
-    /* Use Cases */
-    .usecases-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    .usecase-card { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; padding: 24px; transition: all 0.2s; }
-    .usecase-card:hover { border-color: rgba(139, 92, 246, 0.3); transform: translateY(-2px); }
-    .usecase-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .usecase-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2); display: flex; align-items: center; justify-content: center; color: var(--violet-400); }
-    .usecase-tag { font-size: 12px; color: var(--gray-500); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 9999px; padding: 4px 12px; }
-    .usecase-title { font-size: 17px; font-weight: 600; margin-bottom: 10px; }
-    .usecase-desc { font-size: 14px; color: var(--gray-400); line-height: 1.6; margin-bottom: 16px; }
-    .usecase-features { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-    .usecase-feature { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--gray-300); }
-    .feature-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .feature-dot.violet { background: var(--violet-400); }
-    .feature-dot.blue { background: var(--blue-400); }
-    .feature-dot.emerald { background: var(--emerald-400); }
-    .feature-dot.rose { background: #fb7185; }
-    .feature-dot.amber { background: #fbbf24; }
-    .feature-dot.cyan { background: var(--cyan-400); }
-    .usecase-result { background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.1); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
-    .result-label { font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; }
-    .result-value { font-size: 13px; color: var(--emerald-400); font-weight: 500; }
+    /* Use Cases Drawer */
+    .usecase-drawer {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 24px;
+      border: 1px solid var(--border-soft);
+      border-radius: 20px;
+      background: var(--surface-glass);
+      backdrop-filter: blur(14px);
+      overflow: hidden;
+    }
+    .usecase-rail {
+      border-right: 1px solid var(--border-soft);
+      padding: 10px;
+      background: linear-gradient(180deg, rgba(136, 255, 216, 0.06), transparent);
+    }
+    .usecase-tab {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 14px 14px;
+      background: transparent;
+      color: var(--gray-400);
+      cursor: pointer;
+      transition: all 0.24s ease;
+      margin-bottom: 8px;
+    }
+    .usecase-tab-index { font-size: 11px; letter-spacing: 0.08em; color: var(--gray-500); margin-bottom: 3px; display: block; }
+    .usecase-tab-title { font-size: 14px; font-weight: 600; color: var(--gray-300); display: block; }
+    .usecase-tab:hover { border-color: var(--border-soft); background: rgba(136, 255, 216, 0.08); transform: translateX(4px); }
+    .usecase-tab:focus-visible { outline: 2px solid var(--violet-500); outline-offset: 2px; }
+    .usecase-tab.active {
+      border-color: var(--border-strong);
+      background: rgba(136, 255, 216, 0.12);
+      box-shadow: inset 0 0 0 1px rgba(136, 255, 216, 0.16), 0 0 24px rgba(16, 202, 144, 0.2);
+    }
+    .usecase-panel { padding: 28px 30px; min-height: 400px; position: relative; }
+    .usecase-pane { display: none; animation-duration: 0.42s; animation-timing-function: ease; animation-fill-mode: both; }
+    .usecase-pane.active { display: block; }
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .usecase-meta { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border-soft); padding: 5px 10px; border-radius: 999px; font-size: 12px; color: var(--gray-500); margin-bottom: 16px; }
+    .usecase-pane-title { font-size: clamp(1.4rem, 2.2vw, 2rem); line-height: 1.25; margin-bottom: 14px; }
+    .usecase-pane-desc { font-size: 16px; color: var(--gray-400); margin-bottom: 20px; max-width: 760px; }
+    .usecase-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+    .usecase-chip {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+      color: var(--gray-300);
+      background: rgba(136, 255, 216, 0.08);
+      transition: all 0.2s ease;
+    }
+    .usecase-chip:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+    .usecase-impact {
+      border: 1px solid var(--border-soft);
+      border-radius: 14px;
+      padding: 18px;
+      background: linear-gradient(120deg, rgba(136, 255, 216, 0.08), transparent 58%);
+    }
+    .usecase-impact-label { font-size: 11px; letter-spacing: 0.08em; color: var(--gray-500); text-transform: uppercase; margin-bottom: 6px; }
+    .usecase-impact-value { font-size: 15px; color: var(--emerald-400); font-weight: 600; }
 
     /* Capabilities */
-    .capabilities-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .capability-card { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 24px; transition: all 0.2s; }
-    .capability-card:hover { border-color: rgba(139, 92, 246, 0.2); background: var(--bg-tertiary); }
+    .capabilities-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 16px;
+      position: relative;
+      perspective: 1200px;
+    }
+    .capabilities-grid.has-active .capability-card {
+      opacity: 0.46;
+      filter: saturate(0.8);
+    }
+    .capability-card { grid-column: span 2; }
+    .capability-card:nth-child(1), .capability-card:nth-child(4) { --cap-offset: -10px; }
+    .capability-card:nth-child(2), .capability-card:nth-child(5) { --cap-offset: 16px; }
+    .capability-card:nth-child(3), .capability-card:nth-child(6) { --cap-offset: 2px; }
+    .capability-card {
+      --cap-offset: 0px;
+      --cap-lift: 0px;
+      --pull-y: 0px;
+      --pull-scale: 1;
+      background: var(--surface-glass);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.28s ease;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+      transform: translateY(calc(var(--cap-offset) + var(--cap-lift) + var(--pull-y))) scale(var(--pull-scale));
+      transform-style: preserve-3d;
+      will-change: transform;
+      cursor: pointer;
+      user-select: none;
+    }
+    .capability-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 12% 0%, rgba(136, 255, 216, 0.12), transparent 48%);
+      opacity: 0.55;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+    }
+    .capability-card:hover { --cap-lift: -10px; border-color: var(--border-strong); background: var(--surface-glass-strong); box-shadow: 0 16px 32px -20px rgba(6, 95, 70, 0.52); }
+    .capability-card:hover::before { opacity: 0.9; }
+    .capability-card.is-selected {
+      --pull-y: -10px;
+      --pull-scale: 1.02;
+      opacity: 1 !important;
+      filter: none !important;
+      border-color: var(--border-strong);
+      background: var(--surface-glass-strong);
+      box-shadow: 0 26px 54px -28px rgba(5, 115, 82, 0.62);
+      z-index: 4;
+    }
+    .capability-card:focus-visible {
+      outline: 2px solid var(--violet-500);
+      outline-offset: 2px;
+    }
     .capability-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
-    .capability-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; color: var(--violet-400); transition: all 0.2s; }
-    .capability-card:hover .capability-icon { background: rgba(139, 92, 246, 0.15); }
-    .capability-tag { font-size: 11px; color: var(--gray-600); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 9999px; padding: 2px 8px; }
+    .capability-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(136, 255, 216, 0.1); border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; color: var(--violet-500); transition: all 0.2s; }
+    .capability-card:hover .capability-icon { background: rgba(136, 255, 216, 0.15); }
+    .capability-tag { font-size: 11px; color: var(--gray-500); border: 1px solid var(--border-soft); border-radius: 9999px; padding: 2px 8px; }
     .capability-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
     .capability-desc { font-size: 13px; color: var(--gray-500); line-height: 1.5; }
-    .models-section { margin-top: 48px; background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; padding: 24px; }
-    .models-label { font-size: 12px; color: var(--gray-500); text-align: center; margin-bottom: 16px; }
-    .models-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-    .model-tag { font-size: 12px; color: var(--gray-400); background: #080810; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace; }
+    .capability-feature-deck {
+      margin-top: 0;
+      border: 1px solid var(--border-soft);
+      background: rgba(136, 255, 216, 0.06);
+      border-radius: 10px;
+      padding: 0 12px;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: max-height 0.32s ease, opacity 0.24s ease, transform 0.28s ease, margin-top 0.28s ease, padding 0.28s ease;
+    }
+    .capability-card.is-selected .capability-feature-deck {
+      margin-top: 14px;
+      padding: 12px;
+      max-height: 220px;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .capability-feature-pill {
+      font-size: 16px;
+      color: var(--white);
+      font-weight: 700;
+      line-height: 1.45;
+      margin-bottom: 10px;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+    .capability-feature-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .capability-feature-option {
+      font-size: 11px;
+      border-radius: 9999px;
+      border: 1px solid var(--border-soft);
+      padding: 4px 10px;
+      color: var(--gray-500);
+      background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .capability-feature-option:hover {
+      border-color: var(--border-strong);
+      color: var(--gray-300);
+      transform: translateY(-1px);
+    }
+    .capability-feature-option.active {
+      color: var(--white);
+      border-color: var(--border-strong);
+      background: rgba(6, 182, 127, 0.16);
+    }
+    .models-section { margin-top: 48px; background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 16px; padding: 24px; backdrop-filter: blur(10px); }
+    .models-title { font-size: 34px; color: var(--gray-200); text-align: center; margin-bottom: 16px; font-weight: 600; letter-spacing: 0.01em; }
+    .models-marquee {
+      overflow: hidden;
+      position: relative;
+      padding: 2px 0;
+      mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+    }
+    .models-track {
+      width: max-content;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      animation: models-scroll 32s linear infinite;
+    }
+    .models-marquee:hover .models-track {
+      animation-play-state: paused;
+    }
+    .models-list {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+      justify-content: flex-start;
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+    .model-tag { font-size: 17px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 18px; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
+    .model-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: color-mix(in srgb, rgba(16, 202, 144, 0.22) 52%, var(--bg-tertiary)); }
+    @keyframes models-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(calc(-50% - 7px)); }
+    }
 
     /* Footer */
-    footer { background: #03030a; border-top: 1px solid rgba(255, 255, 255, 0.05); padding: 64px 24px 32px; }
+    footer { background: color-mix(in srgb, var(--bg-primary) 86%, #000 14%); border-top: 1px solid var(--border-soft); padding: 64px 24px 32px; }
     .footer-inner { max-width: 1280px; margin: 0 auto; }
     .footer-grid { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 32px; margin-bottom: 48px; }
     .footer-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
@@ -288,8 +747,35 @@
     .footer-col li { margin-bottom: 10px; }
     .footer-col a { font-size: 13px; color: var(--gray-600); text-decoration: none; transition: color 0.2s; }
     .footer-col a:hover { color: var(--gray-300); }
-    .footer-bottom { border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .footer-bottom { border-top: 1px solid var(--border-soft); padding-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
     .footer-copyright { font-size: 12px; color: var(--gray-700); }
+
+    [data-theme="light"] .hero-grid {
+      opacity: 0.06;
+      background-image: linear-gradient(rgba(5, 138, 97, 0.2) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(5, 138, 97, 0.2) 1px, transparent 1px);
+    }
+    [data-theme="light"] body::before {
+      background:
+        radial-gradient(circle at 12% 18%, rgba(6, 182, 127, 0.14), transparent 30%),
+        radial-gradient(circle at 88% 82%, rgba(15, 118, 110, 0.1), transparent 32%);
+    }
+    [data-theme="light"] .terminal-dot.red { background: #f97171; }
+    [data-theme="light"] .terminal-dot.yellow { background: #f6b84c; }
+    [data-theme="light"] .terminal-dot.green { background: #1fb97d; }
+    [data-theme="light"] .step-card {
+      background: color-mix(in srgb, #ffffff 90%, var(--bg-tertiary) 10%);
+      box-shadow: 0 10px 24px rgba(8, 80, 60, 0.08);
+    }
+    [data-theme="light"] .step-card:hover {
+      box-shadow: 0 18px 34px rgba(8, 80, 60, 0.16);
+    }
+    [data-theme="light"] .step-example {
+      background: linear-gradient(135deg, #f3fdf9, #e9f8f2);
+      border-color: rgba(4, 138, 97, 0.26);
+    }
+    [data-theme="light"] .step-example pre { color: #0a7f5a; }
+    [data-theme="light"] .step-example p { color: #0b8f64; }
 
 
     /* Mobile Responsive */
@@ -301,15 +787,28 @@
       .hero-stats { justify-content: center; }
       .hero-demo { max-width: 100%; }
       .steps-grid { grid-template-columns: 1fr; }
-      .usecases-grid { grid-template-columns: repeat(2, 1fr); }
+      .step-card { grid-column: auto; --step-offset: 0px; }
+      .problem-headline .headline-line { white-space: normal; }
+      .quote-metrics { grid-template-columns: 1fr; }
+      .quote-metric-label { white-space: normal; }
+      .usecase-drawer { grid-template-columns: 1fr; }
+      .usecase-rail { border-right: none; border-bottom: 1px solid var(--border-soft); }
+      .usecase-panel { min-height: 340px; }
       .capabilities-grid { grid-template-columns: repeat(2, 1fr); }
+      .capability-card { grid-column: auto; --cap-offset: 0px; }
       .problem-grid { grid-template-columns: 1fr; }
       .footer-grid { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 768px) {
       .nav-links { display: none; }
       .nav-cta a:first-child { display: none; }
-      .usecases-grid { grid-template-columns: 1fr; }
+      .theme-toggle { width: 34px; height: 34px; }
+      .section-desc,
+      .problem-lead { max-width: 100%; }
+      .section-header .section-desc br,
+      .problem-lead br { display: none; }
+      .usecase-panel { padding: 20px; }
+      .usecase-pane-desc { font-size: 14px; }
       .capabilities-grid { grid-template-columns: 1fr; }
       .footer-grid { grid-template-columns: 1fr; }
     }
@@ -326,19 +825,22 @@
             <circle cx="9" cy="9" r="2" fill="white"/>
           </svg>
         </div>
-        <span class="logo-text">Vibe<span>ML</span></span>
+        <span class="logo-text brand-italic">Vibe<span>ML</span></span>
       </a>
 
       <div class="nav-links">
         <a href="#how-it-works">产品</a>
         <a href="#capabilities">能力</a>
         <a href="#use-cases">使用场景</a>
-        <a href="/docs">文档</a>
       </div>
 
       <div class="nav-cta">
-        <a href="/chat.html">开始使用</a>
-        <a href="/chat.html" class="btn-primary">申请内测</a>
+
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换明暗主题">
+          <span class="theme-icon-dark">◐</span>
+          <span class="theme-icon-light">◑</span>
+        </button>
+        <a href="/chat.html" class="btn-primary">开始试用 | Dashboard</a>
       </div>
     </div>
   </nav>
@@ -356,19 +858,19 @@
         </div>
 
         <h1 class="hero-title">
-          将模糊业务语言<br>
+          将模糊的自然语言<br>
           <span class="gradient-text">编译成专属训练流</span><br>
-          让顶尖算法专家触手可及
+          让顶尖机器学习<span class="brand-italic">Specialists</span>触手可及
         </h1>
 
         <p class="hero-desc">
-          开源论文的标准 Loss 和模板往往无法契合真实的精细业务诉求。VibeML 能够深刻理解你模糊的自然语言描述，并将其转化为量身定制的端到端 ML 训练流（包含特制数据清洗、自定义损失函数与专属模型架构）。<br>
+          开源论文的标准 Loss 和模板往往无法契合真实的精细业务诉求。<span class="brand-italic">VibeML</span> 能够深刻理解你模糊的自然语言描述，并将其转化为量身定制的端到端 ML 训练流（包含特制数据清洗、自定义损失函数与专属模型架构）。<br>
           <strong>跨越从「业务诉求」到「算法落地」最稀缺的那道鸿沟。</strong>
         </p>
 
         <div class="hero-actions">
           <a href="/chat.html" class="btn-large btn-gradient">
-            开始使用 VibeML
+            开始使用 <span class="brand-italic">VibeML</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -398,19 +900,19 @@
             <span class="terminal-dot red"></span>
             <span class="terminal-dot yellow"></span>
             <span class="terminal-dot green"></span>
-            <span class="terminal-title">vibeml — objective compiler</span>
+            <span class="terminal-title"><span class="brand-italic">vibeml</span> — objective compiler</span>
           </div>
           <div class="terminal-body" id="terminalBody">
           </div>
         </div>
 
         <div class="demo-tags">
-          <span class="demo-tag">贝叶斯优化</span>
-          <span class="demo-tag">AutoML</span>
-          <span class="demo-tag">模型蒸馏</span>
-          <span class="demo-tag">GNN</span>
-          <span class="demo-tag">时序预测</span>
-          <span class="demo-tag">AI4Science</span>
+          <a class="demo-tag" href="./topic-detail.html?topic=bayes">贝叶斯优化</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=automl">AutoML</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=distill">模型蒸馏</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=gnn">GNN</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=ts">时序预测</a>
+          <a class="demo-tag" href="./topic-detail.html?topic=ai4s">AI4Science</a>
         </div>
       </div>
     </div>
@@ -423,14 +925,15 @@
   <!-- Problem Section -->
   <section>
     <div class="container">
-      <div style="max-width: 640px; margin-bottom: 64px;">
-        <h2 class="section-title">
-          软件开发进入了 vibe coding 时代，<br>
-          <span class="gradient-text">但机器学习仍然停留在专家时代</span>
+      <div class="problem-intro">
+        <h2 class="problem-headline">
+          <span class="headline-line">软件开发进入了 <span class="vibe-italic theme-highlight">Vibe Coding</span> 时代，</span>
+          <span class="headline-line">但机器学习仍然停留在 <span class="vibe-italic theme-highlight">Expert</span> 时代</span>
         </h2>
-        <p class="section-desc" style="text-align: left; margin: 0;">
-          AI coding 工具让写软件变得前所未有的容易，但机器学习全流程仍高度依赖专家经验。
-          拿到数据只是开始，真正的壁垒在后面。
+        <p class="section-desc problem-lead">
+          AI Coding 让软件开发门槛更低，机器学习全链路仍需专家深耕。<br>
+          以数据与标准化流程为始，Vibe ML 重构机器学习效率。<br>
+          击穿 AI-Driven Machine Learning 的技术壁垒。
         </p>
       </div>
 
@@ -475,7 +978,7 @@
             </div>
             <div>
               <div class="problem-title">训出权重，然后呢？</div>
-              <div class="problem-desc">就算模型训好了，还要解决部署、API封装、监控、再训练……大多数人卡在这里就放弃了。</div>
+              <div class="problem-desc">就算模型训好了，还要解决部署、API 封装、监控、再训练……大多数人卡在这里就放弃了。</div>
             </div>
           </div>
         </div>
@@ -500,8 +1003,22 @@
         <div class="quote-line"></div>
         <div class="quote-content">
           <p class="quote-text">
-            "标准模型架构和通用损失函数只能解决 80% 的问题。剩下 20% 的精细业务需求，往往需要特制的数据扩充、自定义损失乃至专有架构，而能把模糊自然语言映射成这些专业 ML 决策的顶尖人才，万里挑一。"
+            标准模板只能覆盖常规场景，真正决定业务效果的是剩下那 20% 的定制化建模与交付能力。
           </p>
+          <div class="quote-metrics">
+            <div class="quote-metric">
+              <div class="quote-metric-value">80%</div>
+              <div class="quote-metric-label">模板可覆盖</div>
+            </div>
+            <div class="quote-metric">
+              <div class="quote-metric-value">Top 1%</div>
+              <div class="quote-metric-label">可落地专家密度</div>
+            </div>
+            <div class="quote-metric">
+              <div class="quote-metric-value">20%</div>
+              <div class="quote-metric-label">关键定制决策</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -515,7 +1032,8 @@
         <div class="section-label">工作原理</div>
         <h2 class="section-title">三步从人话需求到可交付产品</h2>
         <p class="section-desc">
-          VibeML 不是帮你写训练代码，而是自动做三件传统上必须由算法工程师完成的高价值判断。
+          <span class="brand-italic">VibeML</span> 不是帮你写训练代码，<br>
+          而是自动做三件传统上必须由算法工程师完成的高价值判断。
         </p>
       </div>
 
@@ -524,7 +1042,7 @@
           <div class="step-number violet">01</div>
           <span class="step-tag violet">自然语言输入</span>
           <h3 class="step-title">用自然语言描述你的需求</h3>
-          <p class="step-desc">告诉 VibeML 你有什么数据、想解决什么问题、以及你的约束。不需要任何 ML 知识。</p>
+          <p class="step-desc">告诉 <span class="brand-italic">VibeML</span> 你有什么数据、想解决什么问题、以及你的约束。不需要任何 ML 知识。</p>
           <div class="step-example">
             <p>"我有用户历史购买数据，想找出 30 天内会流失的高价值用户，每天预算只能打扰 50 个人。"</p>
           </div>
@@ -564,217 +1082,94 @@ validation → out_of_time_split</pre>
         <div class="section-label">使用场景</div>
         <h2 class="section-title">为真实业务场景而生的 ML 解决方案</h2>
         <p class="section-desc">
-          从客户流失预测到库存优化，VibeML 将模糊的业务语言编译成精准的模型训练流，解决传统 AutoML 无法处理的精细化需求。
+          从客户流失预测到库存优化，<span class="brand-italic">VibeML</span> 将模糊的业务语言编译成精准的模型训练流，解决传统 AutoML 无法处理的精细化需求。
         </p>
       </div>
 
-      <div class="usecases-grid">
-        <div class="usecase-card">
-          <div class="usecase-header">
-            <div class="usecase-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M9 11C11.2091 11 13 9.20914 13 7C13 4.79086 11.2091 3 9 3C6.79086 3 5 4.79086 5 7C5 9.20914 6.79086 11 9 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89318 18.7122 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <span class="usecase-tag">电商/零售</span>
-          </div>
-          <h3 class="usecase-title">高价值客户流失预警</h3>
-          <p class="usecase-desc">
-            <strong>业务诉求：</strong>找出 30 天内可能流失的高价值用户，但每天客服只能外呼 50 人。
-          </p>
-          <div class="usecase-features">
-            <div class="usecase-feature">
-              <span class="feature-dot violet"></span>
-              <span>预算约束：Top-50 精准定位</span>
-            </div>
-            <div class="usecase-feature">
-              <span class="feature-dot violet"></span>
-              <span>错误偏好：宁可误报也别漏报</span>
-            </div>
-            <div class="usecase-feature">
-              <span class="feature-dot violet"></span>
-              <span>定制损失：Weighted BCE + Ranking Loss</span>
-            </div>
-          </div>
-          <div class="usecase-result">
-            <span class="result-label">交付成果</span>
-            <span class="result-value">每日流失风险名单 API · Precision@50: 0.84</span>
-          </div>
+      <div class="usecase-drawer" id="usecaseDrawer">
+        <div class="usecase-rail">
+          <button class="usecase-tab active" type="button" data-case="retail">
+            <span class="usecase-tab-index">01 / 零售</span>
+            <span class="usecase-tab-title">高价值客户流失预警</span>
+          </button>
+          <button class="usecase-tab" type="button" data-case="supply">
+            <span class="usecase-tab-index">02 / 供应链</span>
+            <span class="usecase-tab-title">非对称库存预测</span>
+          </button>
+          <button class="usecase-tab" type="button" data-case="finance">
+            <span class="usecase-tab-index">03 / 金融风控</span>
+            <span class="usecase-tab-title">实时欺诈检测与解释</span>
+          </button>
+          <button class="usecase-tab" type="button" data-case="manufacturing">
+            <span class="usecase-tab-index">04 / 智能制造</span>
+            <span class="usecase-tab-title">设备故障提前预警</span>
+          </button>
         </div>
 
-        <div class="usecase-card">
-          <div class="usecase-header">
-            <div class="usecase-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M6 2L3 6V20C3 20.5304 3.21071 21.0391 3.58579 21.4142C3.96086 21.7893 4.46957 22 5 22H19C19.5304 22 20.0391 21.7893 20.4142 21.4142C20.7893 21.0391 21 20.5304 21 20V6L18 2H6Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M3 6H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M16 10C16 11.0609 15.5786 12.0783 14.8284 12.8284C14.0783 13.5786 13.0609 14 12 14C10.9391 14 9.92172 13.5786 9.17157 12.8284C8.42143 12.0783 8 11.0609 8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+        <div class="usecase-panel">
+          <article class="usecase-pane active" data-case-pane="retail">
+            <div class="usecase-meta">电商增长 · Top-K 排序任务</div>
+            <h3 class="usecase-pane-title">每天只触达 50 人，仍要覆盖最高流失风险用户</h3>
+            <p class="usecase-pane-desc"><span class="brand-italic">VibeML</span> 将“宁可误报也别漏报”的业务偏好编译成可训练目标，自动选择预算约束排序策略并生成可执行交付接口。</p>
+            <div class="usecase-chips">
+              <span class="usecase-chip">Budgeted Ranking</span>
+              <span class="usecase-chip">Weighted BCE + Ranking Loss</span>
+              <span class="usecase-chip">Out-of-time Validation</span>
+              <span class="usecase-chip">Daily API Delivery</span>
             </div>
-            <span class="usecase-tag">供应链</span>
-          </div>
-          <h3 class="usecase-title">库存需求预测（非对称代价）</h3>
-          <p class="usecase-desc">
-            <strong>业务诉求：</strong>预测下月各 SKU 销量，但缺货导致停产损失远大于积压资金成本。
-          </p>
-          <div class="usecase-features">
-            <div class="usecase-feature">
-              <span class="feature-dot blue"></span>
-              <span>非对称损失：低估惩罚 10 倍于高估</span>
+            <div class="usecase-impact">
+              <div class="usecase-impact-label">交付结果</div>
+              <div class="usecase-impact-value">每日流失风险名单 API · Precision@50: 0.84 · 人工筛选时间下降 91%</div>
             </div>
-            <div class="usecase-feature">
-              <span class="feature-dot blue"></span>
-              <span>概率预测：提供 95% 置信区间</span>
-            </div>
-            <div class="usecase-feature">
-              <span class="feature-dot blue"></span>
-              <span>时序建模：TCN + 节假日特征</span>
-            </div>
-          </div>
-          <div class="usecase-result">
-            <span class="result-label">交付成果</span>
-            <span class="result-value">分位数预测 API · 缺货率降低 67%</span>
-          </div>
-        </div>
+          </article>
 
-        <div class="usecase-card">
-          <div class="usecase-header">
-            <div class="usecase-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 16V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 8H12.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+          <article class="usecase-pane" data-case-pane="supply">
+            <div class="usecase-meta">供应链优化 · 代价敏感预测</div>
+            <h3 class="usecase-pane-title">缺货损失远大于库存积压，预测目标必须“偏保守”</h3>
+            <p class="usecase-pane-desc">针对“低估惩罚更高”的约束，系统自动构建分位数预测与不对称损失函数，输出可用于计划系统的补货建议接口。</p>
+            <div class="usecase-chips">
+              <span class="usecase-chip">Asymmetric Loss</span>
+              <span class="usecase-chip">Quantile Forecast</span>
+              <span class="usecase-chip">Holiday-aware TCN</span>
+              <span class="usecase-chip">Batch Scheduling API</span>
             </div>
-            <span class="usecase-tag">金融风控</span>
-          </div>
-          <h3 class="usecase-title">欺诈交易检测（可解释性优先）</h3>
-          <p class="usecase-desc">
-            <strong>业务诉求：</strong>实时识别欺诈交易，但风控团队需要知道为什么触发警报才能审批。
-          </p>
-          <div class="usecase-features">
-            <div class="usecase-feature">
-              <span class="feature-dot emerald"></span>
-              <span>可解释性：SHAP + 注意力机制</span>
+            <div class="usecase-impact">
+              <div class="usecase-impact-label">交付结果</div>
+              <div class="usecase-impact-value">SKU 分位数预测 API · 缺货率降低 67% · 库存周转提升 23%</div>
             </div>
-            <div class="usecase-feature">
-              <span class="feature-dot emerald"></span>
-              <span>实时推断：延迟 < 20ms</span>
-            </div>
-            <div class="usecase-feature">
-              <span class="feature-dot emerald"></span>
-              <span>模型压缩：蒸馏至 1/10 体积</span>
-            </div>
-          </div>
-          <div class="usecase-result">
-            <span class="result-label">交付成果</span>
-            <span class="result-value">实时风控 API + 决策解释 · 误杀率降低 45%</span>
-          </div>
-        </div>
+          </article>
 
-        <div class="usecase-card">
-          <div class="usecase-header">
-            <div class="usecase-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M22 12H18L15 21L9 3L6 12H2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+          <article class="usecase-pane" data-case-pane="finance">
+            <div class="usecase-meta">金融风控 · 实时决策</div>
+            <h3 class="usecase-pane-title">20ms 内完成欺诈识别，还要给出可审计解释</h3>
+            <p class="usecase-pane-desc"><span class="brand-italic">VibeML</span> 自动组合高效模型与解释模块，在低延迟上线约束下交付实时风控接口和可追踪的触发原因。</p>
+            <div class="usecase-chips">
+              <span class="usecase-chip">Low-latency Inference</span>
+              <span class="usecase-chip">SHAP Explanation</span>
+              <span class="usecase-chip">Drift Monitoring</span>
+              <span class="usecase-chip">Auto Retraining</span>
             </div>
-            <span class="usecase-tag">医疗健康</span>
-          </div>
-          <h3 class="usecase-title">疾病风险筛查（高召回要求）</h3>
-          <p class="usecase-desc">
-            <strong>业务诉求：</strong>从体检数据识别糖尿病高危人群，必须覆盖 95% 以上潜在患者。
-          </p>
-          <div class="usecase-features">
-            <div class="usecase-feature">
-              <span class="feature-dot rose"></span>
-              <span>高召回约束：Recall ≥ 95%</span>
+            <div class="usecase-impact">
+              <div class="usecase-impact-label">交付结果</div>
+              <div class="usecase-impact-value">实时风控 API + 可解释报告 · 延迟 18ms · 误杀率降低 45%</div>
             </div>
-            <div class="usecase-feature">
-              <span class="feature-dot rose"></span>
-              <span>类别不平衡：1:100 正样本</span>
-            </div>
-            <div class="usecase-feature">
-              <span class="feature-dot rose"></span>
-              <span>隐私保护：差分隐私训练</span>
-            </div>
-          </div>
-          <div class="usecase-result">
-            <span class="result-label">交付成果</span>
-            <span class="result-value">筛查模型 · Recall 96.3% / F1 0.78</span>
-          </div>
-        </div>
+          </article>
 
-        <div class="usecase-card">
-          <div class="usecase-header">
-            <div class="usecase-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+          <article class="usecase-pane" data-case-pane="manufacturing">
+            <div class="usecase-meta">智能制造 · 时序异常检测</div>
+            <h3 class="usecase-pane-title">提前 7 天预警设备故障，减少非计划停机成本</h3>
+            <p class="usecase-pane-desc">系统对多变量传感器数据自动建模，生成边缘可部署版本并对预警置信度进行量化，便于现场团队决策。</p>
+            <div class="usecase-chips">
+              <span class="usecase-chip">Multivariate Sequence</span>
+              <span class="usecase-chip">Attention Forecasting</span>
+              <span class="usecase-chip">Edge Deploy &lt;10MB</span>
+              <span class="usecase-chip">Alert Confidence Score</span>
             </div>
-            <span class="usecase-tag">智能制造</span>
-          </div>
-          <h3 class="usecase-title">设备故障预测（时序异常）</h3>
-          <p class="usecase-desc">
-            <strong>业务诉求：</strong>基于传感器时序数据，提前 7 天预警设备故障，减少非计划停机。
-          </p>
-          <div class="usecase-features">
-            <div class="usecase-feature">
-              <span class="feature-dot amber"></span>
-              <span>多变量时序：LSTM + Attention</span>
+            <div class="usecase-impact">
+              <div class="usecase-impact-label">交付结果</div>
+              <div class="usecase-impact-value">边缘推断 SDK · 提前 7 天预警准确率 89% · 停机损失降低 31%</div>
             </div>
-            <div class="usecase-feature">
-              <span class="feature-dot amber"></span>
-              <span>预警窗口：7 天提前量</span>
-            </div>
-            <div class="usecase-feature">
-              <span class="feature-dot amber"></span>
-              <span>边缘部署：模型 < 10MB</span>
-            </div>
-          </div>
-          <div class="usecase-result">
-            <span class="result-label">交付成果</span>
-            <span class="result-value">边缘推断 SDK · 提前 7 天预警准确率 89%</span>
-          </div>
-        </div>
-
-        <div class="usecase-card">
-          <div class="usecase-header">
-            <div class="usecase-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M12 3V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M5 10H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M7 16L17 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <span class="usecase-tag">科学计算</span>
-          </div>
-          <h3 class="usecase-title">材料性能预测（小样本学习）</h3>
-          <p class="usecase-desc">
-            <strong>业务诉求：</strong>基于有限实验数据预测新材料性能，加速研发周期，降低实验成本。
-          </p>
-          <div class="usecase-features">
-            <div class="usecase-feature">
-              <span class="feature-dot cyan"></span>
-              <span>小样本：&lt; 100 样本</span>
-            </div>
-            <div class="usecase-feature">
-              <span class="feature-dot cyan"></span>
-              <span>GNN：分子结构图编码</span>
-            </div>
-            <div class="usecase-feature">
-              <span class="feature-dot cyan"></span>
-              <span>不确定性：贝叶斯神经网络</span>
-            </div>
-          </div>
-          <div class="usecase-result">
-            <span class="result-label">交付成果</span>
-            <span class="result-value">材料性能预测器 · R² 0.91</span>
-          </div>
+          </article>
         </div>
       </div>
     </div>
@@ -788,12 +1183,13 @@ validation → out_of_time_split</pre>
         <div class="section-label">能力全览</div>
         <h2 class="section-title">不只是功能堆料，而是不可替代的能力</h2>
         <p class="section-desc">
-          VibeML 自动完成三件传统上必须由算法工程师完成的高价值判断：问题建模、约束下的方案选择、结果可交付化。
+          <span class="brand-italic">VibeML</span> 自动完成三件传统上必须由算法工程师完成的高价值判断：<br>
+          问题建模、约束下的方案选择、结果可交付化。
         </p>
       </div>
 
       <div class="capabilities-grid">
-        <div class="capability-card">
+        <div class="capability-card" data-features="目标函数自动编译|标签与协议自动推断|需求变更可回放追踪">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -805,9 +1201,13 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">自然语言需求编译</h3>
           <p class="capability-desc">将模糊的业务语言翻译成结构化优化合同，自动识别任务类型、定义标签、选择评估协议。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="缺失值自动修复|高基数编码器选择|时间窗口特征组合">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -821,9 +1221,13 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">数据预处理 & 特征工程</h3>
           <p class="capability-desc">自动处理缺失值、异常值、类型转换、时间特征提取、高基数类别编码。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="搜索空间自动裁剪|算力预算约束优化|多目标权衡调参">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -835,9 +1239,13 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">贝叶斯超参数优化</h3>
           <p class="capability-desc">基于贝叶斯优化的高效超参数搜索，在给定算力约束下找到最优模型配置。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="表格/时序/GNN 统一编排|模型候选自动路由|跨任务复用模板库">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -849,9 +1257,13 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">多模型家族支持</h3>
           <p class="capability-desc">覆盖表格、时序、图神经网络、强化学习、AI for Science 等主流 ML 场景。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="蒸馏链路自动生成|量化压缩组合推荐|边缘推断性能校准">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -863,9 +1275,13 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">模型蒸馏 & 压缩</h3>
           <p class="capability-desc">将大模型蒸馏成轻量级版本，支持边缘部署、低延迟推断、硬件约束场景。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
 
-        <div class="capability-card">
+        <div class="capability-card" data-features="API/SDK 双交付|灰度发布与回滚|线上监控与再训练闭环">
           <div class="capability-header">
             <div class="capability-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -879,24 +1295,46 @@ validation → out_of_time_split</pre>
           </div>
           <h3 class="capability-title">一键打包交付</h3>
           <p class="capability-desc">不只是模型权重——直接生成可调用 API、Web 应用或批量推断系统，可立即上线。</p>
+          <div class="capability-feature-deck" aria-hidden="true">
+            <div class="capability-feature-pill"></div>
+            <div class="capability-feature-list"></div>
+          </div>
         </div>
       </div>
 
       <div class="models-section">
-        <div class="models-label">支持的模型家族</div>
-        <div class="models-list">
-          <span class="model-tag">XGBoost / LightGBM</span>
-          <span class="model-tag">Transformer</span>
-          <span class="model-tag">LSTM / TCN</span>
-          <span class="model-tag">GNN / Graph Transformer</span>
-          <span class="model-tag">Tabular DNN</span>
-          <span class="model-tag">Random Forest</span>
-          <span class="model-tag">PPO / SAC (RL)</span>
-          <span class="model-tag">Neural ODE</span>
-          <span class="model-tag">Diffusion Model</span>
-          <span class="model-tag">Causal ML</span>
-          <span class="model-tag">Conformal Prediction</span>
-          <span class="model-tag">AutoML Pipeline</span>
+        <h3 class="models-title"><span class="brand-italic">VibeML</span> 支持训练以下模型</h3>
+        <div class="models-marquee" aria-label="模型轮播条">
+          <div class="models-track">
+            <div class="models-list">
+              <a class="model-tag" href="./model-detail.html?model=xgboost-lightgbm">XGBoost / LightGBM</a>
+              <a class="model-tag" href="./model-detail.html?model=transformer">Transformer</a>
+              <a class="model-tag" href="./model-detail.html?model=lstm-tcn">LSTM / TCN</a>
+              <a class="model-tag" href="./model-detail.html?model=gnn-graph-transformer">GNN / Graph Transformer</a>
+              <a class="model-tag" href="./model-detail.html?model=tabular-dnn">Tabular DNN</a>
+              <a class="model-tag" href="./model-detail.html?model=random-forest">Random Forest</a>
+              <a class="model-tag" href="./model-detail.html?model=ppo-sac-rl">PPO / SAC (RL)</a>
+              <a class="model-tag" href="./model-detail.html?model=neural-ode">Neural ODE</a>
+              <a class="model-tag" href="./model-detail.html?model=diffusion-model">Diffusion Model</a>
+              <a class="model-tag" href="./model-detail.html?model=causal-ml">Causal ML</a>
+              <a class="model-tag" href="./model-detail.html?model=conformal-prediction">Conformal Prediction</a>
+              <a class="model-tag" href="./model-detail.html?model=automl-pipeline">AutoML Pipeline</a>
+            </div>
+            <div class="models-list" aria-hidden="true">
+              <a class="model-tag" href="./model-detail.html?model=xgboost-lightgbm">XGBoost / LightGBM</a>
+              <a class="model-tag" href="./model-detail.html?model=transformer">Transformer</a>
+              <a class="model-tag" href="./model-detail.html?model=lstm-tcn">LSTM / TCN</a>
+              <a class="model-tag" href="./model-detail.html?model=gnn-graph-transformer">GNN / Graph Transformer</a>
+              <a class="model-tag" href="./model-detail.html?model=tabular-dnn">Tabular DNN</a>
+              <a class="model-tag" href="./model-detail.html?model=random-forest">Random Forest</a>
+              <a class="model-tag" href="./model-detail.html?model=ppo-sac-rl">PPO / SAC (RL)</a>
+              <a class="model-tag" href="./model-detail.html?model=neural-ode">Neural ODE</a>
+              <a class="model-tag" href="./model-detail.html?model=diffusion-model">Diffusion Model</a>
+              <a class="model-tag" href="./model-detail.html?model=causal-ml">Causal ML</a>
+              <a class="model-tag" href="./model-detail.html?model=conformal-prediction">Conformal Prediction</a>
+              <a class="model-tag" href="./model-detail.html?model=automl-pipeline">AutoML Pipeline</a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -914,10 +1352,11 @@ validation → out_of_time_split</pre>
                 <circle cx="9" cy="9" r="2" fill="white"/>
               </svg>
             </div>
-            <span class="logo-text">Vibe<span>ML</span></span>
+            <span class="logo-text brand-italic">Vibe<span>ML</span></span>
           </div>
           <p class="footer-desc">
-            AI 原生的全自动机器学习 Agent。把人话需求编译成优化合同，全流程自动训练交付。
+            原生 AI 全自动机器学习 Agent<br>
+            把自然语言需求编译成优化机器学习工作流，全流程自主训练交付。
           </p>
         </div>
 
@@ -963,7 +1402,7 @@ validation → out_of_time_split</pre>
       </div>
 
       <div class="footer-bottom">
-        <p class="footer-copyright">© 2026 VibeML. 保留所有权利。</p>
+        <p class="footer-copyright">© 2026 <span class="brand-italic">VibeML</span>. 保留所有权利。</p>
       </div>
     </div>
   </footer>
@@ -978,6 +1417,298 @@ validation → out_of_time_split</pre>
         navbar.classList.remove('scrolled');
       }
     });
+
+    // Theme toggle
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('vibeml-theme');
+
+    if (savedTheme === 'light') {
+      root.setAttribute('data-theme', 'light');
+    }
+
+    themeToggle?.addEventListener('click', () => {
+      const isLight = root.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        root.removeAttribute('data-theme');
+        localStorage.setItem('vibeml-theme', 'dark');
+      } else {
+        root.setAttribute('data-theme', 'light');
+        localStorage.setItem('vibeml-theme', 'light');
+      }
+    });
+
+    // Use-case drawer interaction
+    const caseTabs = Array.from(document.querySelectorAll('.usecase-tab'));
+    const casePanes = document.querySelectorAll('.usecase-pane');
+    const usecaseDrawer = document.querySelector('.usecase-drawer');
+    const usecaseRail = document.querySelector('.usecase-rail');
+    const usecasePanel = document.querySelector('.usecase-panel');
+    let activeUsecase = caseTabs.find((btn) => btn.classList.contains('active'))?.dataset.case || caseTabs[0]?.dataset.case || null;
+    let usecaseAutoIndex = Math.max(0, caseTabs.findIndex((btn) => btn.dataset.case === activeUsecase));
+    let usecaseAutoTimer = null;
+    let usecaseAutoPaused = false;
+    const usecaseAutoDelay = 3200;
+
+    function activateCase(target, direction = 'down') {
+      activeUsecase = target;
+      caseTabs.forEach((btn) => {
+        const isActive = btn.dataset.case === target;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', String(isActive));
+      });
+
+      casePanes.forEach((pane) => {
+        const isActive = pane.dataset.casePane === target;
+        pane.classList.toggle('active', isActive);
+        if (isActive) {
+          pane.style.animationName = direction === 'up' ? 'fadeSlideUp' : 'fadeSlideDown';
+        }
+      });
+    }
+
+    function startUsecaseAutoplay() {
+      if (!caseTabs.length || usecaseAutoPaused) return;
+      stopUsecaseAutoplay();
+
+      const tick = () => {
+        if (usecaseAutoPaused) {
+          usecaseAutoTimer = window.setTimeout(tick, usecaseAutoDelay);
+          return;
+        }
+
+        usecaseAutoIndex = (usecaseAutoIndex + 1) % caseTabs.length;
+        const nextTab = caseTabs[usecaseAutoIndex];
+        if (nextTab) {
+          activateCase(nextTab.dataset.case, 'down');
+        }
+        usecaseAutoTimer = window.setTimeout(tick, usecaseAutoDelay);
+      };
+
+      usecaseAutoTimer = window.setTimeout(tick, usecaseAutoDelay);
+    }
+
+    function stopUsecaseAutoplay() {
+      if (usecaseAutoTimer) {
+        clearTimeout(usecaseAutoTimer);
+        usecaseAutoTimer = null;
+      }
+    }
+
+    caseTabs.forEach((tab, index) => {
+      tab.setAttribute('aria-selected', tab.classList.contains('active') ? 'true' : 'false');
+
+      tab.addEventListener('click', () => {
+        const currentIndex = Math.max(0, caseTabs.findIndex((btn) => btn.dataset.case === activeUsecase));
+        const targetIndex = caseTabs.findIndex((btn) => btn === tab);
+        const direction = targetIndex >= currentIndex ? 'down' : 'up';
+        activateCase(tab.dataset.case, direction);
+        usecaseAutoIndex = Math.max(0, targetIndex);
+        startUsecaseAutoplay();
+      });
+
+      tab.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          const currentIndex = Math.max(0, caseTabs.findIndex((btn) => btn.dataset.case === activeUsecase));
+          const targetIndex = caseTabs.findIndex((btn) => btn === tab);
+          const direction = targetIndex >= currentIndex ? 'down' : 'up';
+          activateCase(tab.dataset.case, direction);
+          usecaseAutoIndex = Math.max(0, targetIndex);
+          startUsecaseAutoplay();
+          return;
+        }
+
+        if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          caseTabs[(index + 1) % caseTabs.length].focus();
+        }
+
+        if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+          event.preventDefault();
+          caseTabs[(index - 1 + caseTabs.length) % caseTabs.length].focus();
+        }
+      });
+    });
+
+    const bindUsecaseHoverPause = (el) => {
+      if (!el) return;
+      el.addEventListener('pointerenter', () => {
+        usecaseAutoPaused = true;
+        stopUsecaseAutoplay();
+      });
+
+      el.addEventListener('pointerleave', () => {
+        usecaseAutoPaused = false;
+        startUsecaseAutoplay();
+      });
+    };
+
+    bindUsecaseHoverPause(usecaseRail);
+    bindUsecaseHoverPause(usecasePanel);
+
+    if (usecaseDrawer) {
+      usecaseDrawer.addEventListener('focusin', () => {
+        usecaseAutoPaused = true;
+        stopUsecaseAutoplay();
+      });
+
+      usecaseDrawer.addEventListener('focusout', () => {
+        if (!usecaseDrawer.contains(document.activeElement)) {
+          usecaseAutoPaused = false;
+          startUsecaseAutoplay();
+        }
+      });
+    }
+
+    setTimeout(startUsecaseAutoplay, 500);
+
+    // Capability hand-draw interaction
+    const capabilityGrid = document.querySelector('.capabilities-grid');
+    const capabilityCards = Array.from(document.querySelectorAll('.capability-card'));
+    let activeCapabilityCard = null;
+
+    function closeCapabilityDrawer() {
+      capabilityGrid?.classList.remove('has-active');
+      capabilityCards.forEach((card) => {
+        card.classList.remove('is-selected');
+        card.setAttribute('aria-expanded', 'false');
+        const deck = card.querySelector('.capability-feature-deck');
+        if (deck) deck.setAttribute('aria-hidden', 'true');
+      });
+      activeCapabilityCard = null;
+    }
+
+    capabilityCards.forEach((card) => {
+      const features = (card.dataset.features || '')
+        .split('|')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      const featurePill = card.querySelector('.capability-feature-pill');
+      const featureList = card.querySelector('.capability-feature-list');
+      const deck = card.querySelector('.capability-feature-deck');
+      if (!features.length || !featurePill || !featureList) return;
+
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-expanded', 'false');
+
+      let featureIndex = 0;
+
+      const renderFeature = (index) => {
+        featureIndex = (index + features.length) % features.length;
+        featurePill.textContent = features[featureIndex];
+
+        Array.from(featureList.querySelectorAll('.capability-feature-option')).forEach((item, i) => {
+          item.classList.toggle('active', i === featureIndex);
+        });
+      };
+
+      features.forEach((feature, index) => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'capability-feature-option';
+        option.textContent = feature;
+
+        option.addEventListener('click', (event) => {
+          event.stopPropagation();
+          renderFeature(index);
+        });
+
+        featureList.appendChild(option);
+      });
+
+      renderFeature(0);
+
+      const selectCard = () => {
+        if (activeCapabilityCard === card) return;
+
+        capabilityGrid?.classList.add('has-active');
+        capabilityCards.forEach((item) => {
+          const isTarget = item === card;
+          item.classList.toggle('is-selected', isTarget);
+          item.setAttribute('aria-expanded', String(isTarget));
+          const itemDeck = item.querySelector('.capability-feature-deck');
+          if (itemDeck) itemDeck.setAttribute('aria-hidden', String(!isTarget));
+        });
+
+        activeCapabilityCard = card;
+      };
+
+      card.addEventListener('click', () => {
+        if (activeCapabilityCard === card) {
+          closeCapabilityDrawer();
+          return;
+        }
+        selectCard();
+      });
+
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          if (activeCapabilityCard === card) {
+            closeCapabilityDrawer();
+          } else {
+            selectCard();
+          }
+        }
+      });
+
+      if (deck) deck.setAttribute('aria-hidden', 'true');
+    });
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!activeCapabilityCard || !capabilityGrid) return;
+      if (!capabilityGrid.contains(event.target)) {
+        closeCapabilityDrawer();
+        return;
+      }
+
+      if (!activeCapabilityCard.contains(event.target)) {
+        closeCapabilityDrawer();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeCapabilityDrawer();
+      }
+    });
+
+    // Hero terminal pointer-follow motion
+    const heroTerminal = document.querySelector('.hero-demo .terminal');
+    const canUseFinePointer = window.matchMedia('(pointer: fine)').matches;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (heroTerminal && canUseFinePointer && !prefersReducedMotion) {
+      const maxShift = 4;
+      let terminalRafId = null;
+
+      const setTerminalShift = (x, y) => {
+        heroTerminal.style.setProperty('--terminal-shift-x', `${x.toFixed(2)}px`);
+        heroTerminal.style.setProperty('--terminal-shift-y', `${y.toFixed(2)}px`);
+      };
+
+      heroTerminal.addEventListener('pointermove', (event) => {
+        const rect = heroTerminal.getBoundingClientRect();
+        const nx = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+        const ny = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+        const shiftX = Math.max(-maxShift, Math.min(maxShift, nx * maxShift));
+        const shiftY = Math.max(-maxShift, Math.min(maxShift, ny * maxShift));
+
+        if (terminalRafId) cancelAnimationFrame(terminalRafId);
+        terminalRafId = requestAnimationFrame(() => setTerminalShift(shiftX, shiftY));
+      }, { passive: true });
+
+      heroTerminal.addEventListener('pointerleave', () => {
+        if (terminalRafId) {
+          cancelAnimationFrame(terminalRafId);
+          terminalRafId = null;
+        }
+        setTerminalShift(0, 0);
+      });
+    }
 
     // Terminal typewriter animation
     const terminalBody = document.getElementById('terminalBody');
