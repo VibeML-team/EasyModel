@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VibeML Chat - AI 算法专家</title>
+  <title>ML Studio Chat - AI 算法专家</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -156,7 +156,7 @@
       box-shadow: 0 10px 22px -16px rgba(16, 202, 144, 0.6);
     }
 
-    .logo-text { font-size: 18px; font-weight: 600; color: var(--text-primary); font-style: normal; }
+    .logo-text { font-size: 18px; font-weight: 600; color: var(--text-primary); font-style: italic; }
     .brand-italic { font-style: italic; }
     .logo-text span { color: var(--violet-400); }
     .dashboard-link {
@@ -1396,7 +1396,7 @@
           <circle cx="9" cy="9" r="2" fill="white"/>
         </svg>
       </div>
-      <span class="sidebar-brand"><i>Vibe</i><span>ML</span></span>
+      <span class="sidebar-brand brand-italic">ML<span>Studio</span></span>
     </div>
     <button class="new-chat-btn" onclick="startNewChat()">
       ＋ 新对话
@@ -1438,11 +1438,11 @@
         <div class="avatar assistant">🤖</div>
         <div class="message-content">
           <div class="message-header">
-            <span class="message-author">VibeML Assistant</span>
+            <span class="message-author">ML Studio Assistant</span>
             <span class="message-time">刚刚</span>
           </div>
           <div class="message-text">
-            <p>👋 欢迎使用 VibeML！我是你的专属 AI 算法专家。</p>
+            <p>👋 欢迎使用 ML Studio！我是你的专属 AI 算法专家。</p>
             <p>我可以帮你：</p>
             <ul style="margin: 8px 0; padding-left: 20px;">
               <li>分析业务需求并编译为训练方案</li>
@@ -1496,7 +1496,7 @@
   <script>
     const root = document.documentElement;
     const themeToggle = document.getElementById('themeToggle');
-    const savedTheme = localStorage.getItem('vibeml-theme');
+    const savedTheme = localStorage.getItem('mlstudio-theme');
 
     if (savedTheme === 'light') {
       root.setAttribute('data-theme', 'light');
@@ -1506,10 +1506,10 @@
       const isLight = root.getAttribute('data-theme') === 'light';
       if (isLight) {
         root.removeAttribute('data-theme');
-        localStorage.setItem('vibeml-theme', 'dark');
+        localStorage.setItem('mlstudio-theme', 'dark');
       } else {
         root.setAttribute('data-theme', 'light');
-        localStorage.setItem('vibeml-theme', 'light');
+        localStorage.setItem('mlstudio-theme', 'light');
       }
     });
 
@@ -1521,11 +1521,11 @@
     let currentJobId = null;
 
     // === Mode Toggle: User / Developer ===
-    let currentMode = localStorage.getItem('vibeml-mode') || 'user';
+    let currentMode = localStorage.getItem('mlstudio-mode') || 'user';
 
     function setMode(mode) {
       currentMode = mode;
-      localStorage.setItem('vibeml-mode', mode);
+      localStorage.setItem('mlstudio-mode', mode);
 
       // 更新按钮状态
       document.getElementById('modeUser').classList.toggle('active', mode === 'user');
@@ -2718,7 +2718,7 @@
         <div class="avatar ${role}">${role === 'user' ? '👤' : '🤖'}</div>
         <div class="message-content">
           <div class="message-header">
-            <span class="message-author">${role === 'user' ? 'You' : 'VibeML Assistant'}</span>
+            <span class="message-author">${role === 'user' ? 'You' : 'ML Studio Assistant'}</span>
             <span class="message-time">${time}</span>
           </div>
           <div class="message-text">${content}</div>
@@ -2755,7 +2755,7 @@
     }
 
     // ============ SESSION MANAGEMENT (shared with dashboard) ============
-    const SESSIONS_KEY = 'vibeml-sessions';
+    const SESSIONS_KEY = 'mlstudio-sessions';
     let chatCurrentSessionId = null;
 
     function loadSessions() {
@@ -2814,7 +2814,7 @@
           <div class="avatar assistant">🤖</div>
           <div class="message-content">
             <div class="message-header">
-              <span class="message-author">VibeML Assistant</span>
+              <span class="message-author">ML Studio Assistant</span>
               <span class="message-time">刚刚</span>
             </div>
             <div class="message-text">
@@ -2903,7 +2903,7 @@
             <div class="avatar assistant">🤖</div>
             <div class="message-content">
               <div class="message-header">
-                <span class="message-author">VibeML Assistant</span>
+                <span class="message-author">ML Studio Assistant</span>
                 <span class="message-time">刚刚</span>
               </div>
               <div class="message-text"><p>👋 描述你的业务需求，我来帮你训练模型。</p></div>
@@ -2920,7 +2920,7 @@
             <div class="avatar ${m.role}">${m.role === 'user' ? '👤' : '🤖'}</div>
             <div class="message-content">
               <div class="message-header">
-                <span class="message-author">${m.role === 'user' ? 'You' : 'VibeML Assistant'}</span>
+                <span class="message-author">${m.role === 'user' ? 'You' : 'ML Studio Assistant'}</span>
                 <span class="message-time">${time}</span>
               </div>
               <div class="message-text">${content}</div>
