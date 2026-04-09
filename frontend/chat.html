@@ -16,6 +16,13 @@
       font-style: normal;
       font-display: swap;
     }
+    @font-face {
+      font-family: "Avenir Next LT Pro";
+      src: url("./AvenirNextLTPro-It.otf") format("opentype");
+      unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F;
+      font-style: italic;
+      font-display: swap;
+    }
     :root {
       color-scheme: dark light;
       --bg-primary: #03070a;
@@ -80,7 +87,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: "Avenir Next LT Pro", sans-serif;
+      font-family: "Avenir Next LT Pro", 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
       background-color: var(--bg-primary);
       color: var(--text-primary);
       height: 100vh;
@@ -159,14 +166,6 @@
     .logo-text { font-size: 18px; font-weight: 600; color: var(--text-primary); }
     .brand-italic { font-style: italic; }
     .logo-text span { color: var(--violet-400); }
-    .dashboard-link {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-primary);
-      letter-spacing: 0.01em;
-      white-space: nowrap;
-    }
-
     .header-divider {
       width: 1px; height: 24px;
       background: var(--border);
@@ -288,7 +287,6 @@
     .message-content {
       flex: 1;
       padding-top: 6px;
-      font-family: sans-serif;
     }
 
     .message-header {
@@ -337,14 +335,14 @@
       font-weight: 600;
     }
 
-    .card-violet { border-color: rgba(139, 92, 246, 0.3); }
-    .card-violet .card-header { background: rgba(139, 92, 246, 0.1); color: var(--violet-400); }
+    .card-violet { border-color: rgba(16, 202, 144, 0.3); }
+    .card-violet .card-header { background: rgba(16, 202, 144, 0.1); color: var(--violet-400); }
 
     .card-cyan { border-color: rgba(34, 211, 238, 0.3); }
     .card-cyan .card-header { background: rgba(34, 211, 238, 0.1); color: var(--cyan-400); }
 
-    .card-blue { border-color: rgba(59, 130, 246, 0.3); }
-    .card-blue .card-header { background: rgba(59, 130, 246, 0.1); color: var(--blue-400); }
+    .card-blue { border-color: rgba(124, 246, 228, 0.3); }
+    .card-blue .card-header { background: rgba(124, 246, 228, 0.1); color: var(--blue-400); }
 
     .card-emerald { border-color: rgba(16, 185, 129, 0.3); }
     .card-emerald .card-header { background: rgba(16, 185, 129, 0.1); color: var(--emerald-400); }
@@ -397,8 +395,8 @@
     /* === 个性化方案双层 UI === */
     .plan-business {
       padding: 20px;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05));
-      border: 1px solid rgba(139, 92, 246, 0.2);
+      background: linear-gradient(135deg, rgba(16, 202, 144, 0.08), rgba(71, 245, 183, 0.04));
+      border: 1px solid rgba(16, 202, 144, 0.2);
       border-radius: 12px;
       margin-top: 12px;
     }
@@ -538,7 +536,7 @@
 
     .tech-section-body .reasoning {
       padding: 8px 12px;
-      background: rgba(139, 92, 246, 0.06);
+      background: rgba(16, 202, 144, 0.06);
       border-radius: 6px;
       margin-bottom: 10px;
       color: var(--violet-400);
@@ -547,7 +545,6 @@
 
     .tech-section-body .details {
       white-space: pre-wrap;
-      font-family: 'Inter', sans-serif;
       font-size: 13px;
     }
 
@@ -573,10 +570,10 @@
     .needs-more-info {
       margin-top: 12px;
       padding: 10px 14px;
-      background: rgba(59, 130, 246, 0.08);
+      background: rgba(124, 246, 228, 0.08);
       border-radius: 8px;
       font-size: 13px;
-      color: var(--blue-400);
+      color: var(--cyan-400);
     }
 
     .confidence-bar {
@@ -820,7 +817,7 @@
     /* Evaluation Card - Figma Design */
     .evaluation-card {
       background: var(--bg-tertiary);
-      border: 1px solid rgba(139, 92, 246, 0.3);
+      border: 1px solid rgba(16, 202, 144, 0.3);
       border-radius: 12px;
       overflow: hidden;
       margin-top: 16px;
@@ -831,7 +828,7 @@
       align-items: center;
       gap: 8px;
       padding: 12px 16px;
-      background: rgba(139, 92, 246, 0.1);
+      background: rgba(16, 202, 144, 0.1);
       border-bottom: 1px solid var(--border);
       color: var(--violet-400);
       font-weight: 600;
@@ -862,12 +859,12 @@
 
     .checkpoint-item:hover {
       background: rgba(255, 255, 255, 0.05);
-      border-color: rgba(139, 92, 246, 0.3);
+      border-color: rgba(16, 202, 144, 0.3);
     }
 
     .checkpoint-item.selected {
-      background: rgba(139, 92, 246, 0.1);
-      border-color: rgba(139, 92, 246, 0.5);
+      background: rgba(16, 202, 144, 0.1);
+      border-color: rgba(16, 202, 144, 0.5);
     }
 
     .checkpoint-info {
@@ -1246,14 +1243,9 @@
     }
 
     .mode-btn.active {
-      background: rgba(139, 92, 246, 0.2);
+      background: rgba(16, 202, 144, 0.2);
       color: var(--violet-400);
-      box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3);
-    }
-
-    .mode-btn .mode-icon {
-      font-size: 13px;
-      line-height: 1;
+      box-shadow: 0 0 0 1px rgba(16, 202, 144, 0.3);
     }
 
     /* Developer 模式：所有技术细节默认展开 + 思考过程可见 */
@@ -1420,8 +1412,7 @@
       .header-divider { display: none; }
       .messages { padding: 16px; }
       .input-area { padding: 12px 16px; }
-      .mode-btn span:not(.mode-icon) { display: none; }
-      .mode-btn { padding: 6px 10px; }
+      .mode-btn { padding: 6px 10px; font-size: 11px; }
       .sidebar { width: 0; min-width: 0; border-right: none; }
       .sidebar.open { width: 260px; min-width: 260px; }
       body.sidebar-open .header { left: 0; }
@@ -1455,11 +1446,12 @@
   <header class="header">
     <div class="header-left">
       <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="切换侧边栏">☰</button>
-      <a href="./dashboard.html" class="logo" aria-label="前往 Dashboard">
-        <span class="dashboard-link">Dashboard</span>
-      </a>
     </div>
     <div class="header-actions">
+      <div class="mode-toggle" id="modeToggle">
+        <button class="mode-btn active" id="modeUser" onclick="setMode('user')">User</button>
+        <button class="mode-btn" id="modeDev" onclick="setMode('developer')">Developer</button>
+      </div>
       <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换明暗主题">
         <span class="theme-icon-dark">◐</span>
         <span class="theme-icon-light">◑</span>
@@ -1569,8 +1561,8 @@
       localStorage.setItem('mlstudio-mode', mode);
 
       // 更新按钮状态
-      document.getElementById('modeUser').classList.toggle('active', mode === 'user');
-      document.getElementById('modeDev').classList.toggle('active', mode === 'developer');
+      document.getElementById('modeUser')?.classList.toggle('active', mode === 'user');
+      document.getElementById('modeDev')?.classList.toggle('active', mode === 'developer');
 
       // 更新 body class
       document.body.classList.remove('mode-user', 'mode-developer');
@@ -2483,7 +2475,7 @@
                 <span class="step-text">🧠 正在思考训练方案...</span>
               </div>
             </div>
-            <div id="${thinkingId}-tokens" style="font-size: 13px; color: var(--text-secondary); padding: 12px 16px; background: rgba(139,92,246,0.05); border-radius: 8px; border-left: 3px solid var(--violet-500); max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-family: 'Inter', sans-serif; line-height: 1.6; display: none;"></div>
+            <div id="${thinkingId}-tokens" style="font-size: 13px; color: var(--text-secondary); padding: 12px 16px; background: rgba(16,202,144,0.05); border-radius: 8px; border-left: 3px solid var(--violet-500); max-height: 300px; overflow-y: auto; white-space: pre-wrap; line-height: 1.6; display: none;"></div>
           </div>
         `);
 
@@ -3192,7 +3184,7 @@
       }
     }
 
-    // ============ SESSION MANAGEMENT (shared with dashboard) ============
+    // ============ SESSION MANAGEMENT ============
     const SESSIONS_KEY = 'mlstudio-sessions';
     let chatCurrentSessionId = null;
 
@@ -3324,11 +3316,6 @@
       const session = sessions.find(s => s.id === id);
       if (!session) return;
 
-      // Cross-page navigation: if session was created on dashboard, redirect
-      if (session.page === 'dashboard') {
-        window.location.href = './dashboard.html?sid=' + id;
-        return;
-      }
 
       chatCurrentSessionId = id;
 
@@ -3429,7 +3416,7 @@
     if (urlSid) {
       const sessions = loadSessions();
       const target = sessions.find(s => s.id === urlSid);
-      if (target && target.page !== 'dashboard') {
+      if (target) {
         chatCurrentSessionId = urlSid;
         switchChatSession(urlSid);
       }
