@@ -482,7 +482,7 @@ def dashboard_html() -> FileResponse:
 
 
 @app.get("/api/health")
-def health() -> dict[str, Any]:
+async def health() -> dict[str, Any]:
     """健康检查"""
     # 检查 LLM 配置
     llm_configured = False
@@ -1613,7 +1613,7 @@ async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str
 
 
 @app.get("/api/data/list")
-def list_datasets() -> dict[str, Any]:
+async def list_datasets() -> dict[str, Any]:
     """列出所有数据集"""
     datasets = data_manager.list_datasets()
     return {
@@ -1622,7 +1622,7 @@ def list_datasets() -> dict[str, Any]:
 
 
 @app.get("/api/data/{dataset_id}")
-def get_dataset_info(dataset_id: str) -> dict[str, Any]:
+async def get_dataset_info(dataset_id: str) -> dict[str, Any]:
     """获取数据集信息"""
     try:
         spec = data_manager.get_dataset(dataset_id)
@@ -1965,7 +1965,7 @@ def clarify_intent(req: ClarifyRequest) -> ClarifyResponse:
 
 
 @app.post("/api/intent/compile")
-def compile_intent(req: ClarifyRequest) -> dict[str, Any]:
+async def compile_intent(req: ClarifyRequest) -> dict[str, Any]:
     """
     编译意图为 ObjectiveSpec
     
@@ -2017,7 +2017,7 @@ def compile_intent(req: ClarifyRequest) -> dict[str, Any]:
 # ---- 训练 API ----
 
 @app.post("/api/training/start")
-def start_training(req: StartTrainingRequest) -> dict[str, Any]:
+async def start_training(req: StartTrainingRequest) -> dict[str, Any]:
     """
     启动训练任务
     
@@ -2080,7 +2080,7 @@ def start_training(req: StartTrainingRequest) -> dict[str, Any]:
 
 
 @app.get("/api/training/{job_id}")
-def get_training_status(job_id: str) -> JobStatusResponse:
+async def get_training_status(job_id: str) -> JobStatusResponse:
     """获取训练状态"""
     job = job_manager.get(job_id)
     
@@ -2109,7 +2109,7 @@ def get_training_status(job_id: str) -> JobStatusResponse:
 
 
 @app.post("/api/training/{job_id}/pause")
-def pause_training(job_id: str) -> dict[str, Any]:
+async def pause_training(job_id: str) -> dict[str, Any]:
     """暂停训练"""
     job = job_manager.pause_job(job_id)
     return {
@@ -2120,7 +2120,7 @@ def pause_training(job_id: str) -> dict[str, Any]:
 
 
 @app.post("/api/training/{job_id}/resume")
-def resume_training(job_id: str) -> dict[str, Any]:
+async def resume_training(job_id: str) -> dict[str, Any]:
     """恢复训练"""
     job = job_manager.resume_job(job_id)
     return {
@@ -2131,7 +2131,7 @@ def resume_training(job_id: str) -> dict[str, Any]:
 
 
 @app.post("/api/training/{job_id}/stop")
-def stop_training(job_id: str) -> dict[str, Any]:
+async def stop_training(job_id: str) -> dict[str, Any]:
     """停止训练"""
     job = job_manager.stop_job(job_id)
     return {
@@ -2144,7 +2144,7 @@ def stop_training(job_id: str) -> dict[str, Any]:
 # ---- 训练任务列表 + Checkpoint / 模型下载 API ----
 
 @app.get("/api/training/jobs")
-def list_training_jobs() -> dict[str, Any]:
+async def list_training_jobs() -> dict[str, Any]:
     """列出所有训练任务"""
     jobs = []
     for job_id, job in job_manager.jobs.items():
@@ -2163,7 +2163,7 @@ def list_training_jobs() -> dict[str, Any]:
 
 
 @app.get("/api/training/{job_id}/checkpoints")
-def list_checkpoints(job_id: str) -> dict[str, Any]:
+async def list_checkpoints(job_id: str) -> dict[str, Any]:
     """列出所有 checkpoint"""
     job = job_manager.get(job_id)
     
@@ -2204,7 +2204,7 @@ def list_checkpoints(job_id: str) -> dict[str, Any]:
 
 
 @app.get("/api/training/{job_id}/download/{file_type}")
-def download_artifact(job_id: str, file_type: str) -> FileResponse:
+async def download_artifact(job_id: str, file_type: str) -> FileResponse:
     """
     下载训练产物
     
@@ -2230,7 +2230,7 @@ def download_artifact(job_id: str, file_type: str) -> FileResponse:
 
 
 @app.get("/api/training/{job_id}/result")
-def get_training_result(job_id: str) -> dict[str, Any]:
+async def get_training_result(job_id: str) -> dict[str, Any]:
     """获取完整训练结果"""
     job = job_manager.get(job_id)
     return _build_training_result_payload(job)
