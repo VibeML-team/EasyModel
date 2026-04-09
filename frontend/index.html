@@ -75,7 +75,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: "Avenir Next LT Pro", sans-serif;
+      font-family: "Avenir Next LT Pro", 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
       background-color: var(--bg-primary);
       color: var(--white);
       line-height: 1.6;
@@ -929,7 +929,7 @@
           <span class="theme-icon-dark">◐</span>
           <span class="theme-icon-light">◑</span>
         </button>
-        <a href="./chat.html" class="btn-primary">开始试用 | Dashboard</a>
+        <a href="./chat.html" class="btn-primary">开始试用</a>
       </div>
     </div>
   </nav>
@@ -1614,6 +1614,14 @@ validation → out_of_time_split</pre>
 
     caseTabs.forEach((tab, index) => {
       tab.setAttribute('aria-selected', tab.classList.contains('active') ? 'true' : 'false');
+
+      tab.addEventListener('pointerenter', () => {
+        const currentIndex = Math.max(0, caseTabs.findIndex((btn) => btn.dataset.case === activeUsecase));
+        const targetIndex = caseTabs.findIndex((btn) => btn === tab);
+        const direction = targetIndex >= currentIndex ? 'down' : 'up';
+        activateCase(tab.dataset.case, direction);
+        usecaseAutoIndex = Math.max(0, targetIndex);
+      });
 
       tab.addEventListener('click', () => {
         const currentIndex = Math.max(0, caseTabs.findIndex((btn) => btn.dataset.case === activeUsecase));
