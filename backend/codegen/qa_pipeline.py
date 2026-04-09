@@ -84,6 +84,32 @@ class QAPipeline:
             attempts += 1
             all_passed = True
             iteration_results = {"attempt": attempts, "stages": []}
+
+            missing_files = self.generator.missing_required_files(current_program)
+            if missing_files:
+                all_passed = False
+                iteration_results["stages"].append({
+                    "name": "required_files",
+                    "results": [
+                        {
+                            "passed": False,
+                            "stage": "required_files",
+                            "errors": [
+                                {"file": filename, "message": "必需代码文件为空或缺失"}
+                                for filename in missing_files
+                            ],
+                            "warnings": [],
+                        }
+                    ],
+                })
+                if auto_fix and attempts < self.max_attempts:
+                    stage_results.append(iteration_results)
+                    current_program = self._fix_program(
+                        current_program,
+                        [{"file": filename, "message": "必需代码文件为空或缺失"} for filename in missing_files],
+                        "required_files",
+                    )
+                    continue
             
             # Stage 1: 静态分析
             static_results = self._run_static_analysis(current_program)
@@ -95,6 +121,7 @@ class QAPipeline:
             if not all(r.passed for r in static_results):
                 all_passed = False
                 if auto_fix and attempts < self.max_attempts:
+                    stage_results.append(iteration_results)
                     errors = self._collect_errors(static_results)
                     current_program = self._fix_program(
                         current_program, errors, "static_analysis"
@@ -111,6 +138,7 @@ class QAPipeline:
             if isinstance(test_result, TestResult) and not test_result.passed:
                 all_passed = False
                 if auto_fix and attempts < self.max_attempts:
+                    stage_results.append(iteration_results)
                     errors = [{"message": test_result.error_message}]
                     current_program = self._fix_program(
                         current_program, errors, "unit_test"
@@ -127,6 +155,7 @@ class QAPipeline:
             if not all(r.passed for r in smoke_results):
                 all_passed = False
                 if auto_fix and attempts < self.max_attempts:
+                    stage_results.append(iteration_results)
                     errors = self._collect_smoke_errors(smoke_results)
                     current_program = self._fix_program(
                         current_program, errors, "smoke_test"
@@ -255,10 +284,9 @@ class QuickValidator:
             if not code.strip():
                 return False
             
-            import ast
             try:
-                ast.parse(code)
-            except SyntaxError:
+                compile(code, filename, "exec")
+            except Exception:
                 return False
         
         # 2. 导入检查（只检查前几条import语句）

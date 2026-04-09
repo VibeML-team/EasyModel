@@ -113,6 +113,12 @@ class StaticAnalyzer:
             results.append(syntax_result)
             if not syntax_result.passed:
                 continue  # 语法错误，跳过后续检查
+
+            # 1.5 编译检查
+            compile_result = self._check_compile(filename, code)
+            results.append(compile_result)
+            if not compile_result.passed:
+                continue
             
             # 2. 导入检查
             import_result = self._check_imports(filename, code)
@@ -151,6 +157,33 @@ class StaticAnalyzer:
         return StaticCheckResult(
             passed=len(errors) == 0,
             stage="syntax",
+            errors=errors,
+        )
+
+    def _check_compile(self, filename: str, code: str) -> StaticCheckResult:
+        """检查代码能否完整编译为 Python code object。"""
+        errors = []
+
+        try:
+            compile(code, filename, "exec")
+        except SyntaxError as e:
+            errors.append({
+                "file": filename,
+                "line": e.lineno,
+                "column": e.offset,
+                "message": f"编译失败: {e.msg}",
+                "suggestion": "修复该文件直到可以被 Python compile() 成功编译",
+            })
+        except Exception as e:
+            errors.append({
+                "file": filename,
+                "message": f"编译失败: {str(e)}",
+                "suggestion": "检查该文件是否包含非法 Python 结构或不完整代码块",
+            })
+
+        return StaticCheckResult(
+            passed=len(errors) == 0,
+            stage="compile",
             errors=errors,
         )
     
