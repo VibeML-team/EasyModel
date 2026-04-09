@@ -675,13 +675,13 @@
       transform: translateY(8px);
       visibility: hidden;
       transition:
-        max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.38s ease,
-        transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-        margin-top 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-        padding 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-        border-color 0.3s ease,
-        visibility 0s linear 0.4s;
+        max-height 0.08s ease,
+        opacity 0.06s ease,
+        transform 0.08s ease,
+        margin-top 0.08s ease,
+        padding 0.08s ease,
+        border-color 0.05s ease,
+        visibility 0s linear 0s;
     }
     .capability-card.is-selected .capability-feature-deck {
       margin-top: 14px;
@@ -693,12 +693,12 @@
       visibility: visible;
       border-color: var(--border-soft);
       transition:
-        max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.38s ease,
-        transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-        margin-top 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-        padding 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-        border-color 0.3s ease,
+        max-height 0.08s ease,
+        opacity 0.06s ease,
+        transform 0.08s ease,
+        margin-top 0.08s ease,
+        padding 0.08s ease,
+        border-color 0.05s ease,
         visibility 0s linear 0s;
     }
     .capability-feature-pill {
@@ -909,8 +909,8 @@
 
       <div class="nav-links">
         <a href="#how-it-works">产品</a>
-        <a href="#capabilities">能力</a>
         <a href="#use-cases">使用场景</a>
+        <a href="#capabilities">能力</a>
       </div>
 
       <div class="nav-cta">
@@ -1688,8 +1688,8 @@ validation → out_of_time_split</pre>
       activeCapabilityCard = null;
     }
 
-    const CAPABILITY_DWELL_MS = 1000;
-    const CAPABILITY_LEAVE_MS = 140;
+    const CAPABILITY_DWELL_MS = 0;
+    const CAPABILITY_LEAVE_MS = 0;
     let capabilityLeaveCloseTimer = null;
 
     function clearCapabilityLeaveCloseTimer() {
@@ -1782,24 +1782,12 @@ validation → out_of_time_split</pre>
 
       card.addEventListener('pointerenter', () => {
         clearCapabilityLeaveCloseTimer();
-        clearTimeout(dwellTimer);
-        dwellTimer = window.setTimeout(() => {
-          dwellTimer = null;
-          selectCard(true);
-        }, CAPABILITY_DWELL_MS);
+        selectCard(true);
       });
 
       card.addEventListener('pointerleave', () => {
-        clearTimeout(dwellTimer);
-        dwellTimer = null;
         if (card.getAttribute('data-opened-by-dwell') !== 'true') return;
-        clearCapabilityLeaveCloseTimer();
-        capabilityLeaveCloseTimer = window.setTimeout(() => {
-          capabilityLeaveCloseTimer = null;
-          if (activeCapabilityCard === card && card.getAttribute('data-opened-by-dwell') === 'true') {
-            closeCapabilityDrawer();
-          }
-        }, CAPABILITY_LEAVE_MS);
+        closeCapabilityDrawer();
       });
 
       if (deck) deck.setAttribute('aria-hidden', 'true');
