@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ML Studio Chat - AI 算法专家</title>
+  <title>EasyModel Chat - AI 算法专家</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -243,6 +243,8 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
+      min-width: 0;
+      overflow-x: hidden;
       transition: margin-left 0.3s ease;
     }
 
@@ -250,10 +252,12 @@
     .messages {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 24px;
     }
 
     .message {
+      width: min(100%, 900px);
       max-width: 900px;
       margin: 0 auto 24px;
       display: flex;
@@ -286,6 +290,7 @@
 
     .message-content {
       flex: 1;
+      min-width: 0;
       padding-top: 6px;
     }
 
@@ -310,6 +315,8 @@
       font-size: 15px;
       line-height: 1.6;
       color: var(--text-primary);
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .message-text p { margin-bottom: 12px; }
@@ -964,17 +971,22 @@
       padding: 16px 24px;
       background: var(--surface-glass-strong);
       backdrop-filter: blur(12px);
+      overflow-x: hidden;
     }
 
     .input-container {
       max-width: 900px;
       margin: 0 auto;
+      min-width: 0;
     }
 
     .input-toolbar {
       display: flex;
+      flex-wrap: wrap;
+      flex: 1;
+      min-width: 0;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 0;
     }
 
     .toolbar-btn {
@@ -1001,15 +1013,24 @@
 
     .input-box {
       display: flex;
-      gap: 12px;
+      flex-direction: column;
+      gap: 10px;
       background: color-mix(in srgb, var(--surface-glass) 80%, var(--bg-secondary) 20%);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      align-items: center;
+      border-radius: 20px;
+      padding: 14px;
+      align-items: stretch;
     }
 
-    .input-box:focus-within { border-color: var(--border-strong); box-shadow: 0 0 0 3px rgba(16, 202, 144, 0.1); }
+    .input-box:focus-within { border-color: var(--border-strong); box-shadow: none; }
+
+    .input-footer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
 
     textarea {
       flex: 1;
@@ -1024,9 +1045,10 @@
       min-height: 36px;
       max-height: 200px;
       font-family: inherit;
-      display: flex;
-      align-items: center;
-      padding: 6px 0;
+      display: block;
+      padding: 4px 2px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     textarea::placeholder {
@@ -1036,10 +1058,10 @@
     }
 
     .send-btn {
-      width: 36px; height: 36px;
+      width: 44px; height: 44px;
       background: linear-gradient(120deg, var(--violet-600), var(--emerald-400));
       border: 1px solid rgba(16, 202, 144, 0.36);
-      border-radius: 10px;
+      border-radius: 999px;
       color: var(--white);
       cursor: pointer;
       display: flex;
@@ -1047,10 +1069,10 @@
       justify-content: center;
       transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
       flex-shrink: 0;
-      box-shadow: 0 0 20px rgba(16, 202, 144, 0.2);
+      box-shadow: none;
     }
 
-    .send-btn:hover { transform: translateY(-2px); box-shadow: 0 0 34px rgba(16, 202, 144, 0.42); filter: brightness(1.03); }
+    .send-btn:hover { transform: translateY(-2px); box-shadow: none; filter: brightness(1.03); }
     .send-btn:disabled { background: rgba(255, 255, 255, 0.1); cursor: not-allowed; }
 
     /* File Upload */
@@ -1284,7 +1306,8 @@
       border-right: none;
     }
     .sidebar-header {
-      padding: 16px;
+      height: 64px;
+      padding: 0 16px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
@@ -1412,6 +1435,9 @@
       .header-divider { display: none; }
       .messages { padding: 16px; }
       .input-area { padding: 12px 16px; }
+      .input-box { padding: 12px; border-radius: 16px; }
+      .toolbar-btn { font-size: 13px; padding: 6px 10px; }
+      .send-btn { width: 40px; height: 40px; }
       .mode-btn { padding: 6px 10px; font-size: 11px; }
       .sidebar { width: 0; min-width: 0; border-right: none; }
       .sidebar.open { width: 260px; min-width: 260px; }
@@ -1425,9 +1451,9 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header" onclick="window.location.href='./index.html'">
       <div class="sidebar-logo">
-        <img src="./Weixin_Image_20260409105924_153_539-removebg-preview.png" alt="VibeML Logo">
+        <img src="./Weixin_Image_20260409105924_153_539-removebg-preview.png" alt="EasyModel Logo">
       </div>
-      <span class="sidebar-brand">ML<span>Studio</span></span>
+      <span class="sidebar-brand">Easy<span>Model</span></span>
     </div>
     <button class="new-chat-btn" onclick="startNewChat()">
       ＋ 新对话
@@ -1470,11 +1496,11 @@
         <div class="avatar assistant">🤖</div>
         <div class="message-content">
           <div class="message-header">
-            <span class="message-author">ML Studio Assistant</span>
+            <span class="message-author">EasyModel Assistant</span>
             <span class="message-time">刚刚</span>
           </div>
           <div class="message-text">
-            <p>👋 欢迎使用 ML Studio！我是你的专属 AI 算法专家。</p>
+            <p>👋 欢迎使用 EasyModel！我是你的专属 AI 算法专家。</p>
             <p>我可以帮你：</p>
             <ul style="margin: 8px 0; padding-left: 20px;">
               <li>分析业务需求并编译为训练方案</li>
@@ -1499,27 +1525,29 @@
     <!-- Input Area -->
     <div class="input-area">
       <div class="input-container">
-        <div class="input-toolbar">
-          <button class="toolbar-btn" onclick="document.getElementById('fileInput').click()">
-            📎 上传文件
-          </button>
-          <button class="toolbar-btn" onclick="promptLinkImport()">
-            🔗 链接导入
-          </button>
-          <button class="toolbar-btn" onclick="showHelp()">
-            ❓ 帮助
-          </button>
-          <button class="toolbar-btn" onclick="clearContext()">
-            🗑️ 清空
-          </button>
-        </div>
         <div class="input-box">
           <textarea id="messageInput" placeholder="描述你的精细业务需求，例如：我有一份电商记录，想找出快流失的高价值用户，宁可误报也别漏报..." rows="1"></textarea>
-          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
+          <div class="input-footer">
+            <div class="input-toolbar">
+              <button class="toolbar-btn" onclick="document.getElementById('fileInput').click()">
+                📎 上传文件
+              </button>
+              <button class="toolbar-btn" onclick="promptLinkImport()">
+                🔗 链接导入
+              </button>
+              <button class="toolbar-btn" onclick="showHelp()">
+                ❓ 帮助
+              </button>
+              <button class="toolbar-btn" onclick="clearContext()">
+                🗑️ 清空
+              </button>
+            </div>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1528,7 +1556,7 @@
   <script>
     const root = document.documentElement;
     const themeToggle = document.getElementById('themeToggle');
-    const savedTheme = localStorage.getItem('mlstudio-theme');
+    const savedTheme = localStorage.getItem('easymodel-theme');
 
     if (savedTheme === 'light') {
       root.setAttribute('data-theme', 'light');
@@ -1538,10 +1566,10 @@
       const isLight = root.getAttribute('data-theme') === 'light';
       if (isLight) {
         root.removeAttribute('data-theme');
-        localStorage.setItem('mlstudio-theme', 'dark');
+        localStorage.setItem('easymodel-theme', 'dark');
       } else {
         root.setAttribute('data-theme', 'light');
-        localStorage.setItem('mlstudio-theme', 'light');
+        localStorage.setItem('easymodel-theme', 'light');
       }
     });
 
@@ -1554,11 +1582,11 @@
     let currentJobId = null;
 
     // === Mode Toggle: User / Developer ===
-    let currentMode = localStorage.getItem('mlstudio-mode') || 'user';
+    let currentMode = localStorage.getItem('easymodel-mode') || 'user';
 
     function setMode(mode) {
       currentMode = mode;
-      localStorage.setItem('mlstudio-mode', mode);
+      localStorage.setItem('easymodel-mode', mode);
 
       // 更新按钮状态
       document.getElementById('modeUser')?.classList.toggle('active', mode === 'user');
@@ -1812,7 +1840,7 @@
             <span>📁 查看文件结构</span>
           </button>
           <div class="tech-details" id="${treeId}">
-            <pre style="font-size: 11px; color: var(--text-secondary); overflow-x: auto; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">${data.file_scan.directory_tree}</pre>
+            <pre style="font-size: 11px; color: var(--text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">${data.file_scan.directory_tree}</pre>
           </div>`;
       }
 
@@ -3148,7 +3176,7 @@
         <div class="avatar ${role}">${role === 'user' ? '👤' : '🤖'}</div>
         <div class="message-content">
           <div class="message-header">
-            <span class="message-author">${role === 'user' ? 'You' : 'ML Studio Assistant'}</span>
+            <span class="message-author">${role === 'user' ? 'You' : 'EasyModel Assistant'}</span>
             <span class="message-time">${time}</span>
           </div>
           <div class="message-text">${content}</div>
@@ -3185,7 +3213,7 @@
     }
 
     // ============ SESSION MANAGEMENT ============
-    const SESSIONS_KEY = 'mlstudio-sessions';
+    const SESSIONS_KEY = 'easymodel-sessions';
     let chatCurrentSessionId = null;
 
     function loadSessions() {
@@ -3244,7 +3272,7 @@
           <div class="avatar assistant">🤖</div>
           <div class="message-content">
             <div class="message-header">
-              <span class="message-author">ML Studio Assistant</span>
+              <span class="message-author">EasyModel Assistant</span>
               <span class="message-time">刚刚</span>
             </div>
             <div class="message-text">
@@ -3328,7 +3356,7 @@
             <div class="avatar assistant">🤖</div>
             <div class="message-content">
               <div class="message-header">
-                <span class="message-author">ML Studio Assistant</span>
+                <span class="message-author">EasyModel Assistant</span>
                 <span class="message-time">刚刚</span>
               </div>
               <div class="message-text"><p>👋 描述你的业务需求，我来帮你训练模型。</p></div>
@@ -3345,7 +3373,7 @@
             <div class="avatar ${m.role}">${m.role === 'user' ? '👤' : '🤖'}</div>
             <div class="message-content">
               <div class="message-header">
-                <span class="message-author">${m.role === 'user' ? 'You' : 'ML Studio Assistant'}</span>
+                <span class="message-author">${m.role === 'user' ? 'You' : 'EasyModel Assistant'}</span>
                 <span class="message-time">${time}</span>
               </div>
               <div class="message-text">${content}</div>

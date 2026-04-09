@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ML Studio Agent - 全自动炼丹平台</title>
+  <title>EasyModel Agent - 全自动炼丹平台</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -846,11 +846,11 @@
   <header class="dashboard-topnav" role="banner">
     <div class="dashboard-topnav-inner">
       <div class="topnav-left">
-        <a href="./index.html" class="topnav-logo" aria-label="ML Studio 首页">
+        <a href="./index.html" class="topnav-logo" aria-label="EasyModel 首页">
           <div class="topnav-logo-icon">
-            <img src="./Weixin_Image_20260409105924_153_539-removebg-preview.png" alt="VibeML Logo">
+            <img src="./Weixin_Image_20260409105924_153_539-removebg-preview.png" alt="EasyModel Logo">
           </div>
-          <span class="topnav-logo-text">ML<span>Studio</span></span>
+          <span class="topnav-logo-text">Easy<span>Model</span></span>
         </a>
         <a href="./chat.html" class="logo" aria-label="前往 Chat 全屏对话">
           <span class="dashboard-link">Chat</span>
@@ -1118,7 +1118,7 @@
 
     const byId = (id) => document.getElementById(id);
     const parseList = (v) => v.split(',').map(s => s.trim()).filter(Boolean);
-    const THEME_KEY = 'mlstudio-theme';
+    const THEME_KEY = 'easymodel-theme';
 
     function applyTheme(theme) {
       const root = document.documentElement;
@@ -1702,7 +1702,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `mlstudio-results-${currentJobId || 'export'}.csv`;
+        a.download = `easymodel-results-${currentJobId || 'export'}.csv`;
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {
@@ -1720,7 +1720,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mlstudio-metrics-${currentJobId || 'export'}.json`;
+      a.download = `easymodel-metrics-${currentJobId || 'export'}.json`;
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -1776,7 +1776,7 @@
       msg.innerHTML = `
         <div class="chat-msg-avatar ${role}">${role === 'user' ? '👤' : '🤖'}</div>
         <div class="chat-msg-body">
-          <span class="chat-msg-author">${role === 'user' ? 'You' : 'ML Studio'}</span>
+          <span class="chat-msg-author">${role === 'user' ? 'You' : 'EasyModel'}</span>
           <div class="chat-msg-text">${content}</div>
         </div>
       `;
@@ -1870,7 +1870,7 @@
     }
 
     // ============ SESSION MANAGEMENT (localStorage) ============
-    const SESSIONS_KEY = 'mlstudio-sessions';
+    const SESSIONS_KEY = 'easymodel-sessions';
     let currentSessionId = null;
 
     function loadSessions() {
@@ -2016,7 +2016,7 @@
           msg.innerHTML = `
             <div class="chat-msg-avatar ${m.role}">${m.role === 'user' ? '👤' : '🤖'}</div>
             <div class="chat-msg-body">
-              <div class="chat-msg-author">${m.role === 'user' ? 'You' : 'ML Studio'}</div>
+              <div class="chat-msg-author">${m.role === 'user' ? 'You' : 'EasyModel'}</div>
               <div class="chat-msg-text">${content}</div>
             </div>
           `;
