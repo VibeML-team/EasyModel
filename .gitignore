@@ -49,6 +49,13 @@ checkpoints/
 *.log
 logs/
 
+# Frontend (pnpm / Vite)
+node_modules/
+.pnpm-store/
+web/dist/
+web/node_modules/
+*.tsbuildinfo
+
 # OS
 .DS_Store
 Thumbs.db

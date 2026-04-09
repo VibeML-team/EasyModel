@@ -46,7 +46,7 @@ if [ "$MODE" = "docker" ]; then
     echo "🚀 启动容器..."
     docker run -d \
         --name vibeml-agent \
-        -p 8000:8000 \
+        -p 8000:8080 \
         -e LLM_API_KEY="$LLM_API_KEY" \
         -e LLM_BASE_URL="${LLM_BASE_URL:-https://api.openai.com/v1}" \
         -e LLM_MODEL_NAME="${LLM_MODEL_NAME:-gpt-4o-mini}" \

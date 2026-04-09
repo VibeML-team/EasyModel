@@ -42,6 +42,7 @@ from backend.v2_api import router as v2_router
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
 FRONTEND_DIR = PROJECT_DIR / "frontend"
+NEXT_FRONTEND_DIR = PROJECT_DIR / "web" / "dist"
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
 Priority = Literal["quality", "latency", "cost"]
@@ -423,6 +424,10 @@ app.include_router(v2_router, prefix="/api")
 # 挂载前端
 if FRONTEND_DIR.exists():
     app.mount("/app", StaticFiles(directory=FRONTEND_DIR, html=True), name="app")
+
+# 挂载新前端（React 重构版，渐进迁移入口）
+if NEXT_FRONTEND_DIR.exists():
+    app.mount("/app-next", StaticFiles(directory=NEXT_FRONTEND_DIR, html=True), name="app-next")
 
 
 # ============ 辅助函数 ============

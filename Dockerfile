@@ -1,3 +1,18 @@
+FROM node:22-alpine AS web-builder
+
+WORKDIR /app
+
+# 使用 pnpm 构建前端产物
+RUN corepack enable && corepack prepare pnpm@10.18.3 --activate
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY web/package.json ./web/package.json
+COPY web/ ./web/
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm --dir web build
+
+
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -21,6 +36,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # .build_tag 文件每次部署前更新，确保 Docker 不跳过 COPY
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
+
+# 复制前端重构版构建产物（挂载到 /app-next）
+COPY --from=web-builder /app/web/dist ./web/dist
 
 # 创建输出目录
 RUN mkdir -p outputs backend/data
