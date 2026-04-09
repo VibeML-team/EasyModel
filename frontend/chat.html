@@ -1833,7 +1833,17 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_goal: userGoal }),
         });
-        const startData = await startResp.json();
+        const startText = await startResp.text();
+        let startData = {};
+        try {
+          startData = startText ? JSON.parse(startText) : {};
+        } catch (parseErr) {
+          throw new Error(`启动 Agent 失败: 服务返回了非 JSON 响应（HTTP ${startResp.status}）`);
+        }
+
+        if (!startResp.ok) {
+          throw new Error(startData.detail || `启动 Agent 失败（HTTP ${startResp.status}）`);
+        }
 
         if (!startData.task_id) {
           throw new Error(startData.detail || '启动 Agent 失败');
@@ -1853,7 +1863,17 @@
       const poll = setInterval(async () => {
         try {
           const resp = await fetch(`${API}/data/agent-status/${taskId}?since=${logSince}`);
-          const st = await resp.json();
+          const stText = await resp.text();
+          let st = {};
+          try {
+            st = stText ? JSON.parse(stText) : {};
+          } catch (parseErr) {
+            throw new Error(`Agent 状态接口返回了非 JSON 响应（HTTP ${resp.status}）`);
+          }
+
+          if (!resp.ok) {
+            throw new Error(st.error || st.detail || `Agent 状态查询失败（HTTP ${resp.status}）`);
+          }
           const feed = document.getElementById(feedId);
           if (!feed) { clearInterval(poll); return; }
           for (const log of (st.new_logs || [])) {
@@ -2157,7 +2177,17 @@
             dataset_id: currentDatasetId
           })
         });
-        const startData = await startResp.json();
+        const startText = await startResp.text();
+        let startData = {};
+        try {
+          startData = startText ? JSON.parse(startText) : {};
+        } catch (parseErr) {
+          throw new Error(`启动 Agent 失败: 服务返回了非 JSON 响应（HTTP ${startResp.status}）`);
+        }
+
+        if (!startResp.ok) {
+          throw new Error(startData.detail || `启动 Agent 失败（HTTP ${startResp.status}）`);
+        }
 
         if (!startData.task_id) {
           // 回退到同步版本

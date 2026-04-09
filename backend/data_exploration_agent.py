@@ -51,14 +51,15 @@ def execute_command(cmd: str, cwd: str, timeout: int = CMD_TIMEOUT) -> str:
         "LANG": "en_US.UTF-8",
         "PYTHONPATH": "/app",
         "PIP_NO_CACHE_DIR": "1",
+        "PIP_BREAK_SYSTEM_PACKAGES": "1",
     }
     
     try:
         # 多行命令或含复杂引号 → 写临时脚本
         if '\n' in cmd or (cmd.count('"') > 2 and 'python' in cmd):
             script_path = os.path.join(cwd, "_agent_cmd.sh")
-            with open(script_path, 'w') as f:
-                f.write("#!/bin/bash\nset -e\n" + cmd + "\n")
+            with open(script_path, 'w', encoding='utf-8') as f:
+                f.write("#!/bin/bash\nset -e\n" + cmd.rstrip() + "\n")
             actual_cmd = f"bash {script_path}"
         else:
             actual_cmd = cmd
@@ -240,13 +241,15 @@ def _parse_agent_response(text: str) -> dict:
     
     result["thought"] = ' '.join(t for t in thought_lines if t).strip()
     
-    # 取第一条命令（单步执行）
+    # 保留完整 action 块，避免多行脚本被截断成第一行导致引号不闭合
     if action_lines:
-        cmd = action_lines[0].strip()
-        # 去掉可能的 $ 前缀
-        if cmd.startswith('$ '):
-            cmd = cmd[2:]
-        result["action"] = cmd
+        normalized = []
+        for line in action_lines:
+            cmd_line = line.strip()
+            if cmd_line.startswith('$ '):
+                cmd_line = cmd_line[2:]
+            normalized.append(cmd_line)
+        result["action"] = '\n'.join(line for line in normalized if line).strip()
     
     # 如果没有明确的 section 标记，尝试启发式解析
     if not result["thought"] and not result["action"] and not result["conclude"]:
@@ -345,6 +348,15 @@ AGENT_SYSTEM_PROMPT = """你是 VibeML 的数据探索 Agent。你的任务是**
 - `pip install xxx` — 安装需要的库（如 datasets, Pillow 等）
 - `python3 -c "from datasets import load_dataset; ds = load_dataset('mnist'); ..."` — 直接从 HuggingFace 下载数据
 
+如果命令较长，请优先输出多行 shell 脚本，而不是一条超长 `python3 -c "..."`。
+例如优先这样写：
+```bash
+python3 - <<'PY'
+print("hello")
+PY
+```
+不要输出引号不闭合的半截命令。
+
 ## 工作流程
 
 1. **Thought**: 说出你的分析和计划
@@ -360,7 +372,13 @@ Action: python3 -c "import pandas as pd; df = pd.read_parquet('./*.parquet'); pr
 如果读取失败：
 ```
 Thought: parquet 读取失败了，可能是格式问题。这是 MNIST 数据集，我直接用 HuggingFace datasets 库下载
-Action: pip install datasets -q && python3 -c "from datasets import load_dataset; ds = load_dataset('ylecun/mnist', split='train'); print(ds); print(ds[0])"
+Action: pip install datasets -q
+python3 - <<'PY'
+from datasets import load_dataset
+ds = load_dataset('ylecun/mnist', split='train')
+print(ds)
+print(ds[0])
+PY
 ```
 
 ## 关键：如果当前文件有问题，自己去获取数据
