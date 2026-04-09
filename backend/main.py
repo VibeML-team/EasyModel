@@ -33,7 +33,7 @@ from pydantic import BaseModel, Field
 
 # 导入新模块
 from backend.compiler import compile_objective, ObjectiveSpec, detect_ambiguity as _compiler_detect_ambiguity
-from backend.data_manager import data_manager, DataSpec, DataManager, DATA_DIR
+from backend.data_manager import data_manager, DataSpec, DataManager, DATA_DIR, FileScanner, DatasetStructureAnalyzer
 from backend.trainer import TrainingResult, CHECKPOINT_DIR
 from backend.training_router import build_training_plan, execute_training_plan
 
@@ -1791,13 +1791,76 @@ async def get_dataset_info(dataset_id: str) -> dict[str, Any]:
 _plan_tasks: dict[str, dict] = {}
 
 
-def _run_plan_background(task_id: str, user_goal: str, dataset_id: str | None, priority: str):
+def _persist_dataset_spec(spec: DataSpec) -> None:
+    meta_path = DATA_DIR / f"{spec.dataset_id}_meta.json"
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
+    data_manager.datasets[spec.dataset_id] = spec
+
+
+def _ensure_dataset_exploration(dataset_id: str) -> DataSpec:
+    spec = data_manager.get_dataset(dataset_id)
+    if spec.exploration:
+        return spec
+
+    scan_root = None
+    if spec.storage_path:
+        extracted_dir = Path(spec.storage_path) / "extracted"
+        scan_root = extracted_dir if extracted_dir.exists() else Path(spec.storage_path)
+    if scan_root is None or not scan_root.exists():
+        scan_root = DATA_DIR / spec.dataset_id
+
+    file_scan = spec.file_scan or {}
+    if not file_scan and scan_root.exists():
+        file_scan = FileScanner.scan_directory(scan_root)
+
+    exploration = DatasetStructureAnalyzer.analyze(
+        scan_root=scan_root,
+        file_scan=file_scan,
+        target_column=spec.target_column,
+    )
+
+    spec.file_scan = file_scan
+    spec.exploration = exploration
+    if exploration.get("data_type"):
+        spec.data_type = exploration["data_type"]
+    _persist_dataset_spec(spec)
+    return spec
+
+
+def _build_goal_with_dataset_context(user_goal: str, dataset_id: str | None) -> tuple[str, dict[str, Any] | None]:
+    enriched_goal = user_goal
+    dataset_context = None
+    if not dataset_id:
+        return enriched_goal, dataset_context
+
+    ds = _ensure_dataset_exploration(dataset_id)
+    exploration = ds.exploration or {}
+    dataset_context = {
+        "dataset_id": dataset_id,
+        "data_type": exploration.get("data_type") or ds.data_type,
+        "summary": exploration.get("business_summary", ""),
+        "training_implications": exploration.get("training_implications", []),
+    }
+
+    if dataset_context["summary"]:
+        enriched_goal += f"\n\n[数据概况]\n{dataset_context['summary']}"
+    if dataset_context["training_implications"]:
+        implications = "\n".join(f"- {item}" for item in dataset_context["training_implications"])
+        enriched_goal += f"\n\n[数据探索发现]\n{implications}"
+
+    return enriched_goal, dataset_context
+
+
+def _run_plan_background(task_id: str, req_payload: dict[str, Any]):
     """后台线程：流式生成训练方案（思考过程实时输出）"""
     task = _plan_tasks[task_id]
     
     try:
         from backend.compiler import _use_llm_compiler, detect_ambiguity
         from backend.llm_client import get_llm_client
+
+        req = ClarifyRequest(**req_payload)
         
         if not _use_llm_compiler():
             task["log"].append({"type": "error", "content": "LLM 未配置"})
@@ -1813,31 +1876,77 @@ def _run_plan_background(task_id: str, user_goal: str, dataset_id: str | None, p
                 timeout=600.0,
             )
         
+        if not req.user_goal or not req.user_goal.strip():
+            task["status"] = "completed"
+            task["response_kind"] = "clarification"
+            task["result"] = {
+                "is_ambiguous": True,
+                "reasons": ["还没有收到明确的业务需求"],
+                "follow_up_questions": ["请先描述你想训练什么模型、解决什么问题。"],
+                "dataset_context": None,
+            }
+            task["log"].append({"type": "done", "content": "❓ 需要先补充业务需求"})
+            return
+
+        if not req.dataset_id:
+            task["status"] = "completed"
+            task["response_kind"] = "clarification"
+            task["result"] = {
+                "is_ambiguous": True,
+                "reasons": ["目前还没有可用于训练的数据"],
+                "follow_up_questions": ["请先上传数据，或让 Agent 帮你自动获取数据集。"],
+                "dataset_context": None,
+            }
+            task["log"].append({"type": "done", "content": "❓ 需要先准备数据后再生成训练方案"})
+            return
+
+        task["log"].append({"type": "status", "content": "🧭 正在理解需求..."})
+
+        enriched_goal = req.user_goal
+        dataset_context = None
+        task["log"].append({"type": "status", "content": "🔎 正在探索数据..."})
+        enriched_goal, dataset_context = _build_goal_with_dataset_context(req.user_goal, req.dataset_id)
+        if dataset_context:
+            data_summary = dataset_context.get("summary") or dataset_context.get("data_type") or "已完成数据探索"
+            task["log"].append({"type": "status", "content": f"✅ 数据探索完成：{data_summary}"})
+
+        ambiguity_req = ClarifyRequest(
+            user_goal=enriched_goal,
+            must_keep=req.must_keep,
+            can_change=req.can_change,
+            worst_errors=req.worst_errors,
+            priority=req.priority,
+            dataset_id=req.dataset_id,
+        )
+        is_ambiguous, reasons, follow_ups = detect_ambiguity(ambiguity_req)
+        if is_ambiguous:
+            task["status"] = "completed"
+            task["response_kind"] = "clarification"
+            task["result"] = {
+                "is_ambiguous": True,
+                "reasons": reasons,
+                "follow_up_questions": follow_ups,
+                "dataset_context": dataset_context,
+            }
+            task["log"].append({"type": "done", "content": "❓ 还需要补充一些信息后再生成训练方案"})
+            return
+
         task["log"].append({"type": "thinking", "content": ""})
         thinking_idx = len(task["log"]) - 1
-        
-        # 获取数据 insights（如果有）
-        enriched_goal = user_goal
-        if dataset_id:
-            try:
-                ds = data_manager.get_dataset(dataset_id)
-                if ds.exploration and ds.exploration.get("training_implications"):
-                    implications = "\n".join(f"- {imp}" for imp in ds.exploration["training_implications"])
-                    enriched_goal += f"\n\n[数据探索 Agent 的发现]\n{implications}"
-                if ds.exploration and ds.exploration.get("business_summary"):
-                    enriched_goal += f"\n[数据概况] {ds.exploration['business_summary']}"
-            except Exception:
-                pass
-        
-        task["log"].append({"type": "status", "content": "🧠 正在生成训练方案..."})
 
-        response_text = client.chat_completion(
+        def on_token(token: str):
+            task["log"][thinking_idx]["content"] += token
+
+        task["log"].append({"type": "status", "content": "🧠 正在生成训练规划..."})
+
+        response_text = client.chat_completion_stream(
             messages=[
                 {"role": "system", "content": _get_plan_system_prompt()},
-                {"role": "user", "content": _get_plan_user_prompt(enriched_goal, priority)},
+                {"role": "user", "content": _get_plan_user_prompt(enriched_goal, req.priority)},
             ],
             temperature=0.2,
             max_tokens=1800,
+            on_token=on_token,
         )
         task["log"][thinking_idx]["content"] = _truncate_plan_reasoning(response_text)
         
@@ -1858,6 +1967,7 @@ def _run_plan_background(task_id: str, user_goal: str, dataset_id: str | None, p
             }
         
         task["status"] = "completed"
+        task["response_kind"] = "plan"
         task["result"] = plan
         task["log"].append({"type": "done", "content": "✅ 方案生成完成"})
         
@@ -1921,11 +2031,12 @@ def start_clarify(req: ClarifyRequest) -> dict[str, Any]:
         "log": [],
         "result": None,
         "error": None,
+        "response_kind": None,
     }
     
     t = threading.Thread(
         target=_run_plan_background,
-        args=(task_id, req.user_goal, req.dataset_id, req.priority),
+        args=(task_id, req.model_dump()),
         daemon=True,
     )
     t.start()
@@ -1976,7 +2087,10 @@ async def clarify_stream(task_id: str):
             
             # 完成/失败
             if task["status"] == "completed":
-                yield f"data: {json.dumps({'step': 'result', 'done': True, 'plan': task['result']}, ensure_ascii=False)}\n\n"
+                if task.get("response_kind") == "clarification":
+                    yield f"data: {json.dumps({'step': 'clarification', 'done': True, 'clarification': task['result']}, ensure_ascii=False)}\n\n"
+                else:
+                    yield f"data: {json.dumps({'step': 'result', 'done': True, 'plan': task['result']}, ensure_ascii=False)}\n\n"
                 break
             elif task["status"] == "failed":
                 err = task.get("error", "未知错误")
@@ -2014,6 +2128,13 @@ def clarify_intent(req: ClarifyRequest) -> ClarifyResponse:
             is_ambiguous=True,
             reasons=["请输入你的需求"],
             follow_up_questions=["请描述你的业务场景和数据，我来帮你设计训练方案。"],
+        )
+
+    if not req.dataset_id:
+        return ClarifyResponse(
+            is_ambiguous=True,
+            reasons=["当前还没有训练数据，因此不会生成训练方案。"],
+            follow_up_questions=["请先上传数据，或让 Agent 帮你自动获取数据集。"],
         )
     
     # LLM 判断：是否为 ML 需求 → 是则直接进方案生成
@@ -2444,3 +2565,9 @@ async def predict(job_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
         
     except Exception as e:
         raise HTTPException(500, f"预测失败: {str(e)}")
+
+
+# 所有 API 和显式页面路由声明完成后，再挂根路径静态资源。
+# 这样 `/api/*` 和 `/chat` 等显式路由优先命中，其余根路径资源再回退到 frontend 目录。
+if FRONTEND_DIR.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend-root")

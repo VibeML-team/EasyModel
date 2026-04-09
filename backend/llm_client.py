@@ -487,10 +487,14 @@ class LLMClient:
                 ])
                 return True, reasons, questions
             
-            # LLM 认为是 ML 需求 → 直接进入方案生成
-            # 不再看 is_ambiguous。LLM 的 NLU 既然理解了这是 ML 任务，
-            # 就不应该因为用户没填"约束"表单字段而卡住。
-            # 真正缺少的信息会在方案生成阶段通过 needs_more_info 标注。
+            is_ambiguous = bool(data.get("is_ambiguous", False))
+            if is_ambiguous:
+                reasons = data.get("reasons") or ["当前信息还不足以稳定生成训练方案"]
+                questions = data.get("follow_up_questions") or [
+                    "请补充你的业务目标、数据内容或你最关心的评估指标。",
+                ]
+                return True, reasons, questions
+
             return (False, [], [])
         except Exception:
             # JSON 解析失败 → 安全侧，标记为模糊

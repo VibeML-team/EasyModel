@@ -1580,6 +1580,10 @@
     let isWaitingResponse = false;
     let currentDatasetId = null;
     let currentJobId = null;
+    let pendingClarificationContext = null;
+    let currentUserGoal = '';
+    let lastPlannedKey = null;
+    let trainingStartInFlight = false;
 
     // === Mode Toggle: User / Developer ===
     let currentMode = localStorage.getItem('easymodel-mode') || 'user';
@@ -1753,6 +1757,7 @@
                 if (data.exploration) {
                   showDataExplorationFromStream(data);
                 }
+                await maybeStartPlanningAfterDataReady('数据上传完成');
               } else if (evt.step === 'error') {
                 hideLoading();
                 appendAgentStep(feed, '❌', evt.message, 'error');
@@ -1855,7 +1860,11 @@
       }
 
       // 下一步引导
-      html += `<p style="margin-top: 16px;">现在请描述你的<strong>业务目标和约束</strong>，我会结合数据生成个性化训练方案。</p>`;
+      if (!currentUserGoal) {
+        html += `<p style="margin-top: 16px;">现在请描述你的<strong>业务目标和约束</strong>，数据和需求都到位后我再生成训练方案。</p>`;
+      } else {
+        html += `<p style="margin-top: 16px;">已检测到你之前给出的业务需求，接下来会直接结合这份数据生成训练方案。</p>`;
+      }
 
       if (html) addMessage('assistant', html);
     }
@@ -1953,6 +1962,7 @@
         if (data.success || data.dataset_id) {
           currentDatasetId = data.dataset_id;
           addMessage('assistant', `<p>✅ 数据已上传（${data.data_type || '未知类型'}，${data.file_scan?.total_files || '?'} 个文件）</p>`);
+          await maybeStartPlanningAfterDataReady('基础上传完成');
         }
       } catch (e) {
         addMessage('assistant', `<p>❌ 上传失败: ${e.message}</p>`);
@@ -2001,12 +2011,15 @@
 
         if (data.exploration) {
           showDataExploration(data);
+          await maybeStartPlanningAfterDataReady('数据探索完成');
         } else {
-          addMessage('assistant', '<p>数据分析完成，但未获得详细结果。请描述你的业务目标。</p>');
+          if (!currentUserGoal) {
+            addMessage('assistant', '<p>数据分析完成，但还缺少业务目标。请先描述你的业务目标。</p>');
+          }
         }
       } catch (e) {
         hideLoading();
-        addMessage('assistant', `<p>⚠️ AI 数据分析暂时不可用。请直接描述你的业务目标。</p>`);
+        addMessage('assistant', `<p>⚠️ AI 数据分析暂时不可用。请先确保数据可用，再补充业务目标。</p>`);
       }
     }
 
@@ -2106,7 +2119,11 @@
       }
 
       // 下一步引导
-      html += `<p style="margin-top: 16px;">现在请描述你的<strong>业务目标和约束</strong>，我会根据数据结构定制训练方案。</p>`;
+      if (!currentUserGoal) {
+        html += `<p style="margin-top: 16px;">现在请描述你的<strong>业务目标和约束</strong>，数据和需求都到位后我再生成训练方案。</p>`;
+      } else {
+        html += `<p style="margin-top: 16px;">已检测到你之前给出的业务需求，接下来会直接结合这份数据生成训练方案。</p>`;
+      }
 
       if (exp.suggested_next_steps && exp.suggested_next_steps.length > 0) {
         html += `<div style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">
@@ -2216,6 +2233,7 @@
             appendAgentStep(feed, '✅', 'Agent 完成', 'done');
             currentDatasetId = st.dataset_id;
             if (st.result?.exploration) showDataExplorationFromStream(st.result);
+            await maybeStartPlanningAfterDataReady('Agent 获取数据完成');
           } else if (st.status === 'failed') {
             clearInterval(poll);
             appendAgentStep(feed, '❌', st.error || '失败', 'error');
@@ -2464,35 +2482,25 @@
       }
     }
 
-    async function sendMessage() {
-      const input = document.getElementById('messageInput');
-      const text = input.value.trim();
+    async function runClarifyFlow(text, options = {}) {
+      const {
+        echoUser = false,
+        datasetId = currentDatasetId,
+      } = options;
 
       if (!text || isWaitingResponse) return;
 
-      // 检测是否是数据链接（Google Drive / Sheets / CSV 下载链接）
-      const linkPatterns = [
-        /drive\.google\.com\/(file\/d|open\?id)/,
-        /docs\.google\.com\/spreadsheets/,
-        /^https?:\/\/.+\.(csv|xlsx|xls|zip)(\?|$)/i,
-      ];
-      if (linkPatterns.some(p => p.test(text))) {
-        input.value = '';
-        input.style.height = 'auto';
-        importFromLink(text);
-        return;
+      if (echoUser) {
+        addMessage('user', text);
       }
 
-      // 所有其他输入发给后端，由 LLM 判断
-      addMessage('user', text);
-      input.value = '';
-      input.style.height = 'auto';
+      currentUserGoal = text;
+      pendingClarificationContext = { userGoal: text, datasetId };
 
-      showLoading();
       isWaitingResponse = true;
+      showLoading();
 
       try {
-        // Step 1: 启动流式方案生成
         const startResp = await fetch(`${API}/intent/clarify-start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2502,7 +2510,7 @@
             can_change: [],
             worst_errors: [],
             priority: 'quality',
-            dataset_id: currentDatasetId
+            dataset_id: datasetId
           })
         });
         const startText = await startResp.text();
@@ -2522,7 +2530,6 @@
           throw new Error('fallback');
         }
 
-        // Step 2: 轮询方案生成进度（思考过程实时更新）
         hideLoading();
         const thinkingId = 'think-' + Date.now();
         addMessage('assistant', `
@@ -2530,92 +2537,14 @@
             <div class="agent-feed" id="${thinkingId}" style="margin-bottom: 12px;">
               <div class="agent-step thinking">
                 <span class="step-icon"><span class="agent-spinner"></span></span>
-                <span class="step-text">🧠 正在思考训练方案...</span>
+                <span class="step-text">🧭 正在理解需求与检查数据...</span>
               </div>
             </div>
             <div id="${thinkingId}-tokens" style="font-size: 13px; color: var(--text-secondary); padding: 12px 16px; background: rgba(16,202,144,0.05); border-radius: 8px; border-left: 3px solid var(--violet-500); max-height: 300px; overflow-y: auto; white-space: pre-wrap; line-height: 1.6; display: none;"></div>
           </div>
         `);
-
-        // 轮询思考进度
         const planTaskId = startData.task_id;
-        const planPoll = setInterval(async () => {
-          try {
-            const stResp = await fetch(`${API}/data/agent-status/${planTaskId}?since=0`);
-            // 这个端点复用不了，用专门的 clarify-stream 轮询
-          } catch (e) {}
-        }, 1500);
 
-        // 用 clarify-status 轮询（复用 agent-status 的模式）
-        let lastThinkLen = 0;
-        const thinkPoll = setInterval(async () => {
-          try {
-            const resp = await fetch(`${API}/intent/clarify-stream/${planTaskId}`);
-            // SSE 流式读取（不阻塞，读到什么就显示什么）
-            const reader = resp.body.getReader();
-            const decoder = new TextDecoder();
-            let buf = '';
-            
-            const readChunk = async () => {
-              const { done, value } = await reader.read();
-              if (done) return;
-              buf += decoder.decode(value, { stream: true });
-              const lines = buf.split('\n');
-              buf = lines.pop();
-              
-              for (const line of lines) {
-                if (!line.startsWith('data: ')) continue;
-                try {
-                  const evt = JSON.parse(line.slice(6));
-                  if (evt.step === 'heartbeat') continue;
-                  
-                  if (evt.step === 'thinking' && evt.token) {
-                    const tokensDiv = document.getElementById(thinkingId + '-tokens');
-                    if (tokensDiv) {
-                      tokensDiv.style.display = 'block';
-                      tokensDiv.textContent += evt.token;
-                      tokensDiv.scrollTop = tokensDiv.scrollHeight;
-                      const messages = document.getElementById('messages');
-                      if (messages) messages.scrollTop = messages.scrollHeight;
-                    }
-                  } else if (evt.step === 'result' && evt.done) {
-                    clearInterval(thinkPoll);
-                    clearInterval(planPoll);
-                    const feed = document.getElementById(thinkingId);
-                    if (feed) {
-                      feed.querySelectorAll('.agent-spinner').forEach(s => s.parentElement.innerHTML = '✅');
-                      if (currentMode === 'user') {
-                        const wrap = document.getElementById(thinkingId + '-wrap');
-                        if (wrap) wrap.style.display = 'none';
-                      }
-                    }
-                    if (evt.plan) showSetupCards({ personalized_plan: evt.plan });
-                    isWaitingResponse = false;
-                    reader.cancel();
-                    return;
-                  } else if (evt.step === 'error' && evt.done) {
-                    clearInterval(thinkPoll);
-                    clearInterval(planPoll);
-                    const feed = document.getElementById(thinkingId);
-                    if (feed) appendAgentStep(feed, '❌', evt.message, 'error');
-                    isWaitingResponse = false;
-                    reader.cancel();
-                    return;
-                  }
-                } catch (pe) {}
-              }
-              // 继续读
-              readChunk();
-            };
-            readChunk();
-          } catch (e) {}
-        }, 100); // 只启动一次 SSE 连接
-
-        // 实际上只需要一次 SSE 连接，清理多余的 interval
-        clearInterval(planPoll);
-        clearInterval(thinkPoll);
-
-        // 直接发起一次 SSE 连接
         try {
           const streamResp = await fetch(`${API}/intent/clarify-stream/${planTaskId}`);
           const reader2 = streamResp.body.getReader();
@@ -2642,6 +2571,20 @@
                     tokensDiv.textContent += evt.token;
                     tokensDiv.scrollTop = tokensDiv.scrollHeight;
                   }
+                } else if (evt.step === 'status' && evt.message) {
+                  const feed = document.getElementById(thinkingId);
+                  if (feed) appendAgentStep(feed, '', evt.message, 'thinking');
+                } else if (evt.step === 'clarification' && evt.done) {
+                  const feed = document.getElementById(thinkingId);
+                  if (feed) {
+                    feed.querySelectorAll('.agent-spinner').forEach(s => s.parentElement.innerHTML = '❓');
+                    if (currentMode === 'user') {
+                      const wrap = document.getElementById(thinkingId + '-wrap');
+                      if (wrap) wrap.style.display = 'none';
+                    }
+                  }
+                  if (evt.clarification) showClarification(evt.clarification);
+                  break;
                 } else if (evt.step === 'result' && evt.done) {
                   const feed = document.getElementById(thinkingId);
                   if (feed) {
@@ -2666,10 +2609,11 @@
           try {
             const resp2 = await fetch(`${API}/intent/clarify`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_goal: text, must_keep: [], can_change: [], worst_errors: [], priority: 'quality', dataset_id: currentDatasetId })
+              body: JSON.stringify({ user_goal: text, must_keep: [], can_change: [], worst_errors: [], priority: 'quality', dataset_id: datasetId })
             });
             const data2 = await resp2.json();
-            if (data2.personalized_plan) showSetupCards(data2);
+            if (data2.is_ambiguous) showClarification(data2);
+            else if (data2.personalized_plan) showSetupCards(data2);
           } catch (e2) {
             addMessage('assistant', `<p>❌ 方案生成失败: ${e2.message}</p>`);
           }
@@ -2686,8 +2630,64 @@
       isWaitingResponse = false;
     }
 
+    async function maybeStartPlanningAfterDataReady(source = '') {
+      if (!currentDatasetId || !currentUserGoal) return;
+      const key = `${currentDatasetId}::${currentUserGoal}`;
+      if (lastPlannedKey === key) return;
+      lastPlannedKey = key;
+      addMessage('assistant', `<p>🧩 数据和需求都已就绪，开始生成训练方案${source ? `（${source}）` : ''}。</p>`);
+      await runClarifyFlow(currentUserGoal, { echoUser: false, datasetId: currentDatasetId });
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+
+      if (!text || isWaitingResponse) return;
+
+      const linkPatterns = [
+        /drive\.google\.com\/(file\/d|open\?id)/,
+        /docs\.google\.com\/spreadsheets/,
+        /^https?:\/\/.+\.(csv|xlsx|xls|zip)(\?|$)/i,
+      ];
+      if (linkPatterns.some(p => p.test(text))) {
+        input.value = '';
+        input.style.height = 'auto';
+        importFromLink(text);
+        return;
+      }
+
+      input.value = '';
+      input.style.height = 'auto';
+      currentUserGoal = text;
+
+      if (!currentDatasetId) {
+        addMessage('user', text);
+        addMessage('assistant', `
+          <p>🧾 我已记录你的业务需求，但现在还没有数据，所以先不生成训练方案。</p>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+            <button class="confirm-btn" onclick="agentFindData()" style="background: var(--violet-600);">
+              <span>🤖</span>
+              <span>让 Agent 自动获取数据</span>
+            </button>
+            <button class="confirm-btn" onclick="document.getElementById('fileInput').click()" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border);">
+              <span>📎</span>
+              <span>我自己上传数据</span>
+            </button>
+          </div>
+        `);
+        return;
+      }
+
+      await runClarifyFlow(text, { echoUser: true, datasetId: currentDatasetId });
+    }
+
     function showClarification(data) {
       let html = '';
+      pendingClarificationContext = {
+        userGoal: pendingClarificationContext?.userGoal || '',
+        datasetId: pendingClarificationContext?.datasetId || currentDatasetId,
+      };
 
       // 展示 LLM 给出的原因/引导语
       if (data.reasons && data.reasons.length > 0) {
@@ -2701,7 +2701,7 @@
         data.follow_up_questions.forEach((q, idx) => {
           html += `<div style="margin: 8px 0; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border);">
             <div style="font-size: 14px; margin-bottom: 8px;">${idx + 1}. ${q}</div>
-            <input type="text" placeholder="请输入你的回答..." style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary);">
+            <input class="clarification-answer" type="text" placeholder="请输入你的回答..." style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary);">
           </div>`;
         });
         html += '<button class="confirm-btn" onclick="submitClarification()">提交回答</button>';
@@ -2844,7 +2844,24 @@
       document.getElementById(id).classList.toggle('visible');
     }
 
+    function clearTrainingProgressCards() {
+      document.querySelectorAll('#messages .progress-card').forEach(card => {
+        const message = card.closest('.message');
+        if (message) {
+          message.remove();
+        } else {
+          card.remove();
+        }
+      });
+    }
+
     async function confirmAndStartTraining() {
+      if (trainingStartInFlight) return;
+      if (window.trainingPollInterval && currentJobId) {
+        addMessage('assistant', '<p>⚠️ 当前已有训练任务在运行，请先等待它结束，或刷新后再继续。</p>');
+        return;
+      }
+
       if (!currentDatasetId) {
         // 没有数据 → 启动 Agent 自己去获取数据
         addMessage('assistant', `
@@ -2863,6 +2880,7 @@
         return;
       }
 
+      trainingStartInFlight = true;
       showLoading();
 
       try {
@@ -2887,6 +2905,7 @@
         hideLoading();
 
         if (data.job_id) {
+          clearTrainingProgressCards();
           currentJobId = data.job_id;
           window.trainingPaused = false;
           window.currentEpoch = 0;
@@ -2951,6 +2970,8 @@
       } catch (e) {
         hideLoading();
         addMessage('assistant', `<p>❌ 启动失败: ${e.message}</p>`);
+      } finally {
+        trainingStartInFlight = false;
       }
     }
 
@@ -3083,6 +3104,7 @@
           if (data.status === 'completed') {
             clearInterval(window.trainingPollInterval);
             window.trainingPollInterval = null;
+            currentJobId = null;
             await showTrainingComplete(jobId);
             return;
           }
@@ -3090,12 +3112,14 @@
           if (data.status === 'failed' || data.status === 'stopped') {
             clearInterval(window.trainingPollInterval);
             window.trainingPollInterval = null;
+            currentJobId = null;
             const rawError = data.error_message || data.message || data.status;
             addMessage('assistant', `<p>❌ ${rawError}</p>`);
           }
         } catch (e) {
           clearInterval(window.trainingPollInterval);
           window.trainingPollInterval = null;
+          currentJobId = null;
           addMessage('assistant', `<p>❌ 获取训练状态失败: ${e.message}</p>`);
         }
       };
@@ -3313,6 +3337,7 @@
               <div class="upload-text">点击或拖拽上传数据集</div>
               <div class="upload-hint">支持 CSV, XLSX, ZIP, 7Z 格式</div>
             </div>
+            <input type="file" id="fileInput" class="hidden" accept=".csv,.xlsx,.xls,.zip,.7z" onchange="handleFileSelect(event)">
           </div>
         </div>
       `;
@@ -3513,8 +3538,23 @@
     }
 
     function submitClarification() {
-      // Simplified - just acknowledge
-      addMessage('assistant', '<p>感谢你的补充！让我重新编译意图...</p>');
+      const answers = Array.from(document.querySelectorAll('.clarification-answer'))
+        .map(el => el.value.trim())
+        .filter(Boolean);
+
+      if (answers.length === 0) {
+        addMessage('assistant', '<p>请先补充上面的信息，我再继续生成训练规划。</p>');
+        return;
+      }
+
+      const baseGoal = pendingClarificationContext?.userGoal || '';
+      const mergedGoal = `${baseGoal}\n\n[用户补充信息]\n${answers.map((a, idx) => `${idx + 1}. ${a}`).join('\n')}`;
+      currentUserGoal = mergedGoal;
+      addMessage('user', `补充信息：\n${answers.map((a, idx) => `${idx + 1}. ${a}`).join('\n')}`);
+      runClarifyFlow(mergedGoal, {
+        echoUser: false,
+        datasetId: pendingClarificationContext?.datasetId || currentDatasetId,
+      });
     }
   </script>
 </body>
