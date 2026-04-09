@@ -312,6 +312,16 @@
     .section-label { font-size: 14px; font-weight: 500; color: var(--violet-400); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
     .section-title { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 700; margin-bottom: 20px; }
     .section-desc { color: var(--gray-400); max-width: 576px; margin: 0 auto; line-height: 1.6; }
+    .section-tagline {
+      text-align: center;
+      font-size: clamp(1.12rem, 2.1vw, 1.4rem);
+      font-weight: 600;
+      color: var(--gray-300);
+      margin: 28px auto 0;
+      max-width: 720px;
+      line-height: 1.5;
+      letter-spacing: -0.02em;
+    }
     .container { max-width: 1280px; margin: 0 auto; }
 
     /* Problem Section */
@@ -329,6 +339,10 @@
       white-space: nowrap;
     }
     .problem-headline .headline-line + .headline-line { margin-top: 8px; }
+    .problem-headline .headline-line--wrap {
+      white-space: normal;
+      max-width: 52rem;
+    }
     .vibe-italic { font-style: italic; }
     .theme-highlight {
       background: linear-gradient(120deg, var(--violet-500), var(--cyan-400));
@@ -607,7 +621,7 @@
       border: 1px solid var(--border-soft);
       border-radius: 12px;
       padding: 24px;
-      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.28s ease;
+      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.28s ease, opacity 0.32s ease, filter 0.32s ease;
       backdrop-filter: blur(10px);
       position: relative;
       overflow: hidden;
@@ -650,7 +664,7 @@
     .capability-desc { font-size: 13px; color: var(--gray-500); line-height: 1.5; }
     .capability-feature-deck {
       margin-top: 0;
-      border: 1px solid var(--border-soft);
+      border: 1px solid transparent;
       background: rgba(136, 255, 216, 0.06);
       border-radius: 10px;
       padding: 0 12px;
@@ -659,7 +673,15 @@
       overflow: hidden;
       pointer-events: none;
       transform: translateY(8px);
-      transition: max-height 0.32s ease, opacity 0.24s ease, transform 0.28s ease, margin-top 0.28s ease, padding 0.28s ease;
+      visibility: hidden;
+      transition:
+        max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.38s ease,
+        transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-top 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        padding 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 0.3s ease,
+        visibility 0s linear 0.4s;
     }
     .capability-card.is-selected .capability-feature-deck {
       margin-top: 14px;
@@ -668,6 +690,16 @@
       opacity: 1;
       pointer-events: auto;
       transform: translateY(0);
+      visibility: visible;
+      border-color: var(--border-soft);
+      transition:
+        max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.38s ease,
+        transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-top 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        padding 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 0.3s ease,
+        visibility 0s linear 0s;
     }
     .capability-feature-pill {
       font-size: 16px;
@@ -976,6 +1008,7 @@
         <h2 class="problem-headline">
           <span class="headline-line">软件开发进入了 <span class="vibe-italic theme-highlight">Vibe Coding</span> 时代，</span>
           <span class="headline-line">但机器学习仍然停留在 <span class="vibe-italic theme-highlight">Expert</span> 时代</span>
+          <span class="headline-line headline-line--wrap">我们创造 <span class="vibe-italic theme-highlight">Vibe Machine Learning</span> 的可能</span>
         </h2>
         <p class="section-desc problem-lead">
           AI Coding 让软件开发门槛更低，机器学习全链路仍需专家深耕。<br>
@@ -1234,6 +1267,9 @@ validation → out_of_time_split</pre>
         <p class="section-desc">
           <span class="brand-italic">VibeML</span> 自动完成三件传统上必须由算法工程师完成的高价值判断：<br>
           问题建模、约束下的方案选择、结果可交付化。
+        </p>
+        <p class="section-tagline">
+          我们创造<span class="vibe-italic theme-highlight">Vibe Machine Learning</span>的可能
         </p>
       </div>
 
@@ -1640,14 +1676,27 @@ validation → out_of_time_split</pre>
     let activeCapabilityCard = null;
 
     function closeCapabilityDrawer() {
+      clearCapabilityLeaveCloseTimer();
       capabilityGrid?.classList.remove('has-active');
       capabilityCards.forEach((card) => {
         card.classList.remove('is-selected');
+        card.removeAttribute('data-opened-by-dwell');
         card.setAttribute('aria-expanded', 'false');
         const deck = card.querySelector('.capability-feature-deck');
         if (deck) deck.setAttribute('aria-hidden', 'true');
       });
       activeCapabilityCard = null;
+    }
+
+    const CAPABILITY_DWELL_MS = 1000;
+    const CAPABILITY_LEAVE_MS = 140;
+    let capabilityLeaveCloseTimer = null;
+
+    function clearCapabilityLeaveCloseTimer() {
+      if (capabilityLeaveCloseTimer) {
+        clearTimeout(capabilityLeaveCloseTimer);
+        capabilityLeaveCloseTimer = null;
+      }
     }
 
     capabilityCards.forEach((card) => {
@@ -1692,8 +1741,12 @@ validation → out_of_time_split</pre>
 
       renderFeature(0);
 
-      const selectCard = () => {
-        if (activeCapabilityCard === card) return;
+      let dwellTimer = null;
+
+      const selectCard = (fromDwell = false) => {
+        if (activeCapabilityCard === card && card.classList.contains('is-selected')) return;
+
+        capabilityCards.forEach((item) => item.removeAttribute('data-opened-by-dwell'));
 
         capabilityGrid?.classList.add('has-active');
         capabilityCards.forEach((item) => {
@@ -1705,6 +1758,7 @@ validation → out_of_time_split</pre>
         });
 
         activeCapabilityCard = card;
+        if (fromDwell) card.setAttribute('data-opened-by-dwell', 'true');
       };
 
       card.addEventListener('click', () => {
@@ -1712,7 +1766,7 @@ validation → out_of_time_split</pre>
           closeCapabilityDrawer();
           return;
         }
-        selectCard();
+        selectCard(false);
       });
 
       card.addEventListener('keydown', (event) => {
@@ -1721,9 +1775,31 @@ validation → out_of_time_split</pre>
           if (activeCapabilityCard === card) {
             closeCapabilityDrawer();
           } else {
-            selectCard();
+            selectCard(false);
           }
         }
+      });
+
+      card.addEventListener('pointerenter', () => {
+        clearCapabilityLeaveCloseTimer();
+        clearTimeout(dwellTimer);
+        dwellTimer = window.setTimeout(() => {
+          dwellTimer = null;
+          selectCard(true);
+        }, CAPABILITY_DWELL_MS);
+      });
+
+      card.addEventListener('pointerleave', () => {
+        clearTimeout(dwellTimer);
+        dwellTimer = null;
+        if (card.getAttribute('data-opened-by-dwell') !== 'true') return;
+        clearCapabilityLeaveCloseTimer();
+        capabilityLeaveCloseTimer = window.setTimeout(() => {
+          capabilityLeaveCloseTimer = null;
+          if (activeCapabilityCard === card && card.getAttribute('data-opened-by-dwell') === 'true') {
+            closeCapabilityDrawer();
+          }
+        }, CAPABILITY_LEAVE_MS);
       });
 
       if (deck) deck.setAttribute('aria-hidden', 'true');

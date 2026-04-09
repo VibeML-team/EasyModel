@@ -35,6 +35,7 @@
       --gray-400: #9bc2b5;
       --gray-500: #70958a;
       --gray-600: #4b6760;
+      --gray-700: #334943;
       --white: #f4fff9;
       --surface-glass: rgba(14, 31, 26, 0.58);
       --surface-glass-strong: rgba(10, 24, 20, 0.78);
@@ -65,6 +66,7 @@
       --gray-400: #35564d;
       --gray-500: #527167;
       --gray-600: #708880;
+      --gray-700: #8ca199;
       --white: #07130f;
       --surface-glass: rgba(255, 255, 255, 0.75);
       --surface-glass-strong: rgba(255, 255, 255, 0.92);
@@ -79,10 +81,11 @@
 
     body {
       font-family: "Avenir Next LT Pro", sans-serif;
-      background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
+      background-color: var(--bg-primary);
       color: var(--text-primary);
       height: 100vh;
       overflow: hidden;
+      transition: background-color 0.35s ease, color 0.35s ease;
     }
 
     input, textarea, select, button {
@@ -95,8 +98,8 @@
       inset: 0;
       pointer-events: none;
       background:
-        radial-gradient(circle at 10% 14%, rgba(31, 215, 157, 0.15), transparent 28%),
-        radial-gradient(circle at 88% 84%, rgba(124, 246, 228, 0.11), transparent 30%);
+        radial-gradient(circle at 12% 18%, rgba(71, 245, 183, 0.14), transparent 30%),
+        radial-gradient(circle at 88% 82%, rgba(124, 246, 228, 0.1), transparent 32%);
       z-index: -1;
     }
 
@@ -108,8 +111,8 @@
 
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg-primary); }
-    ::-webkit-scrollbar-thumb { background: var(--gray-600); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--gray-500); }
+    ::-webkit-scrollbar-thumb { background: var(--gray-700); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gray-600); }
 
     /* Header */
     .header {
@@ -134,12 +137,13 @@
     }
 
     .logo {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 12px;
+      justify-content: center;
+      gap: 0;
       text-decoration: none;
-      height: 38px;
-      padding: 4px 10px;
+      min-height: 38px;
+      padding: 8px 14px;
       border: 1px solid var(--border);
       border-radius: 12px;
       background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
@@ -150,16 +154,6 @@
       transform: translateY(-1px);
       border-color: var(--border-strong);
       box-shadow: 0 10px 22px -16px rgba(16, 202, 144, 0.6);
-    }
-
-    .logo-icon {
-      width: 28px; height: 28px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 24px rgba(16, 202, 144, 0.28);
     }
 
     .logo-text { font-size: 18px; font-weight: 600; color: var(--text-primary); font-style: normal; }
@@ -239,7 +233,9 @@
     }
 
     .header-btn.primary:hover {
-      background: var(--violet-500);
+      background: linear-gradient(120deg, var(--violet-500), var(--emerald-400));
+      transform: translateY(-1px);
+      box-shadow: 0 0 34px rgba(16, 202, 144, 0.42);
     }
 
     /* Main Layout */
@@ -286,7 +282,7 @@
     }
 
     .avatar.assistant {
-      background: linear-gradient(135deg, var(--violet-500), var(--cyan-500));
+      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
     }
 
     .message-content {
@@ -998,7 +994,7 @@
       color: var(--text-primary);
       font-size: 16px;
       line-height: 1.45;
-      font-weight: 500;
+      font-weight: 400;
       resize: none;
       outline: none;
       min-height: 36px;
@@ -1009,23 +1005,28 @@
       padding: 6px 0;
     }
 
-    textarea::placeholder { color: var(--text-secondary); }
+    textarea::placeholder {
+      color: var(--text-secondary);
+      font-weight: 400;
+      opacity: 1;
+    }
 
     .send-btn {
       width: 36px; height: 36px;
       background: linear-gradient(120deg, var(--violet-600), var(--emerald-400));
-      border: none;
+      border: 1px solid rgba(16, 202, 144, 0.36);
       border-radius: 10px;
-      color: white;
+      color: var(--white);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
       flex-shrink: 0;
+      box-shadow: 0 0 20px rgba(16, 202, 144, 0.2);
     }
 
-    .send-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .send-btn:hover { transform: translateY(-2px); box-shadow: 0 0 34px rgba(16, 202, 144, 0.42); filter: brightness(1.03); }
     .send-btn:disabled { background: rgba(255, 255, 255, 0.1); cursor: not-allowed; }
 
     /* File Upload */
@@ -1267,11 +1268,11 @@
       gap: 10px;
     }
     .sidebar-logo {
-      width: 28px; height: 28px;
+      width: 32px; height: 32px;
       border-radius: 8px;
-      background: linear-gradient(135deg, var(--violet-500), var(--cyan-400));
+      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 14px rgba(16, 202, 144, 0.3);
+      box-shadow: 0 0 24px rgba(16, 202, 144, 0.28);
       flex-shrink: 0;
     }
     .sidebar-brand { font-size: 16px; font-weight: 600; color: var(--text-primary); }
@@ -1390,9 +1391,9 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-          <path d="M10 2L17 6V14L10 18L3 14V6L10 2Z" stroke="white" stroke-width="1.6" fill="none"/>
-          <circle cx="10" cy="10" r="2.2" fill="white"/>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
+          <circle cx="9" cy="9" r="2" fill="white"/>
         </svg>
       </div>
       <span class="sidebar-brand"><i>Vibe</i><span>ML</span></span>
@@ -1415,12 +1416,6 @@
     <div class="header-left">
       <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="切换侧边栏">☰</button>
       <a href="./dashboard.html" class="logo" aria-label="前往 Dashboard">
-        <div class="logo-icon">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
-            <circle cx="9" cy="9" r="2" fill="white"/>
-          </svg>
-        </div>
         <span class="dashboard-link">Dashboard</span>
       </a>
     </div>
