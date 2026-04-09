@@ -11,6 +11,7 @@ VibeML Agent - 完整后端实现
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 import pickle
 import threading
@@ -29,9 +30,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 # 导入新模块
-from backend.compiler import compile_objective, ObjectiveSpec
+from backend.compiler import compile_objective, ObjectiveSpec, detect_ambiguity as _compiler_detect_ambiguity
 from backend.data_manager import data_manager, DataSpec, DataManager, DATA_DIR
-from backend.trainer import AutoMLTrainer, TrainingConfig, TrainingResult, CHECKPOINT_DIR
+from backend.trainer import TrainingResult, CHECKPOINT_DIR
+from backend.training_router import build_training_plan, execute_training_plan
 
 # 导入 V2 API
 from backend.v2_api import router as v2_router
@@ -87,6 +89,8 @@ class JobStatusResponse(BaseModel):
     progress: float
     current_step: str
     message: str
+    error_message: str | None = None
+    recent_logs: list[str] = Field(default_factory=list)
     train_metrics: dict[str, float] = Field(default_factory=dict)
     val_metrics: dict[str, float] = Field(default_factory=dict)
     best_score: float | None = None
@@ -104,6 +108,7 @@ class JobState:
     current_step: str = "initializing"
     progress: float = 0.0
     message: str = ""
+    recent_logs: list[str] = field(default_factory=list)
     
     # 训练配置
     config: dict[str, Any] = field(default_factory=dict)
@@ -116,6 +121,7 @@ class JobState:
     
     # 训练结果
     training_result: TrainingResult | None = None
+    training_plan: dict[str, Any] = field(default_factory=dict)
     
     # 时间记录
     start_time: float = field(default_factory=time.time)
@@ -131,7 +137,6 @@ class JobManager:
     
     def __init__(self):
         self.jobs: dict[str, JobState] = {}
-        self.trainer = AutoMLTrainer()
     
     def create_job(self, cfg: dict[str, Any], spec: ObjectiveSpec | None = None) -> JobState:
         """创建新任务"""
@@ -171,55 +176,84 @@ class JobManager:
             # 1. 加载数据
             if not job.dataset_id:
                 raise ValueError("未指定数据集")
-            
-            df = data_manager.load_dataframe(job.dataset_id)
-            
-            with job.lock:
-                job.progress = 10.0
-                job.current_step = "preprocessing"
-                job.message = f"数据加载完成，{len(df)} 行 {len(df.columns)} 列"
-            
+
+            data_spec = data_manager.get_dataset(job.dataset_id)
+
             # 2. 更新目标列（如果用户指定）
             if job.config.get("target_column"):
                 if job.objective_spec:
                     job.objective_spec.label.target_column = job.config["target_column"]
-            
-            # 3. 执行训练
-            config = TrainingConfig(
-                max_training_time=job.config.get("max_training_time", 300),
-                max_trials=job.config.get("max_trials", 30),
-                random_state=42,
+
+            objective_spec = job.objective_spec or ObjectiveSpec()
+            if not objective_spec.raw_intent:
+                objective_spec.raw_intent = job.config.get("objective", "")
+
+            plan = build_training_plan(
+                objective_spec=objective_spec,
+                data_spec=data_spec,
+                config=job.config,
             )
-            
-            trainer = AutoMLTrainer(config)
-            
+
+            with job.lock:
+                job.training_plan = plan.to_dict()
+                job.progress = 5.0
+                job.current_step = "planning"
+                job.message = f"执行规划已生成: {plan.executor} ({plan.modality})"
+
             def progress_callback(progress: dict):
                 with job.lock:
                     if job.stop_requested:
                         raise InterruptedError("训练被中断")
                     
                     step = progress.get("step", "")
-                    if step == "preprocessing":
+                    if step == "planning":
+                        job.progress = 8.0
+                        job.current_step = "planning"
+                        job.message = progress.get("message", "生成执行规划中...")
+                    elif step == "loading_data":
+                        job.progress = 10.0
+                        job.current_step = "loading_data"
+                        job.message = progress.get("message", "按规划加载数据中...")
+                    elif step == "preprocessing":
                         job.progress = 15.0
+                        job.current_step = "preprocessing"
                         job.message = progress.get("message", "预处理中...")
                     elif step == "search":
                         trial = progress.get("trial", 0)
                         best = progress.get("best_score", 0)
                         job.progress = 15.0 + min(trial * 2, 70.0)
+                        job.current_step = "training"
                         job.message = f"超参数搜索中... Trial {trial}, 最佳得分: {best:.4f}"
                         job.train_metrics["best_cv_score"] = best
                     elif step == "final_training":
                         job.progress = 90.0
+                        job.current_step = "final_training"
                         job.message = "训练最终模型..."
-            
+                    elif step == "agentic_log":
+                        stage = progress.get("agent_stage") or "agentic"
+                        stage_progress = {
+                            "generating": 18.0,
+                            "validating": 38.0,
+                            "optimizing": 65.0,
+                            "completed": 95.0,
+                            "failed": job.progress,
+                        }
+                        job.progress = max(job.progress, stage_progress.get(stage, job.progress))
+                        job.current_step = stage
+                        job.message = progress.get("message", "Agent 正在执行...")
+                        log_entry = progress.get("log_entry") or job.message
+                        if not job.recent_logs or job.recent_logs[-1] != log_entry:
+                            job.recent_logs.append(log_entry)
+                            job.recent_logs = job.recent_logs[-8:]
+
             with job.lock:
                 job.current_step = "training"
-                job.message = "开始训练..."
-            
-            result = trainer.train(
+                job.message = f"按规划开始执行: {plan.strategy}"
+
+            result = execute_training_plan(
                 job_id=job.job_id,
-                df=df,
-                spec=job.objective_spec or ObjectiveSpec(),
+                plan=plan,
+                objective_spec=objective_spec,
                 progress_callback=progress_callback,
             )
             
@@ -230,11 +264,16 @@ class JobManager:
                 job.end_time = time.time()
                 
                 if result.status == "completed":
-                    job.message = f"训练完成！最佳模型: {result.best_model_name}, 验证得分: {result.best_metric_score:.4f}"
+                    score_text = (
+                        f"{result.best_metric_score:.4f}"
+                        if result.best_metric_score is not None
+                        else "N/A"
+                    )
+                    job.message = f"训练完成！最佳模型: {result.best_model_name}, 验证得分: {score_text}"
                     job.train_metrics.update(result.train_metrics)
                     job.val_metrics.update(result.val_metrics)
                 else:
-                    job.message = f"训练失败: {result.error_message}"
+                    job.message = result.error_message or "训练失败"
             
         except InterruptedError:
             with job.lock:
@@ -244,7 +283,7 @@ class JobManager:
         except Exception as e:
             with job.lock:
                 job.status = "failed"
-                job.message = f"训练失败: {str(e)}"
+                job.message = str(e)
                 job.end_time = time.time()
     
     def pause_job(self, job_id: str) -> JobState:
@@ -275,6 +314,73 @@ class JobManager:
 
 # 全局任务管理器
 job_manager = JobManager()
+
+
+def _build_training_result_payload(job: JobState) -> dict[str, Any]:
+    """构造训练结果元数据，供 API 返回和下载复用。"""
+    if not job.training_result:
+        raise HTTPException(404, "训练结果尚未生成")
+
+    result = job.training_result
+    return {
+        "job_id": job.job_id,
+        "status": result.status,
+        "best_model_name": result.best_model_name,
+        "best_metric_score": result.best_metric_score,
+        "best_hyperparameters": result.best_hyperparameters,
+        "train_metrics": result.train_metrics,
+        "val_metrics": result.val_metrics,
+        "feature_importance": result.feature_importance,
+        "training_duration": result.training_duration,
+        "n_trials": len(result.trials),
+        "trials": [
+            {
+                "trial_id": t.trial_id,
+                "model_name": t.model_name,
+                "metric_score": t.metric_score,
+                "hyperparameters": t.hyperparameters,
+            }
+            for t in result.trials[:10]
+        ],
+        "downloads": {
+            "model": f"/api/training/{job.job_id}/download/model",
+            "preprocessor": f"/api/training/{job.job_id}/download/preprocessor",
+            "metadata": f"/api/training/{job.job_id}/download/metadata",
+        },
+    }
+
+
+def _resolve_artifact(job: JobState, file_type: str) -> tuple[Path | None, str | None]:
+    """按真实训练结果路径解析下载产物，而不是依赖固定文件名。"""
+    if file_type == "model":
+        candidates = [
+            (CHECKPOINT_DIR / f"{job.job_id}_model.pkl", f"{job.job_id}_model.pkl"),
+        ]
+        if job.training_result and job.training_result.final_model_path:
+            model_path = Path(job.training_result.final_model_path)
+            candidates.insert(0, (model_path, model_path.name))
+    elif file_type == "preprocessor":
+        candidates = [
+            (CHECKPOINT_DIR / f"{job.job_id}_preprocessor.pkl", f"{job.job_id}_preprocessor.pkl"),
+        ]
+        if job.training_result and job.training_result.preprocessor_path:
+            preprocessor_path = Path(job.training_result.preprocessor_path)
+            candidates.insert(0, (preprocessor_path, preprocessor_path.name))
+    elif file_type == "metadata":
+        metadata_path = CHECKPOINT_DIR / f"{job.job_id}_result.json"
+        if not metadata_path.exists() and job.training_result:
+            metadata_path.write_text(
+                json.dumps(_build_training_result_payload(job), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        candidates = [(metadata_path, metadata_path.name)]
+    else:
+        raise HTTPException(400, f"不支持的文件类型: {file_type}")
+
+    for path, filename in candidates:
+        if path and path.exists() and path.is_file():
+            return path, filename
+    return None, None
 
 
 # ============ FastAPI 应用 ============
@@ -325,28 +431,9 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def detect_ambiguity(req: ClarifyRequest) -> tuple[bool, list[str], list[str]]:
-    """检测需求模糊性"""
-    reasons = []
-    follow_ups = []
-    
-    if not req.must_keep:
-        reasons.append("缺少必须保留项")
-        follow_ups.append("哪些元素绝对不能被改变？请至少给 1-3 条。")
-    
-    if not req.worst_errors:
-        reasons.append("缺少不可接受错误定义")
-        follow_ups.append("最不能接受的错误是什么（例如漏报、误报、格式错误）？")
-    
-    if len(req.user_goal) < 15:
-        reasons.append("目标描述过短")
-        follow_ups.append("请补充：谁在什么场景使用、怎样才算成功。")
-    
-    if not req.dataset_id:
-        reasons.append("未上传数据集")
-        follow_ups.append("请上传包含训练数据的 CSV 文件。")
-    
-    return len(reasons) > 0, reasons, follow_ups
+def detect_ambiguity(req):
+    """检测需求模糊性 — 委托给 compiler.py（LLM 驱动，无硬编码规则）"""
+    return _compiler_detect_ambiguity(req)
 
 
 # ============ API 端点 ============
@@ -459,8 +546,8 @@ async def upload_data(
                 file_path=dest,
                 filename=file.filename,
                 dataset_id=dataset_id,
-                target_hint=target_hint if target_hint else None,
-            )
+            target_hint=target_hint if target_hint else None,
+        )
         return {
             "success": True,
             "dataset_id": spec.dataset_id,
@@ -484,6 +571,129 @@ async def upload_data(
 
 
 from fastapi.responses import StreamingResponse
+
+# ---- 分块上传 API（绕过 proxy body size 限制）----
+
+_chunk_uploads: dict[str, dict] = {}  # upload_id → {dir, filename, received_chunks, total_chunks}
+
+class ChunkInitRequest(BaseModel):
+    filename: str
+    total_size: int
+    total_chunks: int
+
+@app.post("/api/data/upload-init")
+async def upload_init(req: ChunkInitRequest) -> dict[str, Any]:
+    """初始化分块上传"""
+    import uuid as _uuid
+    upload_id = _uuid.uuid4().hex[:12]
+    dataset_id = f"ds_{_uuid.uuid4().hex[:8]}"
+    
+    upload_dir = DATA_DIR / dataset_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    _chunk_uploads[upload_id] = {
+        "dataset_id": dataset_id,
+        "dir": str(upload_dir),
+        "filename": req.filename,
+        "total_size": req.total_size,
+        "total_chunks": req.total_chunks,
+        "received": set(),
+    }
+    
+    return {"upload_id": upload_id, "dataset_id": dataset_id}
+
+
+@app.post("/api/data/upload-chunk")
+async def upload_chunk(
+    upload_id: str = Form(...),
+    chunk_index: int = Form(...),
+    chunk: UploadFile = File(...),
+) -> dict[str, Any]:
+    """上传单个分块"""
+    if upload_id not in _chunk_uploads:
+        raise HTTPException(404, "Upload session not found")
+    
+    info = _chunk_uploads[upload_id]
+    chunk_dir = Path(info["dir"]) / "_chunks"
+    chunk_dir.mkdir(exist_ok=True)
+    
+    # 写入分块
+    chunk_path = chunk_dir / f"chunk_{chunk_index:05d}"
+    content = await chunk.read()
+    with open(chunk_path, 'wb') as f:
+        f.write(content)
+    
+    info["received"].add(chunk_index)
+    
+    return {
+        "received": chunk_index,
+        "total_received": len(info["received"]),
+        "total_chunks": info["total_chunks"],
+        "complete": len(info["received"]) >= info["total_chunks"],
+    }
+
+
+@app.post("/api/data/upload-complete")
+async def upload_complete(
+    upload_id: str = Form(""),
+    target_hint: str = Form(""),
+    user_goal: str = Form(""),
+) -> dict[str, Any]:
+    """分块上传完成，拼接文件并触发分析"""
+    if upload_id not in _chunk_uploads:
+        raise HTTPException(404, "Upload session not found")
+    
+    info = _chunk_uploads[upload_id]
+    
+    if len(info["received"]) < info["total_chunks"]:
+        raise HTTPException(400, f"Missing chunks: received {len(info['received'])}/{info['total_chunks']}")
+    
+    # 拼接文件
+    chunk_dir = Path(info["dir"]) / "_chunks"
+    dest = Path(info["dir"]) / info["filename"]
+    
+    with open(dest, 'wb') as out:
+        for i in range(info["total_chunks"]):
+            chunk_path = chunk_dir / f"chunk_{i:05d}"
+            with open(chunk_path, 'rb') as inp:
+                while True:
+                    block = inp.read(1024 * 1024)
+                    if not block:
+                        break
+                    out.write(block)
+    
+    # 清理分块
+    import shutil
+    shutil.rmtree(chunk_dir, ignore_errors=True)
+    
+    file_size = dest.stat().st_size
+    
+    # 用 upload_from_disk 处理
+    try:
+        spec = data_manager.upload_from_disk(
+            file_path=dest,
+            filename=info["filename"],
+            dataset_id=info["dataset_id"],
+            target_hint=target_hint if target_hint else None,
+        )
+        
+        del _chunk_uploads[upload_id]
+        
+        return {
+            "success": True,
+            "dataset_id": spec.dataset_id,
+            "filename": spec.filename,
+            "file_size": file_size,
+            "n_rows": spec.n_rows,
+            "data_type": spec.data_type,
+            "file_scan": {
+                "total_files": spec.file_scan.get("total_files", 0),
+                "total_size_human": spec.file_scan.get("total_size_human", ""),
+                "extensions": spec.file_scan.get("extensions", {}),
+            },
+        }
+    except Exception as e:
+        raise HTTPException(400, f"数据处理失败: {str(e)}")
 
 @app.post("/api/data/upload-stream")
 async def upload_and_analyze_stream(
@@ -555,7 +765,7 @@ async def upload_and_analyze_stream(
                     client.client = httpx.Client(
                         base_url=client.config.base_url,
                         headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
-                        timeout=180.0,
+                        timeout=600.0,
                     )
                 
                 # 确定 Agent 工作目录（解压后的目录）
@@ -751,93 +961,320 @@ async def import_from_link(req: LinkImportRequest) -> dict[str, Any]:
         raise HTTPException(400, f"数据解析失败: {str(e)}")
 
 
+class AgentFindDataRequest(BaseModel):
+    user_goal: str = Field(min_length=3)
+
+
+# Agent 任务状态存储（后台线程 + 轮询）
+_agent_tasks: dict[str, dict] = {}
+
+
+def _run_agent_background(task_id: str, dataset_id: str, dataset_dir: str, user_goal: str):
+    """后台线程运行 ReAct Agent"""
+    task = _agent_tasks[task_id]
+    
+    try:
+        from backend.llm_client import get_llm_client
+        from backend.data_exploration_agent import run_exploration_agent
+        client = get_llm_client()
+        
+        import httpx
+        if hasattr(client, 'client'):
+            client.client = httpx.Client(
+                base_url=client.config.base_url,
+                headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
+                timeout=600.0,
+            )
+        
+        exploration = None
+        for event in run_exploration_agent(
+            dataset_dir=dataset_dir,
+            filename="agent_requested_data",
+            file_size_human="0 B (待下载)",
+            user_goal=user_goal,
+            llm_client=client,
+        ):
+            task["log"].append(event)
+            if event["type"] == "insight":
+                exploration = event["content"]
+        
+        # 扫描结果
+        from backend.data_manager import FileScanner
+        file_scan = {}
+        try:
+            file_scan = FileScanner.scan_directory(dataset_dir)
+        except Exception:
+            pass
+        
+        # 注册数据集
+        spec = DataSpec(
+            dataset_id=dataset_id,
+            filename="agent_acquired",
+            n_rows=file_scan.get("total_files", 0),
+            data_type=exploration.get("data_type", "unknown") if exploration else "unknown",
+            file_scan=file_scan,
+            exploration=exploration or {},
+            storage_path=dataset_dir,
+        )
+        meta_path = DATA_DIR / f"{dataset_id}_meta.json"
+        with open(meta_path, 'w', encoding='utf-8') as f:
+            json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
+        data_manager.datasets[dataset_id] = spec
+        
+        task["status"] = "completed"
+        task["result"] = {
+            "dataset_id": dataset_id,
+            "data_type": spec.data_type,
+            "exploration": exploration,
+            "file_scan": {"total_files": file_scan.get("total_files", 0), "total_size_human": file_scan.get("total_size_human", "")},
+        }
+    except Exception as e:
+        task["status"] = "failed"
+        task["error"] = str(e)[:500]
+        task["log"].append({"type": "error", "content": str(e)[:300]})
+
+
+@app.post("/api/data/agent-find")
+def agent_find_data(req: AgentFindDataRequest) -> dict[str, Any]:
+    """
+    启动 ReAct Agent 后台获取数据。
+    立即返回 task_id，前端轮询 /agent-status 获取进度。
+    """
+    from backend.compiler import _use_llm_compiler
+    if not _use_llm_compiler():
+        raise HTTPException(501, "需要配置 LLM 才能使用 Agent")
+    
+    import uuid as _uuid
+    task_id = _uuid.uuid4().hex[:12]
+    dataset_id = f"ds_{_uuid.uuid4().hex[:8]}"
+    dataset_dir = DATA_DIR / dataset_id
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    
+    _agent_tasks[task_id] = {
+        "status": "running",
+        "dataset_id": dataset_id,
+        "log": [],
+        "result": None,
+        "error": None,
+    }
+    
+    # 后台线程启动 Agent
+    t = threading.Thread(
+        target=_run_agent_background,
+        args=(task_id, dataset_id, str(dataset_dir), req.user_goal),
+        daemon=True,
+    )
+    t.start()
+    
+    return {
+        "task_id": task_id,
+        "dataset_id": dataset_id,
+        "status": "running",
+    }
+
+
+@app.get("/api/data/agent-status/{task_id}")
+def agent_status(task_id: str, since: int = 0) -> dict[str, Any]:
+    """
+    轮询 Agent 进度。
+    
+    since: 上次拿到的 log 条目数，只返回新增的。
+    前端每 2 秒调一次。
+    """
+    if task_id not in _agent_tasks:
+        raise HTTPException(404, "Agent 任务不存在")
+    
+    task = _agent_tasks[task_id]
+    
+    # 只返回 since 之后的新日志
+    new_logs = task["log"][since:]
+    formatted = []
+    for evt in new_logs:
+        etype = evt["type"]
+        content = str(evt.get("content", ""))
+        if etype == "thought":
+            formatted.append({"step": "think", "message": f"💭 {content[:500]}"})
+        elif etype == "action":
+            formatted.append({"step": "action", "message": f"⚡ {content[:500]}"})
+        elif etype == "observation":
+            formatted.append({"step": "observe", "message": f"👁 {content[:500]}"})
+        elif etype == "insight":
+            formatted.append({"step": "think", "message": "✅ 数据获取和分析完成"})
+        elif etype == "error":
+            formatted.append({"step": "error", "message": f"⚠️ {content[:300]}"})
+    
+    resp = {
+        "status": task["status"],
+        "dataset_id": task["dataset_id"],
+        "log_total": len(task["log"]),
+        "new_logs": formatted,
+    }
+    
+    if task["status"] == "completed":
+        resp["result"] = task["result"]
+    elif task["status"] == "failed":
+        resp["error"] = task["error"]
+    
+    return resp
+
+
+@app.get("/api/data/agent-stream/{task_id}")
+async def agent_stream(task_id: str):
+    """
+    SSE 流式输出 Agent 进度。
+    
+    后台线程执行 Agent，这里每 1.5 秒轮询内部状态并推送新事件。
+    发心跳防止代理超时。
+    """
+    import asyncio
+
+    if task_id not in _agent_tasks:
+        raise HTTPException(404, "Agent 任务不存在")
+
+    def _fmt(evt: dict) -> dict:
+        etype = evt["type"]
+        content = str(evt.get("content", ""))
+        if etype == "thought":
+            return {"step": "think", "message": f"💭 {content[:600]}"}
+        elif etype == "action":
+            return {"step": "action", "message": f"⚡ {content[:600]}"}
+        elif etype == "observation":
+            return {"step": "observe", "message": f"👁 {content[:600]}"}
+        elif etype == "insight":
+            return {"step": "insight", "message": "✅ 数据获取和分析完成"}
+        elif etype == "error":
+            return {"step": "error", "message": f"⚠️ {content[:400]}"}
+        return {"step": "info", "message": content[:300]}
+
+    async def generate():
+        since = 0
+        max_wait = 6000  # 100 分钟
+        elapsed = 0
+
+        while elapsed < max_wait:
+            task = _agent_tasks.get(task_id)
+            if not task:
+                yield f"data: {json.dumps({'step': 'error', 'message': 'Task not found', 'done': True}, ensure_ascii=False)}\n\n"
+                break
+
+            # 推送新日志
+            new_logs = task["log"][since:]
+            for evt in new_logs:
+                yield f"data: {json.dumps(_fmt(evt), ensure_ascii=False)}\n\n"
+            since = len(task["log"])
+
+            # 完成
+            if task["status"] == "completed":
+                result_data = task.get("result", {})
+                yield f"data: {json.dumps({'step': 'result', 'done': True, 'data': result_data}, ensure_ascii=False)}\n\n"
+                break
+
+            # 失败
+            if task["status"] == "failed":
+                err_msg = task.get("error", "未知错误")
+                yield f"data: {json.dumps({'step': 'error', 'message': f'❌ {err_msg}', 'done': True}, ensure_ascii=False)}\n\n"
+                break
+
+            # 心跳（防代理超时）
+            if not new_logs:
+                yield f"data: {json.dumps({'step': 'heartbeat'}, ensure_ascii=False)}\n\n"
+
+            await asyncio.sleep(1.5)
+            elapsed += 1.5
+
+        if elapsed >= max_wait:
+            yield f"data: {json.dumps({'step': 'error', 'message': '⏰ Agent 超时', 'done': True}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.post("/api/data/{dataset_id}/explore")
 def explore_dataset(dataset_id: str, user_goal: str = "") -> dict[str, Any]:
     """
-    LLM 驱动的数据探索 Agent
+    ReAct Agent 驱动的数据探索
     
-    让 LLM 像数据科学家一样浏览数据：
-    - 理解每列的业务含义
-    - 识别 feature vs target
-    - 发现数据质量问题
-    - 给出通俗的数据摘要
+    Agent 自主决定如何探索数据：
+    - 打开文件看格式
+    - 如果读不出来就自己想办法（转格式、换库、重新下载等）
+    - 理解数据结构和内容
+    - 生成结构化 insights
     """
     try:
         spec = data_manager.get_dataset(dataset_id)
     except ValueError:
         raise HTTPException(404, f"数据集不存在: {dataset_id}")
     
-    # 加载 DataFrame 获取样本行
-    try:
-        df = data_manager.load_dataframe(dataset_id)
-        # 取前几行作为样本给 LLM 看
-        sample_rows = df.head(8).to_dict(orient='records')
-        # 让 NaN 变成 null（JSON 兼容）
-        for row in sample_rows:
-            for k, v in row.items():
-                if pd.isna(v):
-                    row[k] = None
-    except Exception:
-        sample_rows = []
+    # 确定 Agent 工作目录
+    agent_cwd = spec.storage_path or str(DATA_DIR / dataset_id)
+    extracted = Path(agent_cwd) / "extracted"
+    if extracted.exists():
+        agent_cwd = str(extracted)
     
-    # 构建列信息
-    columns_info = [c.to_dict() for c in spec.columns] if spec.columns else []
-    
-    # 调用 LLM 数据探索
     from backend.compiler import _use_llm_compiler
     if _use_llm_compiler():
         try:
             from backend.llm_client import get_llm_client
+            from backend.data_exploration_agent import run_exploration_agent
             client = get_llm_client()
             
-            exploration = client.explore_data(
-                columns_info=columns_info,
-                sample_rows=sample_rows,
-                n_rows=spec.n_rows,
-                n_cols=spec.n_cols,
-                filename=spec.filename,
-                user_goal=user_goal if user_goal else None,
-            )
+            # 增加超时
+            import httpx
+            if hasattr(client, 'client'):
+                client.client = httpx.Client(
+                    base_url=client.config.base_url,
+                    headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
+                    timeout=600.0,
+                )
             
-            # 如果 LLM 推荐了不同的 target，更新 DataSpec
-            target_rec = exploration.get("target_recommendation", {})
-            if target_rec.get("column") and target_rec.get("confidence", 0) > 0.6:
-                recommended_target = target_rec["column"]
-                if recommended_target in [c["name"] for c in columns_info]:
-                    spec.target_column = recommended_target
-                    spec.feature_columns = [
-                        c["name"] for c in columns_info
-                        if c["name"] != recommended_target and c.get("column_type") != "id"
-                    ]
-                    # 更新持久化的元数据
-                    meta_path = DATA_DIR / f"{dataset_id}_meta.json"
-                    with open(meta_path, 'w', encoding='utf-8') as f:
-                        json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
-                    data_manager.datasets[dataset_id] = spec
+            file_size_human = spec.file_scan.get("total_size_human", "unknown") if spec.file_scan else "unknown"
+            
+            # 运行 ReAct Agent（同步收集所有步骤）
+            exploration = None
+            agent_log = []
+            for event in run_exploration_agent(
+                dataset_dir=agent_cwd,
+                filename=spec.filename,
+                file_size_human=file_size_human,
+                user_goal=user_goal if user_goal else None,
+                llm_client=client,
+            ):
+                agent_log.append(event)
+                if event["type"] == "insight":
+                    exploration = event["content"]
+            
+            if exploration:
+                spec.exploration = exploration
+                if exploration.get("data_type"):
+                    spec.data_type = exploration["data_type"]
+                meta_path = DATA_DIR / f"{dataset_id}_meta.json"
+                with open(meta_path, 'w', encoding='utf-8') as f:
+                    json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
+                data_manager.datasets[dataset_id] = spec
             
             return {
                 "success": True,
                 "dataset_id": dataset_id,
-                "exploration": exploration,
+                "exploration": exploration or {"business_summary": "Agent 探索完成但未生成结构化结论"},
+                "agent_log": [
+                    {"type": e["type"], "content": str(e["content"])[:300]}
+                    for e in agent_log
+                ],
                 "updated_spec": {
                     "target_column": spec.target_column,
                     "feature_columns": spec.feature_columns,
+                    "data_type": spec.data_type,
                 },
             }
         except Exception as e:
-            # LLM 失败，返回基础信息
             return {
-                "success": True,
+                "success": False,
                 "dataset_id": dataset_id,
-                "exploration": {
-                    "business_summary": f"数据集包含 {spec.n_rows} 行 × {spec.n_cols} 列。LLM 分析暂时不可用。",
-                    "data_understanding": {"summary": f"基本信息：{spec.n_rows} 行, {spec.n_cols} 列"},
-                },
-                "updated_spec": {
-                    "target_column": spec.target_column,
-                    "feature_columns": spec.feature_columns,
-                },
-                "llm_error": str(e)[:200],
+                "exploration": {"business_summary": f"Agent 探索遇到问题: {str(e)[:200]}"},
+                "updated_spec": {},
             }
     else:
         return {
@@ -1024,6 +1461,56 @@ async def generate_synthetic_data(req: SyntheticDataRequest) -> dict[str, Any]:
         raise HTTPException(400, f"合成数据生成失败: {str(e)}")
 
 
+async def _resolve_hf_dataset_url(ds_id: str) -> tuple[str, str] | None:
+    """
+    通过 HuggingFace API 获取数据集的真实 parquet 下载链接。
+    处理各种 ID 格式：'ylecun/mnist', 'mnist', 'MNIST' 等。
+    """
+    import httpx
+    
+    async def _try_parquet_api(dataset_id: str) -> tuple[str, str] | None:
+        try:
+            api_url = f"https://datasets-server.huggingface.co/parquet?dataset={dataset_id}"
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(api_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    files = data.get("parquet_files", [])
+                    train = [f for f in files if f.get("split") == "train"]
+                    pick = train[0] if train else (files[0] if files else None)
+                    if pick and pick.get("url"):
+                        safe_name = dataset_id.replace('/', '_')
+                        return pick["url"], f"hf_{safe_name}.parquet"
+        except Exception:
+            pass
+        return None
+    
+    # 1. 直接试（完整 ID 如 ylecun/mnist）
+    result = await _try_parquet_api(ds_id)
+    if result:
+        return result
+    
+    # 2. 如果没有 /，可能是简写（如 "mnist"）→ 搜索找完整 ID
+    if '/' not in ds_id:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                search_resp = await client.get(
+                    "https://huggingface.co/api/datasets",
+                    params={"search": ds_id, "limit": 5, "sort": "downloads", "direction": -1},
+                )
+                if search_resp.status_code == 200:
+                    for ds in search_resp.json():
+                        full_id = ds.get("id", "")
+                        if ds_id.lower() in full_id.lower():
+                            result = await _try_parquet_api(full_id)
+                            if result:
+                                return result
+        except Exception:
+            pass
+    
+    return None
+
+
 @app.post("/api/data/download-public")
 async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str, Any]:
     """
@@ -1039,15 +1526,13 @@ async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str
 
     # HuggingFace datasets 特殊处理
     if "huggingface.co/datasets/" in url and "/resolve/" not in url:
-        # 尝试通过 datasets API 获取下载链接
-        # e.g. huggingface.co/datasets/scikit-learn/iris → 尝试直接获取 parquet/csv
         import re
-        match = re.search(r'huggingface\.co/datasets/([^/?#]+/[^/?#]+)', url)
+        match = re.search(r'huggingface\.co/datasets/([^/?#]+(?:/[^/?#]+)?)', url)
         if match:
             ds_id = match.group(1)
-            # 尝试下载默认 split 的 CSV
-            url = f"https://huggingface.co/datasets/{ds_id}/resolve/main/data/train.csv"
-            filename = f"hf_{ds_id.replace('/', '_')}.csv"
+            resolved = await _resolve_hf_dataset_url(ds_id)
+            if resolved:
+                url, filename = resolved
 
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
@@ -1057,11 +1542,16 @@ async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str
     except Exception as e:
         raise HTTPException(502, f"下载失败: {str(e)[:200]}。请检查链接是否可公开访问。")
 
-    if len(content) < 10:
-        raise HTTPException(400, "下载的文件为空。")
+    if len(content) < 100:
+        raise HTTPException(400, "下载的文件为空或太小，可能 URL 不正确。")
+    
+    # 检测是否下载到了 HTML 错误页而非数据
+    content_start = content[:200].decode('utf-8', errors='replace').lower()
+    if '<html' in content_start or '<!doctype' in content_start:
+        raise HTTPException(400, "下载到了 HTML 页面而非数据文件。数据集可能需要认证或 URL 不正确。")
 
     # 确保有文件扩展名
-    if not any(filename.lower().endswith(ext) for ext in ['.csv', '.xlsx', '.xls', '.zip', '.7z', '.parquet']):
+    if not any(filename.lower().endswith(ext) for ext in ['.csv', '.xlsx', '.xls', '.zip', '.7z', '.parquet', '.json', '.jsonl', '.tsv']):
         content_type = response.headers.get('content-type', '')
         if 'parquet' in content_type:
             filename += '.parquet'
@@ -1070,21 +1560,22 @@ async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str
         else:
             filename += '.csv'
 
-    # 处理 parquet
-    if filename.lower().endswith('.parquet'):
-        try:
-            import io
-            df = pd.read_parquet(io.BytesIO(content))
-            csv_buf = df.to_csv(index=False)
-            content = csv_buf.encode('utf-8')
-            filename = filename.replace('.parquet', '.csv')
-        except Exception as e:
-            raise HTTPException(400, f"Parquet 解析失败: {str(e)[:200]}")
-
+    # 保存文件到磁盘，不管解析成不成功都返回 dataset_id
+    # 解析/格式转换 全部交给 ReAct Agent 自己处理
+    import uuid as _uuid
+    dataset_id = f"ds_{_uuid.uuid4().hex[:8]}"
+    dataset_dir = DATA_DIR / dataset_id
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    dest = dataset_dir / filename
+    with open(dest, 'wb') as f:
+        f.write(content)
+    
+    # 尝试让 data_manager 处理，但失败不报错——Agent 会接手
     try:
-        spec = data_manager.upload_file(
-            content=content,
+        spec = data_manager.upload_from_disk(
+            file_path=dest,
             filename=filename,
+            dataset_id=dataset_id,
             target_hint=req.target_hint if req.target_hint else None,
         )
         return {
@@ -1094,13 +1585,31 @@ async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str
             "dataset_id": spec.dataset_id,
             "filename": spec.filename,
             "n_rows": spec.n_rows,
-            "n_cols": spec.n_cols,
-            "target_column": spec.target_column,
-            "feature_columns": spec.feature_columns,
-            "columns": [c.to_dict() for c in spec.columns],
+            "data_type": spec.data_type,
+            "file_scan": {
+                "total_files": spec.file_scan.get("total_files", 0),
+                "total_size_human": spec.file_scan.get("total_size_human", ""),
+                "extensions": spec.file_scan.get("extensions", {}),
+            },
         }
-    except Exception as e:
-        raise HTTPException(400, f"数据解析失败: {str(e)}")
+    except Exception:
+        # 解析失败没关系——文件已在磁盘上，返回 dataset_id 让 Agent 去探索
+        from backend.data_manager import FileScanner
+        file_size = dest.stat().st_size
+        return {
+            "success": True,
+            "source": "public_download",
+            "original_url": req.url,
+            "dataset_id": dataset_id,
+            "filename": filename,
+            "n_rows": 0,
+            "data_type": "unknown",
+            "needs_agent_exploration": True,
+            "file_scan": {
+                "total_files": 1,
+                "total_size_human": FileScanner._human_size(file_size),
+            },
+        }
 
 
 @app.get("/api/data/list")
@@ -1122,8 +1631,219 @@ def get_dataset_info(dataset_id: str) -> dict[str, Any]:
         raise HTTPException(404, str(e))
 
 
-# ---- 意图编译 API ----
+# ---- 意图编译 API（流式思考版）----
 
+_plan_tasks: dict[str, dict] = {}
+
+
+def _run_plan_background(task_id: str, user_goal: str, dataset_id: str | None, priority: str):
+    """后台线程：流式生成训练方案（思考过程实时输出）"""
+    task = _plan_tasks[task_id]
+    
+    try:
+        from backend.compiler import _use_llm_compiler, detect_ambiguity
+        from backend.llm_client import get_llm_client
+        
+        if not _use_llm_compiler():
+            task["log"].append({"type": "error", "content": "LLM 未配置"})
+            task["status"] = "failed"
+            return
+        
+        client = get_llm_client()
+        import httpx
+        if hasattr(client, 'client'):
+            client.client = httpx.Client(
+                base_url=client.config.base_url,
+                headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
+                timeout=600.0,
+            )
+        
+        task["log"].append({"type": "thinking", "content": ""})
+        thinking_idx = len(task["log"]) - 1
+        
+        # 获取数据 insights（如果有）
+        enriched_goal = user_goal
+        if dataset_id:
+            try:
+                ds = data_manager.get_dataset(dataset_id)
+                if ds.exploration and ds.exploration.get("training_implications"):
+                    implications = "\n".join(f"- {imp}" for imp in ds.exploration["training_implications"])
+                    enriched_goal += f"\n\n[数据探索 Agent 的发现]\n{implications}"
+                if ds.exploration and ds.exploration.get("business_summary"):
+                    enriched_goal += f"\n[数据概况] {ds.exploration['business_summary']}"
+            except Exception:
+                pass
+        
+        # 流式调用 LLM 生成方案
+        def on_token(token: str):
+            task["log"][thinking_idx]["content"] += token
+        
+        task["log"].append({"type": "status", "content": "🧠 正在思考训练方案..."})
+        
+        response_text = client.chat_completion_stream(
+            messages=[
+                {"role": "system", "content": _get_plan_system_prompt()},
+                {"role": "user", "content": _get_plan_user_prompt(enriched_goal, priority)},
+            ],
+            temperature=0.4,
+            max_tokens=3000,
+            on_token=on_token,
+        )
+        
+        # 解析 JSON 结果
+        try:
+            json_str = client._extract_json(response_text)
+            plan = json.loads(json_str)
+        except Exception:
+            plan = {
+                "business_layer": {
+                    "understanding": response_text[:300],
+                    "personalized_approach": "",
+                    "core_promises": [],
+                    "vs_standard": "",
+                },
+                "technical_layer": {},
+                "confidence": 0.5,
+            }
+        
+        task["status"] = "completed"
+        task["result"] = plan
+        task["log"].append({"type": "done", "content": "✅ 方案生成完成"})
+        
+    except Exception as e:
+        task["status"] = "failed"
+        task["error"] = str(e)[:300]
+        task["log"].append({"type": "error", "content": str(e)[:200]})
+
+
+def _get_plan_system_prompt():
+    """方案生成的 system prompt（和 compile_personalized_plan 一致）"""
+    return """你是 VibeML 的核心 AI 引擎。将用户的业务需求转化为个性化的机器学习训练方案。
+
+请先用 <think> 标签详细思考你的分析过程，然后输出结构化 JSON 方案。
+
+思考过程应该包含：
+1. 对用户需求的理解
+2. 任务类型判断（分类/检测/回归等）
+3. 数据特点分析
+4. 技术方案选型依据
+5. 潜在风险评估
+
+然后输出 JSON 方案（业务层 + 技术层）。"""
+
+
+def _get_plan_user_prompt(user_goal: str, priority: str):
+    return f"""用户需求："{user_goal}"
+优化偏好：{priority}
+
+请先在 <think>...</think> 中详细思考，然后输出 JSON：
+
+{{
+    "business_layer": {{
+        "understanding": "用你自己的话复述需求",
+        "personalized_approach": "通俗描述方案",
+        "core_promises": ["承诺1", "承诺2"],
+        "vs_standard": "与通用方案的区别"
+    }},
+    "technical_layer": {{
+        "data_strategy": {{"title": "...", "reasoning": "...", "details": "..."}},
+        "model_strategy": {{"title": "...", "reasoning": "...", "details": "..."}},
+        "loss_function": {{"title": "...", "reasoning": "...", "details": "..."}},
+        "evaluation": {{"title": "...", "reasoning": "...", "details": "..."}}
+    }},
+    "confidence": 0.85,
+    "needs_more_info": []
+}}"""
+
+
+@app.post("/api/intent/clarify-start")
+def start_clarify(req: ClarifyRequest) -> dict[str, Any]:
+    """启动方案生成（后台线程），立即返回 task_id"""
+    import uuid as _uuid
+    task_id = _uuid.uuid4().hex[:12]
+    
+    _plan_tasks[task_id] = {
+        "status": "running",
+        "log": [],
+        "result": None,
+        "error": None,
+    }
+    
+    t = threading.Thread(
+        target=_run_plan_background,
+        args=(task_id, req.user_goal, req.dataset_id, req.priority),
+        daemon=True,
+    )
+    t.start()
+    
+    return {"task_id": task_id, "status": "running"}
+
+
+@app.get("/api/intent/clarify-stream/{task_id}")
+async def clarify_stream(task_id: str):
+    """SSE 流式输出方案生成的思考过程"""
+    import asyncio
+    
+    if task_id not in _plan_tasks:
+        raise HTTPException(404, "Task not found")
+    
+    async def generate():
+        last_thinking_len = 0
+        log_since = 0
+        max_wait = 6000  # 100 分钟
+        elapsed = 0
+        
+        while elapsed < max_wait:
+            task = _plan_tasks.get(task_id)
+            if not task:
+                break
+            
+            had_new = False
+            
+            # 推送新增的 thinking tokens（增量）
+            for evt in task["log"]:
+                if evt["type"] == "thinking":
+                    new_text = evt["content"][last_thinking_len:]
+                    if new_text:
+                        yield f"data: {json.dumps({'step': 'thinking', 'token': new_text}, ensure_ascii=False)}\n\n"
+                        last_thinking_len = len(evt["content"])
+                        had_new = True
+            
+            # 推送新增的其他事件（status/done/error）
+            new_events = task["log"][log_since:]
+            for evt in new_events:
+                if evt["type"] in ("status", "done"):
+                    yield f"data: {json.dumps({'step': 'status', 'message': evt['content']}, ensure_ascii=False)}\n\n"
+                    had_new = True
+                elif evt["type"] == "error":
+                    yield f"data: {json.dumps({'step': 'error', 'message': evt['content']}, ensure_ascii=False)}\n\n"
+                    had_new = True
+            log_since = len(task["log"])
+            
+            # 完成/失败
+            if task["status"] == "completed":
+                yield f"data: {json.dumps({'step': 'result', 'done': True, 'plan': task['result']}, ensure_ascii=False)}\n\n"
+                break
+            elif task["status"] == "failed":
+                err = task.get("error", "未知错误")
+                yield f"data: {json.dumps({'step': 'error', 'done': True, 'message': err}, ensure_ascii=False)}\n\n"
+                break
+            
+            # 心跳（只在没有新数据时发）
+            if not had_new:
+                yield f"data: {json.dumps({'step': 'heartbeat'}, ensure_ascii=False)}\n\n"
+            
+            await asyncio.sleep(0.5)
+            elapsed += 0.5
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
+
+
+# 保留原有的同步版本作为兼容
 @app.post("/api/intent/clarify", response_model=ClarifyResponse)
 def clarify_intent(req: ClarifyRequest) -> ClarifyResponse:
     """
@@ -1146,7 +1866,7 @@ def clarify_intent(req: ClarifyRequest) -> ClarifyResponse:
     # 设计理念：LLM 判断 is_ml_request=true 就说明它理解了需求，
     # 不需要再追问"缺少必须保留项"之类的表单字段。
     # 方案生成阶段会在 needs_more_info 里标注真正需要补充的信息。
-    _debug_info = {"deploy_tag": "20260408-v5"}
+    _debug_info = {"deploy_tag": "20260408-v6"}
     try:
         is_ambiguous, reasons, follow_ups = detect_ambiguity(req)
         _debug_info["detect_raw"] = {"is_ambiguous": is_ambiguous}
@@ -1171,7 +1891,7 @@ def clarify_intent(req: ClarifyRequest) -> ClarifyResponse:
                         client.client = httpx.Client(
                             base_url=client.config.base_url,
                             headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
-                            timeout=180.0,
+                            timeout=600.0,
                         )
                     except Exception:
                         pass
@@ -1375,6 +2095,12 @@ def get_training_status(job_id: str) -> JobStatusResponse:
             progress=round(job.progress, 1),
             current_step=job.current_step,
             message=job.message,
+            error_message=(
+                job.training_result.error_message
+                if job.training_result and job.status != "completed"
+                else job.message if job.status == "failed" else None
+            ),
+            recent_logs=job.recent_logs,
             train_metrics=job.train_metrics,
             val_metrics=job.val_metrics,
             best_score=job.training_result.best_metric_score if job.training_result else None,
@@ -1415,7 +2141,26 @@ def stop_training(job_id: str) -> dict[str, Any]:
     }
 
 
-# ---- Checkpoint / 模型下载 API ----
+# ---- 训练任务列表 + Checkpoint / 模型下载 API ----
+
+@app.get("/api/training/jobs")
+def list_training_jobs() -> dict[str, Any]:
+    """列出所有训练任务"""
+    jobs = []
+    for job_id, job in job_manager.jobs.items():
+        jobs.append({
+            "job_id": job.job_id,
+            "status": job.status,
+            "created_at": job.created_at,
+            "dataset_id": job.dataset_id,
+            "progress": job.progress,
+            "message": job.message,
+            "has_model": _resolve_artifact(job, "model")[0] is not None,
+            "train_metrics": job.train_metrics,
+            "val_metrics": job.val_metrics,
+        })
+    return {"jobs": jobs}
+
 
 @app.get("/api/training/{job_id}/checkpoints")
 def list_checkpoints(job_id: str) -> dict[str, Any]:
@@ -1424,32 +2169,29 @@ def list_checkpoints(job_id: str) -> dict[str, Any]:
     
     checkpoints = []
     
-    # 查找模型文件
-    model_path = CHECKPOINT_DIR / f"{job_id}_model.pkl"
-    if model_path.exists():
+    model_path, model_name = _resolve_artifact(job, "model")
+    if model_path and model_name:
         checkpoints.append({
             "type": "model",
-            "file": f"{job_id}_model.pkl",
+            "file": model_name,
             "size": model_path.stat().st_size,
             "created": datetime.fromtimestamp(model_path.stat().st_mtime).isoformat(),
         })
     
-    # 查找预处理器
-    preprocessor_path = CHECKPOINT_DIR / f"{job_id}_preprocessor.pkl"
-    if preprocessor_path.exists():
+    preprocessor_path, preprocessor_name = _resolve_artifact(job, "preprocessor")
+    if preprocessor_path and preprocessor_name:
         checkpoints.append({
             "type": "preprocessor",
-            "file": f"{job_id}_preprocessor.pkl",
+            "file": preprocessor_name,
             "size": preprocessor_path.stat().st_size,
             "created": datetime.fromtimestamp(preprocessor_path.stat().st_mtime).isoformat(),
         })
     
-    # 查找结果元数据
-    result_path = CHECKPOINT_DIR / f"{job_id}_result.json"
-    if result_path.exists():
+    result_path, result_name = _resolve_artifact(job, "metadata")
+    if result_path and result_name:
         checkpoints.append({
             "type": "metadata",
-            "file": f"{job_id}_result.json",
+            "file": result_name,
             "size": result_path.stat().st_size,
             "created": datetime.fromtimestamp(result_path.stat().st_mtime).isoformat(),
         })
@@ -1469,33 +2211,21 @@ def download_artifact(job_id: str, file_type: str) -> FileResponse:
     file_type: model, preprocessor, metadata
     """
     job = job_manager.get(job_id)
-    
-    filename_map = {
-        "model": f"{job_id}_model.pkl",
-        "preprocessor": f"{job_id}_preprocessor.pkl",
-        "metadata": f"{job_id}_result.json",
-    }
-    
-    if file_type not in filename_map:
-        raise HTTPException(400, f"不支持的文件类型: {file_type}")
-    
-    filename = filename_map[file_type]
-    path = CHECKPOINT_DIR / filename
-    
-    if not path.exists():
-        raise HTTPException(404, f"文件不存在: {filename}")
-    
-    # 根据类型设置 media_type
-    media_types = {
-        "model": "application/octet-stream",
-        "preprocessor": "application/octet-stream",
-        "metadata": "application/json",
-    }
+
+    path, filename = _resolve_artifact(job, file_type)
+    if not path or not filename:
+        raise HTTPException(404, f"文件不存在: {job_id}/{file_type}")
+
+    media_type = (
+        "application/json"
+        if file_type == "metadata"
+        else mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    )
     
     return FileResponse(
         path=path,
         filename=filename,
-        media_type=media_types[file_type],
+        media_type=media_type,
     )
 
 
@@ -1503,38 +2233,7 @@ def download_artifact(job_id: str, file_type: str) -> FileResponse:
 def get_training_result(job_id: str) -> dict[str, Any]:
     """获取完整训练结果"""
     job = job_manager.get(job_id)
-    
-    if not job.training_result:
-        raise HTTPException(404, "训练结果尚未生成")
-    
-    result = job.training_result
-    
-    return {
-        "job_id": job_id,
-        "status": result.status,
-        "best_model_name": result.best_model_name,
-        "best_metric_score": result.best_metric_score,
-        "best_hyperparameters": result.best_hyperparameters,
-        "train_metrics": result.train_metrics,
-        "val_metrics": result.val_metrics,
-        "feature_importance": result.feature_importance,
-        "training_duration": result.training_duration,
-        "n_trials": len(result.trials),
-        "trials": [
-            {
-                "trial_id": t.trial_id,
-                "model_name": t.model_name,
-                "metric_score": t.metric_score,
-                "hyperparameters": t.hyperparameters,
-            }
-            for t in result.trials[:10]  # 只返回前10个
-        ],
-        "downloads": {
-            "model": f"/api/training/{job_id}/download/model",
-            "preprocessor": f"/api/training/{job_id}/download/preprocessor",
-            "metadata": f"/api/training/{job_id}/download/metadata",
-        }
-    }
+    return _build_training_result_payload(job)
 
 
 # ---- 预测 API ----

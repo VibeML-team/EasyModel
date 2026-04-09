@@ -53,6 +53,15 @@ class TestResult:
     error_message: str | None = None
     stack_trace: str | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "passed": self.passed,
+            "test_name": self.test_name,
+            "duration_ms": self.duration_ms,
+            "error_message": self.error_message,
+            "stack_trace": self.stack_trace,
+        }
+
 
 class UnitTestGenerator:
     """单元测试生成器"""
@@ -101,7 +110,7 @@ class UnitTestGenerator:
         # 从模型代码中提取类名和forward签名
         model_class = self._extract_class_name(program.model_code)
         if model_class:
-            test_code = f''"
+            test_code = f"""
 import torch
 import pytest
 from model import {model_class}
@@ -129,7 +138,7 @@ def test_model_different_batch_sizes():
         with torch.no_grad():
             output = model(x)
         assert output.shape[0] == batch_size
-"'''
+"""
             tests.append(TestCase(
                 name="test_model_shape",
                 code=test_code,
@@ -140,7 +149,7 @@ def test_model_different_batch_sizes():
         # Loss函数的形状测试
         loss_class = self._extract_class_name(program.loss_code)
         if loss_class:
-            test_code = f''"
+            test_code = f"""
 import torch
 import pytest
 from loss import {loss_class}
@@ -164,7 +173,7 @@ def test_loss_reduction_mean():
     
     loss = loss_fn(pred, target)
     assert loss.ndim == 0
-"'''
+"""
             tests.append(TestCase(
                 name="test_loss_shape",
                 code=test_code,
@@ -182,7 +191,7 @@ def test_loss_reduction_mean():
         loss_class = self._extract_class_name(program.loss_code)
         
         if model_class and loss_class:
-            test_code = f''"
+            test_code = f"""
 import torch
 import pytest
 from model import {model_class}
@@ -225,7 +234,7 @@ def test_no_nan_gradients():
         if param.grad is not None:
             assert not torch.isnan(param.grad).any(), f"参数 {{name}} 的梯度包含NaN"
             assert not torch.isinf(param.grad).any(), f"参数 {{name}} 的梯度包含Inf"
-"'''
+"""
             tests.append(TestCase(
                 name="test_gradient_flow",
                 code=test_code,
@@ -241,7 +250,7 @@ def test_no_nan_gradients():
         
         model_class = self._extract_class_name(program.model_code)
         if model_class:
-            test_code = f''"
+            test_code = f"""
 import torch
 import pytest
 from model import {model_class}
@@ -273,7 +282,7 @@ def test_model_device_movement():
     x = torch.randn(2, 10)
     output = model_cpu(x)
     assert output.device.type == 'cpu'
-"'''
+"""
             tests.append(TestCase(
                 name="test_device_compatibility",
                 code=test_code,
@@ -289,7 +298,7 @@ def test_model_device_movement():
         
         model_class = self._extract_class_name(program.model_code)
         if model_class:
-            test_code = f''"
+            test_code = f"""
 import torch
 import io
 import pytest
@@ -344,7 +353,7 @@ def test_full_model_save_load():
         output2 = model2(x)
     
     assert torch.allclose(output1, output2), "加载后的模型输出不一致"
-"'''
+"""
             tests.append(TestCase(
                 name="test_serialization",
                 code=test_code,
@@ -380,11 +389,18 @@ data_pipeline.py:
 2. 数据增强正确性测试
 3. 损失函数数学性质测试（如对称性、凸性等）
 
-只输出pytest格式的测试代码，用```python包裹。
+        只输出pytest格式的测试代码，用```python包裹。
 """
         
         try:
-            response = self.llm_client.generate(prompt)
+            response = self.llm_client.chat_completion(
+                messages=[
+                    {"role": "system", "content": "You are an expert PyTorch test generator."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+                max_tokens=3000,
+            )
             # 提取代码块
             import re
             code_blocks = re.findall(r'```python\s*(.*?)```', response, re.DOTALL)

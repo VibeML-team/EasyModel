@@ -98,6 +98,7 @@ class DataSpec:
             "metadata": self.metadata,
             "file_scan": self.file_scan,
             "exploration": self.exploration,
+            "storage_path": self.storage_path,
             "columns": [c.to_dict() for c in self.columns],
         }
 
@@ -628,7 +629,7 @@ class DataManager:
         if exts:
             ext_summary = ', '.join(f"{e}({n})" for e, n in list(exts.items())[:6])
             _emit("scan", f"📋 文件类型: {ext_summary}")
-        
+            
         # Step 4: 尝试读取表格数据（如果有的话）
         df = None
         columns_info = []
@@ -712,7 +713,7 @@ class DataManager:
         
         self.datasets[dataset_id] = spec
         return spec
-    
+            
     def upload_from_disk(
         self,
         file_path: Path,
@@ -901,8 +902,8 @@ class DataManager:
         csv_path = Path(spec.storage_path) / f"{dataset_id}_data.csv" if spec.storage_path else DATA_DIR / spec.filename
         if csv_path.exists():
             return pd.read_csv(csv_path)
-        # 回退：尝试原始文件名
-        alt_path = DATA_DIR / spec.filename
+        # 回退：尝试数据集目录里的原始文件名
+        alt_path = Path(spec.storage_path) / spec.filename if spec.storage_path else DATA_DIR / dataset_id / spec.filename
         if alt_path.exists():
             return pd.read_csv(alt_path)
         raise ValueError(f"表格数据文件不存在: {csv_path}")

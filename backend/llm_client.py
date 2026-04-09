@@ -82,15 +82,7 @@ class LLMClient:
         max_tokens: int | None = None,
         response_format: dict | None = None,
     ) -> str:
-        """
-        调用聊天补全API
-        
-        Args:
-            messages: 消息列表
-            temperature: 温度参数
-            max_tokens: 最大token数
-            response_format: 响应格式（如json_schema）
-        """
+        """调用聊天补全API（非流式）"""
         payload = {
             "model": self.config.model_name,
             "messages": messages,
@@ -108,6 +100,53 @@ class LLMClient:
         
         data = response.json()
         return data["choices"][0]["message"]["content"]
+    
+    def chat_completion_stream(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.3,
+        max_tokens: int | None = None,
+        on_token: Any = None,
+    ) -> str:
+        """
+        流式聊天补全 — 每个 token 到达时调用 on_token(token_text)
+        
+        Args:
+            on_token: 回调函数 (str) -> None，每收到一个 token 调用一次
+        Returns:
+            完整的响应文本
+        """
+        payload = {
+            "model": self.config.model_name,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True,
+        }
+        if max_tokens:
+            payload["max_tokens"] = max_tokens
+        
+        full_text = []
+        
+        with self.client.stream("POST", "/chat/completions", json=payload) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+                data_str = line[6:]
+                if data_str.strip() == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data_str)
+                    delta = chunk.get("choices", [{}])[0].get("delta", {})
+                    token = delta.get("content", "")
+                    if token:
+                        full_text.append(token)
+                        if on_token:
+                            on_token(token)
+                except (json.JSONDecodeError, IndexError, KeyError):
+                    continue
+        
+        return "".join(full_text)
     
     def parse_intent(
         self,
