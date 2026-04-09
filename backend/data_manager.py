@@ -7,6 +7,7 @@ Agent 拿到文件后，自己打开看、理解、报告。
 
 from __future__ import annotations
 
+import csv
 import json
 import os
 import pickle
@@ -303,6 +304,296 @@ class FileScanner:
                 return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024
         return f"{size_bytes:.1f} TB"
+
+
+class DatasetStructureAnalyzer:
+    """确定性数据结构分析器，优先给出稳定结论，再由上层 LLM 补充业务解释。"""
+
+    @classmethod
+    def analyze(
+        cls,
+        scan_root: Path,
+        file_scan: dict[str, Any],
+        df: pd.DataFrame | None = None,
+        target_column: str | None = None,
+    ) -> dict[str, Any]:
+        if df is not None and not df.empty:
+            return cls._analyze_tabular(df, file_scan, target_column)
+
+        image_analysis = cls._analyze_image_directory(scan_root, file_scan)
+        if image_analysis:
+            return image_analysis
+
+        audio_analysis = cls._analyze_audio_directory(scan_root, file_scan)
+        if audio_analysis:
+            return audio_analysis
+
+        return {
+            "data_type": cls._infer_data_type(file_scan),
+            "format_details": cls._summarize_extensions(file_scan),
+            "business_summary": "检测到非结构化数据，但尚未识别出稳定的训练样式。",
+            "data_understanding": {
+                "summary": f"共 {file_scan.get('total_files', 0)} 个文件，大小 {file_scan.get('total_size_human', 'unknown')}",
+                "organization": file_scan.get("directory_tree", ""),
+                "key_files": [item.get("path", "") for item in file_scan.get("file_samples", [])[:8]],
+            },
+            "statistics": {
+                "total_files": file_scan.get("total_files", 0),
+                "extensions": file_scan.get("extensions", {}),
+            },
+            "quality_issues": ["需要进一步确认标签组织方式或提供训练目标。"],
+            "training_implications": [
+                "当前可以先完成数据归档与扫描，但训练前还需要明确标签、切分或样本语义。",
+            ],
+            "suggested_next_steps": [
+                "补充目标字段或标签目录说明。",
+                "如为网页抓取结果，优先清洗为 CSV/JSONL 或标准目录结构。",
+            ],
+        }
+
+    @classmethod
+    def _analyze_tabular(
+        cls,
+        df: pd.DataFrame,
+        file_scan: dict[str, Any],
+        target_column: str | None,
+    ) -> dict[str, Any]:
+        text_columns = []
+        numeric_columns = []
+        categorical_columns = []
+
+        for col in df.columns:
+            series = df[col]
+            if pd.api.types.is_numeric_dtype(series):
+                numeric_columns.append(col)
+                continue
+
+            non_null = series.dropna().astype(str)
+            avg_len = float(non_null.str.len().mean()) if not non_null.empty else 0.0
+            uniq_ratio = float(series.nunique(dropna=True)) / max(len(series), 1)
+            if avg_len >= 12 and uniq_ratio > 0.1:
+                text_columns.append(col)
+            else:
+                categorical_columns.append(col)
+
+        if text_columns and target_column and target_column not in text_columns:
+            data_type = "text_classification"
+        else:
+            data_type = "tabular"
+
+        missing_cols = [
+            col for col in df.columns
+            if int(df[col].isna().sum()) > 0
+        ]
+        duplicate_rows = int(df.duplicated().sum())
+
+        summary = f"{len(df)} 行 × {len(df.columns)} 列"
+        if data_type == "text_classification":
+            summary += f"，检测到文本字段 {', '.join(text_columns[:3])}"
+
+        stats: dict[str, Any] = {
+            "rows": int(len(df)),
+            "columns": int(len(df.columns)),
+            "text_columns": text_columns,
+            "numeric_columns": numeric_columns,
+            "categorical_columns": categorical_columns,
+            "duplicate_rows": duplicate_rows,
+        }
+
+        if target_column and target_column in df.columns:
+            value_counts = df[target_column].value_counts(dropna=False).head(20)
+            stats["target_distribution"] = {
+                str(idx): int(val) for idx, val in value_counts.items()
+            }
+
+        quality_issues = []
+        if missing_cols:
+            quality_issues.append(f"存在缺失值列: {', '.join(missing_cols[:6])}")
+        if duplicate_rows:
+            quality_issues.append(f"检测到 {duplicate_rows} 行重复样本")
+
+        implications = [
+            "可直接走结构化训练流程，优先使用稳定的数据切分与预处理。",
+        ]
+        if data_type == "text_classification":
+            implications = [
+                "更适合文本分类/匹配训练，不建议仅按普通表格特征处理。",
+                "训练时需要显式指定文本列与标签列。",
+            ]
+
+        return {
+            "data_type": data_type,
+            "format_details": cls._summarize_extensions(file_scan),
+            "business_summary": f"检测到可直接训练的{'文本' if data_type == 'text_classification' else '表格'}数据集，{summary}。",
+            "data_understanding": {
+                "summary": summary,
+                "organization": "单文件或少量表格文件组织",
+                "key_files": [item.get("path", "") for item in file_scan.get("file_samples", [])[:8]],
+                "target_column": target_column,
+            },
+            "statistics": stats,
+            "quality_issues": quality_issues,
+            "training_implications": implications,
+            "suggested_next_steps": [
+                "确认目标列与评估指标。",
+                "必要时先做缺失值、异常值和类别不平衡处理。",
+            ],
+        }
+
+    @classmethod
+    def _analyze_image_directory(
+        cls,
+        scan_root: Path,
+        file_scan: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if not file_scan.get("has_images"):
+            return None
+
+        split_stats = cls._collect_split_class_stats(scan_root, FileScanner.IMAGE_EXTS)
+        if not split_stats:
+            total_images = sum(
+                count for ext, count in file_scan.get("extensions", {}).items()
+                if ext in FileScanner.IMAGE_EXTS
+            )
+            return {
+                "data_type": "image",
+                "format_details": cls._summarize_extensions(file_scan),
+                "business_summary": f"检测到图像数据，共约 {total_images} 张图片，但目录结构尚未稳定识别为标准分类任务。",
+                "data_understanding": {
+                    "summary": "图像文件已落盘，但标签组织方式未明确。",
+                    "organization": file_scan.get("directory_tree", ""),
+                    "key_files": [item.get("path", "") for item in file_scan.get("file_samples", [])[:8]],
+                },
+                "statistics": {
+                    "total_images": total_images,
+                },
+                "quality_issues": ["未识别到清晰的 train/val/test 或 label 目录结构。"],
+                "training_implications": [
+                    "训练前需要补充标签映射或将图像整理为标准目录结构。",
+                ],
+                "suggested_next_steps": [
+                    "将数据整理为 ImageFolder 风格目录，例如 train/<label>/*.png。",
+                ],
+            }
+
+        classes = sorted({label for split in split_stats.values() for label in split})
+        total_images = sum(sum(labels.values()) for labels in split_stats.values())
+        split_counts = {split: int(sum(labels.values())) for split, labels in split_stats.items()}
+
+        return {
+            "data_type": "image_classification",
+            "format_details": "directory_split/class_labeled_images",
+            "business_summary": f"检测到标准图像分类目录，共 {total_images} 张图片，类别数 {len(classes)}。",
+            "data_understanding": {
+                "summary": "目录结构符合 ImageFolder 训练范式。",
+                "organization": ", ".join(f"{split}/<label>/*" for split in split_stats),
+                "key_files": [item.get("path", "") for item in file_scan.get("file_samples", [])[:8]],
+            },
+            "statistics": {
+                "total_samples": total_images,
+                "classes": classes,
+                "class_distribution": {
+                    split: {label: int(count) for label, count in labels.items()}
+                    for split, labels in split_stats.items()
+                },
+                "splits": split_counts,
+            },
+            "quality_issues": [],
+            "training_implications": [
+                "可直接生成 torchvision ImageFolder 风格训练代码。",
+                "如果没有 val split，可从 train 中自动切出一部分验证集。",
+            ],
+            "suggested_next_steps": [
+                "按图像分类训练方案执行。",
+            ],
+        }
+
+    @classmethod
+    def _analyze_audio_directory(
+        cls,
+        scan_root: Path,
+        file_scan: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if not file_scan.get("has_audio"):
+            return None
+
+        split_stats = cls._collect_split_class_stats(scan_root, FileScanner.AUDIO_EXTS)
+        total_audio = sum(
+            count for ext, count in file_scan.get("extensions", {}).items()
+            if ext in FileScanner.AUDIO_EXTS
+        )
+        classes = sorted({label for split in split_stats.values() for label in split})
+
+        return {
+            "data_type": "audio_classification" if classes else "audio",
+            "format_details": cls._summarize_extensions(file_scan),
+            "business_summary": f"检测到音频数据，共约 {total_audio} 个文件。",
+            "data_understanding": {
+                "summary": "已识别音频文件集合。",
+                "organization": file_scan.get("directory_tree", ""),
+                "key_files": [item.get("path", "") for item in file_scan.get("file_samples", [])[:8]],
+            },
+            "statistics": {
+                "total_samples": total_audio,
+                "classes": classes,
+                "splits": {split: int(sum(labels.values())) for split, labels in split_stats.items()},
+            },
+            "quality_issues": [] if classes else ["尚未识别出稳定的类别目录结构。"],
+            "training_implications": [
+                "音频训练前通常需要频谱图或波形特征提取。",
+            ],
+            "suggested_next_steps": [
+                "确认采样率、标签目录和训练目标。",
+            ],
+        }
+
+    @staticmethod
+    def _collect_split_class_stats(root: Path, valid_exts: set[str]) -> dict[str, dict[str, int]]:
+        split_names = {"train", "training", "val", "valid", "validation", "test", "dev"}
+        stats: dict[str, dict[str, int]] = {}
+
+        for split_dir in root.iterdir() if root.exists() else []:
+            if not split_dir.is_dir():
+                continue
+            split_key = split_dir.name.lower()
+            if split_key not in split_names:
+                continue
+
+            labels: dict[str, int] = {}
+            for label_dir in split_dir.iterdir():
+                if not label_dir.is_dir():
+                    continue
+                count = sum(
+                    1 for item in label_dir.rglob("*")
+                    if item.is_file() and item.suffix.lower() in valid_exts
+                )
+                if count:
+                    labels[label_dir.name] = count
+            if labels:
+                normalized_split = "val" if split_key in {"valid", "validation", "dev"} else split_key
+                normalized_split = "train" if split_key == "training" else normalized_split
+                stats[normalized_split] = labels
+
+        return stats
+
+    @staticmethod
+    def _summarize_extensions(file_scan: dict[str, Any]) -> str:
+        exts = file_scan.get("extensions", {})
+        if not exts:
+            return "unknown"
+        return ", ".join(f"{ext or '[no_ext]'}({count})" for ext, count in list(exts.items())[:8])
+
+    @staticmethod
+    def _infer_data_type(file_scan: dict[str, Any]) -> str:
+        if file_scan.get("has_tabular"):
+            return "tabular"
+        if file_scan.get("has_images"):
+            return "image"
+        if file_scan.get("has_audio"):
+            return "audio"
+        if file_scan.get("has_text"):
+            return "text"
+        return "unknown"
 
 
 class DataTypeDetector:
@@ -690,7 +981,16 @@ class DataManager:
             _emit("scan", f"🧠 发现 {model_count} 个模型/权重文件")
         
         _emit("done", "🤖 文件扫描完成，等待 AI Agent 深度分析...")
-        
+
+        exploration = DatasetStructureAnalyzer.analyze(
+            scan_root=scan_root,
+            file_scan=file_scan,
+            df=df,
+            target_column=target_column,
+        )
+        if exploration.get("data_type"):
+            data_type = exploration["data_type"]
+
         # 构建 DataSpec
         spec = DataSpec(
             dataset_id=dataset_id,
@@ -703,6 +1003,7 @@ class DataManager:
             id_column=id_column,
             feature_columns=feature_columns,
             file_scan=file_scan,
+            exploration=exploration,
             storage_path=str(dataset_dir),
         )
         
@@ -780,16 +1081,45 @@ class DataManager:
             n_rows = img_count
         if file_scan.get('has_tabular'):
             data_type = "tabular" if not file_scan.get('has_images') else data_type
-        
+
         _emit("done", "🤖 文件扫描完成，等待 AI Agent 探索...")
-        
+
+        df = None
+        target_column = None
+        feature_columns: list[str] = []
+        columns_info: list[ColumnInfo] = []
+        if file_scan.get("has_tabular"):
+            try:
+                df = self._try_read_tabular(scan_root)
+                if df is not None and not df.empty:
+                    target_column = self.detector.infer_target_column(df, target_hint)
+                    columns_info = [self.detector.analyze_column(df[col]) for col in df.columns]
+                    feature_columns = [col for col in df.columns if col != target_column]
+                    csv_path = dataset_dir / f"{dataset_id}_data.csv"
+                    df.to_csv(csv_path, index=False)
+            except Exception:
+                pass
+
+        exploration = DatasetStructureAnalyzer.analyze(
+            scan_root=scan_root,
+            file_scan=file_scan,
+            df=df,
+            target_column=target_column,
+        )
+        if exploration.get("data_type"):
+            data_type = exploration["data_type"]
+
         spec = DataSpec(
             dataset_id=dataset_id,
             filename=filename,
-            n_rows=n_rows,
-            n_cols=0,
+            n_rows=int(len(df)) if df is not None and not df.empty else n_rows,
+            n_cols=int(len(df.columns)) if df is not None and not df.empty else 0,
             data_type=data_type,
+            columns=columns_info,
+            target_column=target_column,
+            feature_columns=feature_columns,
             file_scan=file_scan,
+            exploration=exploration,
             storage_path=str(dataset_dir),
         )
         
@@ -809,20 +1139,45 @@ class DataManager:
                     if not f.name.startswith('.') and '__MACOSX' not in str(f):
                         results.append(f)
             return sorted(results, key=lambda f: f.stat().st_size, reverse=True)
+
+        def _try_read_csv(path: Path, sep: str | None = None) -> pd.DataFrame | None:
+            encodings = ["utf-8", "utf-8-sig", "gb18030", "latin-1"]
+            for encoding in encodings:
+                try:
+                    if sep is not None:
+                        df = pd.read_csv(path, encoding=encoding, sep=sep, low_memory=False)
+                    else:
+                        df = pd.read_csv(path, encoding=encoding, low_memory=False)
+                    if not df.empty and len(df.columns) > 0:
+                        return df
+                except Exception:
+                    if sep is None:
+                        try:
+                            df = pd.read_csv(
+                                path,
+                                encoding=encoding,
+                                sep=None,
+                                engine="python",
+                                quoting=csv.QUOTE_MINIMAL,
+                                low_memory=False,
+                            )
+                            if not df.empty and len(df.columns) > 0:
+                                return df
+                        except Exception:
+                            continue
+            return None
         
         # CSV
         for f in _find(['*.csv']):
-            try:
-                return pd.read_csv(f)
-            except Exception:
-                continue
+            df = _try_read_csv(f)
+            if df is not None:
+                return df
         
         # TSV
         for f in _find(['*.tsv']):
-            try:
-                return pd.read_csv(f, sep='\t')
-            except Exception:
-                continue
+            df = _try_read_csv(f, sep="\t")
+            if df is not None:
+                return df
         
         # Excel
         for f in _find(['*.xlsx', '*.xls']):
@@ -844,6 +1199,11 @@ class DataManager:
                 data = json.loads(f.read_text(encoding='utf-8'))
                 if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
                     return pd.DataFrame(data)
+                if isinstance(data, dict):
+                    if isinstance(data.get("data"), list) and data["data"] and isinstance(data["data"][0], dict):
+                        return pd.DataFrame(data["data"])
+                    if all(isinstance(v, list) for v in data.values()):
+                        return pd.DataFrame(data)
             except Exception:
                 continue
         
@@ -883,6 +1243,19 @@ class DataManager:
                 n_rows=data.get('n_rows', 0),
                 n_cols=data.get('n_cols', 0),
                 data_type=data.get('data_type', 'unknown'),
+                columns=[
+                    ColumnInfo(
+                        name=col.get("name", ""),
+                        column_type=ColumnType(col.get("column_type", "text")),
+                        dtype=col.get("dtype", ""),
+                        missing_count=col.get("missing_count", 0),
+                        unique_count=col.get("unique_count", 0),
+                        sample_values=col.get("sample_values", []),
+                        statistics=col.get("statistics", {}),
+                    )
+                    for col in data.get("columns", [])
+                    if col.get("name")
+                ],
                 target_column=data.get('target_column'),
                 id_column=data.get('id_column'),
                 feature_columns=data.get('feature_columns', []),

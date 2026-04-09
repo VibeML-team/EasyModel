@@ -171,10 +171,11 @@ class ProgramGenerator:
         prompt = self._build_prompt(intent, data_schema, constraints, examples)
         
         # 调用LLM生成代码
-        response = self._call_llm(prompt)
+        response = self._call_llm(prompt, max_tokens=8000)
         
         # 解析响应
         program = self._parse_response(response, intent)
+        program = self._ensure_required_files(program)
         
         return program
     
@@ -252,7 +253,7 @@ class ProgramGenerator:
         
         return f"{system_prompt}\n\n{user_prompt}"
     
-    def _call_llm(self, prompt: str) -> str:
+    def _call_llm(self, prompt: str, max_tokens: int = 8000) -> str:
         """调用LLM生成代码"""
         if self.llm_client:
             return self.llm_client.chat_completion(
@@ -261,7 +262,7 @@ class ProgramGenerator:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.2,
-                max_tokens=4000,
+                max_tokens=max_tokens,
             )
         
         # 模拟LLM调用（实际项目中替换为真实调用）
@@ -375,6 +376,68 @@ class ProgramGenerator:
             "train_loop.py": program.train_loop_code,
         }
         return [name for name, content in required.items() if not content.strip()]
+
+    def _ensure_required_files(
+        self,
+        program: GeneratedProgram,
+        max_retries: int = 2,
+    ) -> GeneratedProgram:
+        """尽量补齐被截断或遗漏的必需文件。"""
+        if not self.llm_client:
+            return program
+
+        current_program = program
+        for _ in range(max_retries):
+            missing_files = self.missing_required_files(current_program)
+            if not missing_files:
+                return current_program
+
+            repaired = self._generate_missing_files(current_program, missing_files)
+            current_program = self._merge_with_existing_program(current_program, repaired)
+
+        return current_program
+
+    def _generate_missing_files(
+        self,
+        program: GeneratedProgram,
+        missing_files: list[str],
+    ) -> GeneratedProgram:
+        """仅请求缺失文件，降低响应被截断的概率。"""
+        prompt = f"""你上一次返回的代码包缺少以下必需文件：
+{chr(10).join(f"- {filename}" for filename in missing_files)}
+
+原始需求：{program.intent}
+
+现有文件（仅供上下文参考）：
+
+### model.py
+```python
+{program.model_code}
+```
+
+### loss.py
+```python
+{program.loss_code}
+```
+
+### data_pipeline.py
+```python
+{program.data_pipeline_code}
+```
+
+### train_loop.py
+```python
+{program.train_loop_code}
+```
+
+请只返回上面缺失的文件，要求：
+1. 每个缺失文件都必须完整且非空
+2. 使用 `### filename.py` 后跟 ```python 代码块 的格式
+3. 不要重复输出未缺失的文件
+4. 保持与现有 model.py / loss.py 接口兼容
+"""
+        response = self._call_llm(prompt, max_tokens=6000)
+        return self._parse_response(response, program.intent)
     
     def fix_code(
         self,
@@ -426,6 +489,8 @@ class ProgramGenerator:
 ```
 """
         
-        response = self._call_llm(prompt)
+        response = self._call_llm(prompt, max_tokens=8000)
         repaired = self._parse_response(response, program.intent)
-        return self._merge_with_existing_program(program, repaired)
+        return self._ensure_required_files(
+            self._merge_with_existing_program(program, repaired)
+        )

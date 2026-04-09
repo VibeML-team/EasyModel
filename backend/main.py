@@ -14,11 +14,13 @@ import json
 import mimetypes
 import os
 import pickle
+import re
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Literal
 
@@ -969,34 +971,127 @@ class AgentFindDataRequest(BaseModel):
 _agent_tasks: dict[str, dict] = {}
 
 
+def _try_prepare_known_dataset(task: dict[str, Any], dataset_id: str, dataset_dir: str, user_goal: str) -> dict[str, Any] | None:
+    """对少数知名公开数据集走确定性下载路径，避免让 Agent 临场拼命令。"""
+    goal = (user_goal or "").lower()
+    if "mnist" not in goal:
+        return None
+
+    task["log"].append({"type": "thought", "content": "识别到用户明确需要 MNIST，优先走后端内置下载器，而不是让 Agent 现场拼 shell 命令。"})
+    task["log"].append({"type": "action", "content": "download_builtin_dataset('mnist')"})
+
+    from collections import defaultdict
+
+    import numpy as np
+    from PIL import Image
+    from sklearn.datasets import fetch_openml
+
+    root = Path(dataset_dir)
+    train_root = root / "train"
+    test_root = root / "test"
+    train_root.mkdir(parents=True, exist_ok=True)
+    test_root.mkdir(parents=True, exist_ok=True)
+
+    try:
+        mnist = fetch_openml("mnist_784", version=1, as_frame=False, parser="auto")
+    except TypeError:
+        mnist = fetch_openml("mnist_784", version=1, as_frame=False)
+
+    X = mnist.data
+    y = mnist.target.astype(str)
+
+    train_limits = defaultdict(int)
+    test_limits = defaultdict(int)
+    train_cap = 200
+    test_cap = 50
+
+    train_saved = 0
+    test_saved = 0
+
+    for idx, (pixels, label) in enumerate(zip(X, y)):
+        arr = pixels.reshape(28, 28).astype(np.uint8)
+        img = Image.fromarray(arr, mode="L")
+
+        if train_saved < 2000 and train_limits[label] < train_cap:
+            out_dir = train_root / label
+            out_dir.mkdir(parents=True, exist_ok=True)
+            img.save(out_dir / f"{label}_{train_limits[label]:04d}.png")
+            train_limits[label] += 1
+            train_saved += 1
+            continue
+
+        if test_saved < 500 and test_limits[label] < test_cap:
+            out_dir = test_root / label
+            out_dir.mkdir(parents=True, exist_ok=True)
+            img.save(out_dir / f"{label}_{test_limits[label]:04d}.png")
+            test_limits[label] += 1
+            test_saved += 1
+
+        if train_saved >= 2000 and test_saved >= 500:
+            break
+
+    task["log"].append({
+        "type": "observation",
+        "content": f"MNIST 已下载并整理为图像目录。train={train_saved} 张, test={test_saved} 张, classes={sorted(set(y.tolist()))}",
+    })
+
+    return {
+        "data_type": "image_classification",
+        "format_details": "directory_split/train_label_png",
+        "business_summary": "MNIST 手写数字图像分类数据集，已整理为 train/test 按类别分目录的 PNG 文件。",
+        "data_understanding": {
+            "summary": "28x28 灰度手写数字图像，共 10 个类别。",
+            "organization": "train/<label>/*.png, test/<label>/*.png",
+            "key_files": ["train/0-9/*.png", "test/0-9/*.png"],
+        },
+        "statistics": {
+            "total_samples": train_saved + test_saved,
+            "classes": [str(i) for i in range(10)],
+            "class_distribution": {str(i): train_limits[str(i)] + test_limits[str(i)] for i in range(10)},
+            "splits": {"train": train_saved, "test": test_saved},
+        },
+        "quality_issues": [],
+        "training_implications": [
+            "这是标准图像分类任务，适合使用 CNN 或轻量视觉模型。",
+            "输入是 28x28 灰度图像，需要在数据管道里显式处理单通道。",
+            "当前为了快速可用只落盘了一个可训练子集，而不是完整 7 万张样本。",
+        ],
+        "suggested_next_steps": [
+            "按图像分类任务启动训练。",
+            "如果需要更高精度，可扩展为完整 MNIST 全量落盘。",
+        ],
+    }
+
+
 def _run_agent_background(task_id: str, dataset_id: str, dataset_dir: str, user_goal: str):
     """后台线程运行 ReAct Agent"""
     task = _agent_tasks[task_id]
     
     try:
-        from backend.llm_client import get_llm_client
-        from backend.data_exploration_agent import run_exploration_agent
-        client = get_llm_client()
-        
-        import httpx
-        if hasattr(client, 'client'):
-            client.client = httpx.Client(
-                base_url=client.config.base_url,
-                headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
-                timeout=600.0,
-            )
-        
-        exploration = None
-        for event in run_exploration_agent(
-            dataset_dir=dataset_dir,
-            filename="agent_requested_data",
-            file_size_human="0 B (待下载)",
-            user_goal=user_goal,
-            llm_client=client,
-        ):
-            task["log"].append(event)
-            if event["type"] == "insight":
-                exploration = event["content"]
+        exploration = _try_prepare_known_dataset(task, dataset_id, dataset_dir, user_goal)
+        if exploration is None:
+            from backend.llm_client import get_llm_client
+            from backend.data_exploration_agent import run_exploration_agent
+            client = get_llm_client()
+            
+            import httpx
+            if hasattr(client, 'client'):
+                client.client = httpx.Client(
+                    base_url=client.config.base_url,
+                    headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
+                    timeout=600.0,
+                )
+            
+            for event in run_exploration_agent(
+                dataset_dir=dataset_dir,
+                filename="agent_requested_data",
+                file_size_human="0 B (待下载)",
+                user_goal=user_goal,
+                llm_client=client,
+            ):
+                task["log"].append(event)
+                if event["type"] == "insight":
+                    exploration = event["content"]
         
         # 扫描结果
         from backend.data_manager import FileScanner
@@ -1323,6 +1418,19 @@ class DownloadPublicDatasetRequest(BaseModel):
     target_hint: str = ""
 
 
+class _DatasetLinkHTMLParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs):
+        if tag.lower() != "a":
+            return
+        href = dict(attrs).get("href")
+        if href:
+            self.links.append(href)
+
+
 @app.post("/api/data/search-public")
 def search_public_datasets(req: DataSearchRequest) -> dict[str, Any]:
     """
@@ -1511,6 +1619,34 @@ async def _resolve_hf_dataset_url(ds_id: str) -> tuple[str, str] | None:
     return None
 
 
+async def _crawl_dataset_download_link(page_url: str) -> tuple[str, str] | None:
+    import httpx
+    from urllib.parse import urljoin
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as client:
+        response = await client.get(page_url)
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "").lower()
+        if "html" not in content_type and "text/html" not in response.text[:120].lower():
+            return None
+
+        parser = _DatasetLinkHTMLParser()
+        parser.feed(response.text)
+        candidates: list[str] = []
+        for href in parser.links:
+            absolute = urljoin(str(response.url), href)
+            lower = absolute.lower()
+            if any(lower.endswith(ext) for ext in (".csv", ".tsv", ".xlsx", ".xls", ".zip", ".7z", ".parquet", ".json", ".jsonl")):
+                candidates.append(absolute)
+
+        if not candidates:
+            return None
+
+        picked = candidates[0]
+        filename = picked.split("/")[-1].split("?")[0] or "crawled_dataset"
+        return picked, filename
+
+
 @app.post("/api/data/download-public")
 async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str, Any]:
     """
@@ -1526,13 +1662,19 @@ async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str
 
     # HuggingFace datasets 特殊处理
     if "huggingface.co/datasets/" in url and "/resolve/" not in url:
-        import re
         match = re.search(r'huggingface\.co/datasets/([^/?#]+(?:/[^/?#]+)?)', url)
         if match:
             ds_id = match.group(1)
             resolved = await _resolve_hf_dataset_url(ds_id)
             if resolved:
                 url, filename = resolved
+    elif not any(url.lower().endswith(ext) for ext in (".csv", ".tsv", ".xlsx", ".xls", ".zip", ".7z", ".parquet", ".json", ".jsonl")):
+        try:
+            crawled = await _crawl_dataset_download_link(url)
+            if crawled:
+                url, filename = crawled
+        except Exception:
+            pass
 
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
@@ -1548,7 +1690,20 @@ async def download_public_dataset(req: DownloadPublicDatasetRequest) -> dict[str
     # 检测是否下载到了 HTML 错误页而非数据
     content_start = content[:200].decode('utf-8', errors='replace').lower()
     if '<html' in content_start or '<!doctype' in content_start:
-        raise HTTPException(400, "下载到了 HTML 页面而非数据文件。数据集可能需要认证或 URL 不正确。")
+        try:
+            crawled = await _crawl_dataset_download_link(req.url)
+            if crawled and crawled[0] != url:
+                async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+                    response = await client.get(crawled[0])
+                    response.raise_for_status()
+                    content = response.content
+                    url, filename = crawled
+            else:
+                raise HTTPException(400, "下载到了 HTML 页面而非数据文件。数据集可能需要认证或 URL 不正确。")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(400, "下载到了 HTML 页面而非数据文件。数据集可能需要认证或 URL 不正确。")
 
     # 确保有文件扩展名
     if not any(filename.lower().endswith(ext) for ext in ['.csv', '.xlsx', '.xls', '.zip', '.7z', '.parquet', '.json', '.jsonl', '.tsv']):
@@ -1674,21 +1829,17 @@ def _run_plan_background(task_id: str, user_goal: str, dataset_id: str | None, p
             except Exception:
                 pass
         
-        # 流式调用 LLM 生成方案
-        def on_token(token: str):
-            task["log"][thinking_idx]["content"] += token
-        
-        task["log"].append({"type": "status", "content": "🧠 正在思考训练方案..."})
-        
-        response_text = client.chat_completion_stream(
+        task["log"].append({"type": "status", "content": "🧠 正在生成训练方案..."})
+
+        response_text = client.chat_completion(
             messages=[
                 {"role": "system", "content": _get_plan_system_prompt()},
                 {"role": "user", "content": _get_plan_user_prompt(enriched_goal, priority)},
             ],
-            temperature=0.4,
-            max_tokens=3000,
-            on_token=on_token,
+            temperature=0.2,
+            max_tokens=1800,
         )
+        task["log"][thinking_idx]["content"] = _truncate_plan_reasoning(response_text)
         
         # 解析 JSON 结果
         try:
@@ -1718,25 +1869,21 @@ def _run_plan_background(task_id: str, user_goal: str, dataset_id: str | None, p
 
 def _get_plan_system_prompt():
     """方案生成的 system prompt（和 compile_personalized_plan 一致）"""
-    return """你是 VibeML 的核心 AI 引擎。将用户的业务需求转化为个性化的机器学习训练方案。
+    return """你是 VibeML 的核心 AI 引擎。将用户需求转化为个性化机器学习训练方案。
 
-请先用 <think> 标签详细思考你的分析过程，然后输出结构化 JSON 方案。
-
-思考过程应该包含：
-1. 对用户需求的理解
-2. 任务类型判断（分类/检测/回归等）
-3. 数据特点分析
-4. 技术方案选型依据
-5. 潜在风险评估
-
-然后输出 JSON 方案（业务层 + 技术层）。"""
+要求：
+1. 不要输出 <think>、思维链、Markdown 解释或多余前言。
+2. 直接输出一个合法 JSON 对象。
+3. JSON 必须包含 business_layer、technical_layer、confidence、needs_more_info。
+4. technical_layer 的四个子字段都必须存在：data_strategy、model_strategy、loss_function、evaluation。
+5. 内容要简洁、可执行，优先给出适合当前任务的数据与训练策略。"""
 
 
 def _get_plan_user_prompt(user_goal: str, priority: str):
     return f"""用户需求："{user_goal}"
 优化偏好：{priority}
 
-请先在 <think>...</think> 中详细思考，然后输出 JSON：
+请直接输出 JSON，不要输出任何解释性文字：
 
 {{
     "business_layer": {{
@@ -1754,6 +1901,13 @@ def _get_plan_user_prompt(user_goal: str, priority: str):
     "confidence": 0.85,
     "needs_more_info": []
 }}"""
+
+
+def _truncate_plan_reasoning(response_text: str, limit: int = 1200) -> str:
+    cleaned = response_text.strip()
+    cleaned = cleaned.replace("<thinking>", "").replace("</thinking>", "")
+    cleaned = cleaned.replace("<think>", "").replace("</think>", "")
+    return cleaned[:limit]
 
 
 @app.post("/api/intent/clarify-start")
