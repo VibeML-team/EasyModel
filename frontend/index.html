@@ -36,16 +36,16 @@
       --emerald-400: #57f8c2;
       --emerald-500: #1fd79d;
       --cyan-400: #7cf6e4;
-      --gray-300: #d8f3ea;
-      --gray-400: #9bc2b5;
-      --gray-500: #70958a;
-      --gray-600: #4b6760;
-      --gray-700: #334943;
+      --gray-300: #e8fff5;
+      --gray-400: #b8e6d5;
+      --gray-500: #8acbb8;
+      --gray-600: #6ba89a;
+      --gray-700: #4c8577;
       --white: #f4fff9;
-      --surface-glass: rgba(14, 31, 26, 0.58);
-      --surface-glass-strong: rgba(10, 24, 20, 0.78);
-      --border-soft: rgba(136, 255, 216, 0.16);
-      --border-strong: rgba(136, 255, 216, 0.34);
+      --surface-glass: rgba(14, 31, 26, 0.72);
+      --surface-glass-strong: rgba(10, 24, 20, 0.88);
+      --border-soft: rgba(136, 255, 216, 0.24);
+      --border-strong: rgba(136, 255, 216, 0.42);
     }
 
     [data-theme="light"] {
@@ -124,9 +124,13 @@
     .logo-icon {
       width: 32px; height: 32px;
       border-radius: 8px;
-      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 0 24px rgba(16, 202, 144, 0.28);
+    }
+    .logo-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
     .logo-text { font-size: 18px; font-weight: 600; color: var(--white); }
     .logo-text span { color: var(--violet-400); }
@@ -289,12 +293,22 @@
       font-family: 'JetBrains Mono', 'Avenir Next LT Pro', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
       font-size: 13px; line-height: 1.8;
     }
-    .terminal-line { min-height: 1.5em; }
+    .terminal-line {
+      min-height: 1.5em;
+      font-family: 'JetBrains Mono', monospace;
+    }
     .text-violet { color: var(--violet-400); }
     .text-blue { color: var(--blue-400); }
     .text-cyan { color: var(--cyan-400); }
     .text-emerald { color: var(--emerald-400); }
     .text-gray { color: var(--gray-300); }
+    .text-violet,
+    .text-blue,
+    .text-cyan,
+    .text-emerald,
+    .text-gray {
+      font-family: 'JetBrains Mono', monospace;
+    }
     .cursor { animation: blink 1s infinite; }
     @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
     .demo-tags { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -621,13 +635,12 @@
       border: 1px solid var(--border-soft);
       border-radius: 12px;
       padding: 24px;
-      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.28s ease, opacity 0.32s ease, filter 0.32s ease;
+      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.28s ease;
       backdrop-filter: blur(10px);
       position: relative;
       overflow: hidden;
       transform: translateY(calc(var(--cap-offset) + var(--cap-lift) + var(--pull-y))) scale(var(--pull-scale));
       transform-style: preserve-3d;
-      will-change: transform;
       cursor: pointer;
       user-select: none;
     }
@@ -899,12 +912,9 @@
     <div class="navbar-inner">
       <a href="/" class="logo">
         <div class="logo-icon">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
-            <circle cx="9" cy="9" r="2" fill="white"/>
-          </svg>
+          <img src="./Weixin_Image_20260409105924_153_539-removebg-preview.png" alt="VibeML Logo">
         </div>
-        <span class="logo-text brand-italic">ML<span>Studio</span></span>
+        <div class="logo-text">ML<span>Studio</span></div>
       </a>
 
       <div class="nav-links">
@@ -1459,7 +1469,7 @@ validation → out_of_time_split</pre>
                 <circle cx="9" cy="9" r="2" fill="white"/>
               </svg>
             </div>
-            <span class="logo-text brand-italic">ML<span>Studio</span></span>
+            <span class="logo-text">ML<span>Studio</span></span>
           </div>
           <p class="footer-desc">
             原生 AI 全自动机器学习 Agent<br>

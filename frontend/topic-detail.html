@@ -21,10 +21,14 @@
     MathJax = {
       tex: {
         inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
       },
       svg: {
         fontCache: 'global'
+      },
+      startup: {
+        typeset: false
       }
     };
   </script>
