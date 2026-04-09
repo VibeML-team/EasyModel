@@ -59,6 +59,30 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 访问 `http://localhost:8000/` 打开控制台界面。
 
+### 前端重构开发（React + pnpm）
+
+前端重构工程位于 `web/`，采用 React + Vite + TypeScript + Zustand。
+
+```bash
+# 1) 安装依赖（仓库根目录）
+pnpm install
+
+# 2) 启动前端开发服务
+pnpm --dir web dev
+```
+
+开发模式下：
+- 新前端地址: `http://localhost:5173/`
+- API 通过 Vite 代理到 `http://localhost:8000/api/*`
+
+生产构建：
+
+```bash
+pnpm --dir web build
+```
+
+构建后产物在 `web/dist`，后端会自动挂载到 `http://localhost:8000/app-next/`（不影响现有 `http://localhost:8000/app/*` 旧页面）。
+
 ### API 文档
 
 - Swagger UI: `http://localhost:8000/docs`
