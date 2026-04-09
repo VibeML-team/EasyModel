@@ -35,11 +35,11 @@
       --warning: #fbbf24;
       --error: #fb7185;
       --card-bg: #0d1916;
-      --border-soft: rgba(136, 255, 216, 0.16);
-      --border-strong: rgba(136, 255, 216, 0.34);
+      --border-soft: rgba(136, 255, 216, 0.24);
+      --border-strong: rgba(136, 255, 216, 0.42);
       --border: var(--border-soft);
       --text-primary: #f4fff9;
-      --text-secondary: #70958a;
+      --text-secondary: #8acbb8;
       --violet-400: #9dffe0;
       --violet-500: #47f5b7;
       --violet-600: #10ca90;
@@ -51,8 +51,8 @@
       --emerald-500: #1fd79d;
       --gray-700: #334943;
       --white: #f4fff9;
-      --surface-glass: rgba(14, 31, 26, 0.58);
-      --surface-glass-strong: rgba(10, 24, 20, 0.78);
+      --surface-glass: rgba(14, 31, 26, 0.72);
+      --surface-glass-strong: rgba(10, 24, 20, 0.88);
     }
     [data-theme="light"] {
       --bg-primary: #f5f9f7;
@@ -132,11 +132,15 @@
       width: 32px;
       height: 32px;
       border-radius: 8px;
-      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 0 24px rgba(16, 202, 144, 0.28);
+    }
+    .topnav-logo-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
     .topnav-logo-text {
       font-size: 18px;
@@ -844,12 +848,9 @@
       <div class="topnav-left">
         <a href="./index.html" class="topnav-logo" aria-label="ML Studio 首页">
           <div class="topnav-logo-icon">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
-              <circle cx="9" cy="9" r="2" fill="white"/>
-            </svg>
+            <img src="./Weixin_Image_20260409105924_153_539-removebg-preview.png" alt="VibeML Logo">
           </div>
-          <span class="topnav-logo-text brand-italic">ML<span>Studio</span></span>
+          <span class="topnav-logo-text">ML<span>Studio</span></span>
         </a>
         <a href="./chat.html" class="logo" aria-label="前往 Chat 全屏对话">
           <span class="dashboard-link">Chat</span>
