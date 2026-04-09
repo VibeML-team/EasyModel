@@ -138,7 +138,8 @@
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      padding: 6px 10px;
+      height: 38px;
+      padding: 4px 10px;
       border: 1px solid var(--border);
       border-radius: 12px;
       background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
@@ -152,7 +153,7 @@
     }
 
     .logo-icon {
-      width: 32px; height: 32px;
+      width: 28px; height: 28px;
       border-radius: 8px;
       background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
       display: flex;
@@ -164,6 +165,13 @@
     .logo-text { font-size: 18px; font-weight: 600; color: var(--text-primary); font-style: normal; }
     .brand-italic { font-style: italic; }
     .logo-text span { color: var(--violet-400); }
+    .dashboard-link {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
 
     .header-divider {
       width: 1px; height: 24px;
@@ -211,7 +219,7 @@
       background: var(--surface-glass);
       border: 1px solid var(--border);
       border-radius: 8px;
-      color: var(--text-secondary);
+      color: var(--gray-400);
       font-size: 13px;
       cursor: pointer;
       transition: all 0.2s;
@@ -220,7 +228,7 @@
 
     .header-btn:hover {
       border-color: var(--border-strong);
-      color: var(--text-primary);
+      color: var(--gray-300);
       transform: translateY(-1px);
     }
 
@@ -1337,6 +1345,7 @@
       align-items: center;
       gap: 8px;
     }
+    .sidebar-footer:empty { display: none; }
     .sidebar-toggle-btn {
       width: 36px; height: 36px;
       background: var(--surface-glass);
@@ -1398,26 +1407,21 @@
         <span class="history-title">当前会话</span>
       </div>
     </div>
-    <div class="sidebar-footer">
-      <span>⚙️</span>
-      <a href="./dashboard.html" style="color:var(--text-secondary);text-decoration:none;font-size:12px;">Dashboard</a>
-      <span style="margin-left:auto;"></span>
-      <a href="./index.html" style="color:var(--text-secondary);text-decoration:none;font-size:12px;">首页</a>
-    </div>
+    <div class="sidebar-footer"></div>
   </aside>
 
   <!-- Header -->
   <header class="header">
     <div class="header-left">
       <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="切换侧边栏">☰</button>
-      <a href="./index.html" class="logo">
+      <a href="./dashboard.html" class="logo" aria-label="前往 Dashboard">
         <div class="logo-icon">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
             <circle cx="9" cy="9" r="2" fill="white"/>
           </svg>
         </div>
-        <span class="logo-text"><span class="brand-italic" style="color: var(--text-primary);">Vibe</span><span>ML</span></span>
+        <span class="dashboard-link">Dashboard</span>
       </a>
     </div>
     <div class="header-actions">
