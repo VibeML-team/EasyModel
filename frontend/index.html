@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VibeML - 将模糊业务语言编译成专属训练流</title>
+  <title>ML Studio - 将模糊业务语言编译成专属训练流</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -312,6 +312,16 @@
     .section-label { font-size: 14px; font-weight: 500; color: var(--violet-400); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
     .section-title { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 700; margin-bottom: 20px; }
     .section-desc { color: var(--gray-400); max-width: 576px; margin: 0 auto; line-height: 1.6; }
+    .section-tagline {
+      text-align: center;
+      font-size: clamp(1.12rem, 2.1vw, 1.4rem);
+      font-weight: 600;
+      color: var(--gray-300);
+      margin: 28px auto 0;
+      max-width: 720px;
+      line-height: 1.5;
+      letter-spacing: -0.02em;
+    }
     .container { max-width: 1280px; margin: 0 auto; }
 
     /* Problem Section */
@@ -329,6 +339,10 @@
       white-space: nowrap;
     }
     .problem-headline .headline-line + .headline-line { margin-top: 8px; }
+    .problem-headline .headline-line--wrap {
+      white-space: normal;
+      max-width: 52rem;
+    }
     .vibe-italic { font-style: italic; }
     .theme-highlight {
       background: linear-gradient(120deg, var(--violet-500), var(--cyan-400));
@@ -595,9 +609,9 @@
       filter: saturate(0.8);
     }
     .capability-card { grid-column: span 2; }
-    .capability-card:nth-child(1), .capability-card:nth-child(4) { --cap-offset: -10px; }
-    .capability-card:nth-child(2), .capability-card:nth-child(5) { --cap-offset: 16px; }
-    .capability-card:nth-child(3), .capability-card:nth-child(6) { --cap-offset: 2px; }
+    .capability-card:nth-child(1), .capability-card:nth-child(4) { --cap-offset: 0px; }
+    .capability-card:nth-child(2), .capability-card:nth-child(5) { --cap-offset: 0px; }
+    .capability-card:nth-child(3), .capability-card:nth-child(6) { --cap-offset: 0px; }
     .capability-card {
       --cap-offset: 0px;
       --cap-lift: 0px;
@@ -607,7 +621,7 @@
       border: 1px solid var(--border-soft);
       border-radius: 12px;
       padding: 24px;
-      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.28s ease;
+      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.28s ease, opacity 0.32s ease, filter 0.32s ease;
       backdrop-filter: blur(10px);
       position: relative;
       overflow: hidden;
@@ -650,7 +664,7 @@
     .capability-desc { font-size: 13px; color: var(--gray-500); line-height: 1.5; }
     .capability-feature-deck {
       margin-top: 0;
-      border: 1px solid var(--border-soft);
+      border: 1px solid transparent;
       background: rgba(136, 255, 216, 0.06);
       border-radius: 10px;
       padding: 0 12px;
@@ -659,7 +673,15 @@
       overflow: hidden;
       pointer-events: none;
       transform: translateY(8px);
-      transition: max-height 0.32s ease, opacity 0.24s ease, transform 0.28s ease, margin-top 0.28s ease, padding 0.28s ease;
+      visibility: hidden;
+      transition:
+        max-height 0.08s ease,
+        opacity 0.06s ease,
+        transform 0.08s ease,
+        margin-top 0.08s ease,
+        padding 0.08s ease,
+        border-color 0.05s ease,
+        visibility 0s linear 0s;
     }
     .capability-card.is-selected .capability-feature-deck {
       margin-top: 14px;
@@ -668,6 +690,16 @@
       opacity: 1;
       pointer-events: auto;
       transform: translateY(0);
+      visibility: visible;
+      border-color: var(--border-soft);
+      transition:
+        max-height 0.08s ease,
+        opacity 0.06s ease,
+        transform 0.08s ease,
+        margin-top 0.08s ease,
+        padding 0.08s ease,
+        border-color 0.05s ease,
+        visibility 0s linear 0s;
     }
     .capability-feature-pill {
       font-size: 16px;
@@ -702,7 +734,7 @@
       border-color: var(--border-strong);
       background: rgba(6, 182, 127, 0.16);
     }
-    .models-section { margin-top: 48px; background: var(--surface-glass); border: 1px solid var(--border-soft); border-radius: 16px; padding: 24px; backdrop-filter: blur(10px); }
+    .models-section { margin-top: 48px; background: transparent; border: none; border-radius: 0; padding: 0; backdrop-filter: none; }
     .models-title { font-size: 34px; color: var(--gray-200); text-align: center; margin-bottom: 16px; font-weight: 600; letter-spacing: 0.01em; }
     .models-marquee {
       overflow: hidden;
@@ -731,6 +763,53 @@
     }
     .model-tag { font-size: 17px; color: var(--gray-400); background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 18px; text-decoration: none; display: inline-block; transition: all 0.2s ease; }
     .model-tag:hover { color: var(--white); border-color: var(--border-strong); transform: translateY(-1px); background: color-mix(in srgb, rgba(16, 202, 144, 0.22) 52%, var(--bg-tertiary)); }
+    .universities-section {
+      margin-top: 30px;
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 0 24px;
+    }
+    .universities-title {
+      font-size: 24px;
+      color: var(--gray-200);
+      text-align: center;
+      margin-bottom: 16px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .universities-section .models-marquee {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    .university-logo-item {
+      height: 86px;
+      min-width: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+      background: color-mix(in srgb, var(--bg-tertiary) 88%, transparent);
+      flex: 0 0 auto;
+    }
+    .university-logo {
+      max-width: 100%;
+      max-height: 62px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+    .university-logo.ustc {
+      max-height: 70px;
+    }
+    .university-logo.mbzuai {
+      max-height: 50px;
+    }
+    .university-logo.hkustgz {
+      max-height: 40px;
+    }
     @keyframes models-scroll {
       from { transform: translateX(0); }
       to { transform: translateX(calc(-50% - 7px)); }
@@ -825,13 +904,13 @@
             <circle cx="9" cy="9" r="2" fill="white"/>
           </svg>
         </div>
-        <span class="logo-text brand-italic">Vibe<span>ML</span></span>
+        <span class="logo-text brand-italic">ML<span>Studio</span></span>
       </a>
 
       <div class="nav-links">
         <a href="#how-it-works">产品</a>
-        <a href="#capabilities">能力</a>
         <a href="#use-cases">使用场景</a>
+        <a href="#capabilities">能力</a>
       </div>
 
       <div class="nav-cta">
@@ -864,13 +943,13 @@
         </h1>
 
         <p class="hero-desc">
-          开源论文的标准 Loss 和模板往往无法契合真实的精细业务诉求。<span class="brand-italic">VibeML</span> 能够深刻理解你模糊的自然语言描述，并将其转化为量身定制的端到端 ML 训练流（包含特制数据清洗、自定义损失函数与专属模型架构）。<br>
+          开源论文的标准 Loss 和模板往往无法契合真实的精细业务诉求。<span class="brand-italic">ML Studio</span> 能够深刻理解你模糊的自然语言描述，并将其转化为量身定制的端到端 ML 训练流（包含特制数据清洗、自定义损失函数与专属模型架构）。<br>
           <strong>跨越从「业务诉求」到「算法落地」最稀缺的那道鸿沟。</strong>
         </p>
 
         <div class="hero-actions">
           <a href="./chat.html" class="btn-large btn-gradient">
-            开始使用 <span class="brand-italic">VibeML</span>
+            开始使用 <span class="brand-italic">ML Studio</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -880,8 +959,8 @@
 
         <div class="hero-stats">
           <div class="stat-item">
-            <span class="stat-value">五层</span>
-            <span class="stat-label">自动化编译架构</span>
+            <span class="stat-value">全自动</span>
+            <span class="stat-label">数据 → 训练 → 部署</span>
           </div>
           <div class="stat-item">
             <span class="stat-value">全流程</span>
@@ -900,7 +979,7 @@
             <span class="terminal-dot red"></span>
             <span class="terminal-dot yellow"></span>
             <span class="terminal-dot green"></span>
-            <span class="terminal-title"><span class="brand-italic">vibeml</span> — objective compiler</span>
+            <span class="terminal-title"><span class="brand-italic">mlstudio</span> — objective compiler</span>
           </div>
           <div class="terminal-body" id="terminalBody">
           </div>
@@ -929,10 +1008,11 @@
         <h2 class="problem-headline">
           <span class="headline-line">软件开发进入了 <span class="vibe-italic theme-highlight">Vibe Coding</span> 时代，</span>
           <span class="headline-line">但机器学习仍然停留在 <span class="vibe-italic theme-highlight">Expert</span> 时代</span>
+          <span class="headline-line headline-line--wrap">我们创造 <span class="vibe-italic theme-highlight">Vibe Machine Learning</span> 的可能</span>
         </h2>
         <p class="section-desc problem-lead">
           AI Coding 让软件开发门槛更低，机器学习全链路仍需专家深耕。<br>
-          以数据与标准化流程为始，Vibe ML 重构机器学习效率。<br>
+          以数据与标准化流程为始，ML Studio 重构机器学习效率。<br>
           击穿 AI-Driven Machine Learning 的技术壁垒。
         </p>
       </div>
@@ -997,6 +1077,7 @@
             </div>
           </div>
         </div>
+
       </div>
 
       <div class="quote-box">
@@ -1021,6 +1102,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </section>
 
@@ -1032,7 +1114,7 @@
         <div class="section-label">工作原理</div>
         <h2 class="section-title">三步从人话需求到可交付产品</h2>
         <p class="section-desc">
-          <span class="brand-italic">VibeML</span> 不是帮你写训练代码，<br>
+          <span class="brand-italic">ML Studio</span> 不是帮你写训练代码，<br>
           而是自动做三件传统上必须由算法工程师完成的高价值判断。
         </p>
       </div>
@@ -1042,7 +1124,7 @@
           <div class="step-number violet">01</div>
           <span class="step-tag violet">自然语言输入</span>
           <h3 class="step-title">用自然语言描述你的需求</h3>
-          <p class="step-desc">告诉 <span class="brand-italic">VibeML</span> 你有什么数据、想解决什么问题、以及你的约束。不需要任何 ML 知识。</p>
+          <p class="step-desc">告诉 <span class="brand-italic">ML Studio</span> 你有什么数据、想解决什么问题、以及你的约束。不需要任何 ML 知识。</p>
           <div class="step-example">
             <p>"我有用户历史购买数据，想找出 30 天内会流失的高价值用户，每天预算只能打扰 50 个人。"</p>
           </div>
@@ -1082,7 +1164,7 @@ validation → out_of_time_split</pre>
         <div class="section-label">使用场景</div>
         <h2 class="section-title">为真实业务场景而生的 ML 解决方案</h2>
         <p class="section-desc">
-          从客户流失预测到库存优化，<span class="brand-italic">VibeML</span> 将模糊的业务语言编译成精准的模型训练流，解决传统 AutoML 无法处理的精细化需求。
+          从客户流失预测到库存优化，<span class="brand-italic">ML Studio</span> 将模糊的业务语言编译成精准的模型训练流，解决传统 AutoML 无法处理的精细化需求。
         </p>
       </div>
 
@@ -1110,7 +1192,7 @@ validation → out_of_time_split</pre>
           <article class="usecase-pane active" data-case-pane="retail">
             <div class="usecase-meta">电商增长 · Top-K 排序任务</div>
             <h3 class="usecase-pane-title">每天只触达 50 人，仍要覆盖最高流失风险用户</h3>
-            <p class="usecase-pane-desc"><span class="brand-italic">VibeML</span> 将“宁可误报也别漏报”的业务偏好编译成可训练目标，自动选择预算约束排序策略并生成可执行交付接口。</p>
+            <p class="usecase-pane-desc"><span class="brand-italic">ML Studio</span> 将“宁可误报也别漏报”的业务偏好编译成可训练目标，自动选择预算约束排序策略并生成可执行交付接口。</p>
             <div class="usecase-chips">
               <span class="usecase-chip">Budgeted Ranking</span>
               <span class="usecase-chip">Weighted BCE + Ranking Loss</span>
@@ -1142,7 +1224,7 @@ validation → out_of_time_split</pre>
           <article class="usecase-pane" data-case-pane="finance">
             <div class="usecase-meta">金融风控 · 实时决策</div>
             <h3 class="usecase-pane-title">20ms 内完成欺诈识别，还要给出可审计解释</h3>
-            <p class="usecase-pane-desc"><span class="brand-italic">VibeML</span> 自动组合高效模型与解释模块，在低延迟上线约束下交付实时风控接口和可追踪的触发原因。</p>
+            <p class="usecase-pane-desc"><span class="brand-italic">ML Studio</span> 自动组合高效模型与解释模块，在低延迟上线约束下交付实时风控接口和可追踪的触发原因。</p>
             <div class="usecase-chips">
               <span class="usecase-chip">Low-latency Inference</span>
               <span class="usecase-chip">SHAP Explanation</span>
@@ -1183,8 +1265,11 @@ validation → out_of_time_split</pre>
         <div class="section-label">能力全览</div>
         <h2 class="section-title">不只是功能堆料，而是不可替代的能力</h2>
         <p class="section-desc">
-          <span class="brand-italic">VibeML</span> 自动完成三件传统上必须由算法工程师完成的高价值判断：<br>
+          <span class="brand-italic">ML Studio</span> 自动完成三件传统上必须由算法工程师完成的高价值判断：<br>
           问题建模、约束下的方案选择、结果可交付化。
+        </p>
+        <p class="section-tagline">
+          我们创造<span class="vibe-italic theme-highlight">Vibe Machine Learning</span>的可能
         </p>
       </div>
 
@@ -1303,7 +1388,7 @@ validation → out_of_time_split</pre>
       </div>
 
       <div class="models-section">
-        <h3 class="models-title"><span class="brand-italic">VibeML</span> 支持训练以下模型</h3>
+        <h3 class="models-title"><span class="brand-italic">ML Studio</span> 支持训练以下模型</h3>
         <div class="models-marquee" aria-label="模型轮播条">
           <div class="models-track">
             <div class="models-list">
@@ -1337,6 +1422,28 @@ validation → out_of_time_split</pre>
           </div>
         </div>
       </div>
+
+      <div class="universities-section">
+        <h3 class="universities-title"><span class="brand-italic">ML Studio</span> 的开发者正在/即将就读的高校</h3>
+        <div class="models-marquee" aria-label="高校轮播条">
+          <div class="models-track">
+            <div class="models-list">
+              <div class="university-logo-item"><img class="university-logo ustc" src="./USTC_logo_2008.svg.png" alt="中国科学技术大学"></div>
+              <div class="university-logo-item"><img class="university-logo mbzuai" src="./mbzuai-brand-logo.svg" alt="MBZUAI"></div>
+              <div class="university-logo-item"><img class="university-logo hkustgz" src="./logo-e-blue-2x.png" alt="香港科技大学（广州）"></div>
+              <div class="university-logo-item"><img class="university-logo" src="./Adobe%20Express%20-%20file.png" alt="University of Illinois"></div>
+              <div class="university-logo-item"><img class="university-logo" src="./aa3c134c-29c6-4aaf-9e73-84538de005ab-removebg-preview.png" alt="University of Wisconsin–Madison"></div>
+            </div>
+            <div class="models-list" aria-hidden="true">
+              <div class="university-logo-item"><img class="university-logo ustc" src="./USTC_logo_2008.svg.png" alt="中国科学技术大学"></div>
+              <div class="university-logo-item"><img class="university-logo mbzuai" src="./mbzuai-brand-logo.svg" alt="MBZUAI"></div>
+              <div class="university-logo-item"><img class="university-logo hkustgz" src="./logo-e-blue-2x.png" alt="香港科技大学（广州）"></div>
+              <div class="university-logo-item"><img class="university-logo" src="./Adobe%20Express%20-%20file.png" alt="University of Illinois"></div>
+              <div class="university-logo-item"><img class="university-logo" src="./aa3c134c-29c6-4aaf-9e73-84538de005ab-removebg-preview.png" alt="University of Wisconsin–Madison"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1352,7 +1459,7 @@ validation → out_of_time_split</pre>
                 <circle cx="9" cy="9" r="2" fill="white"/>
               </svg>
             </div>
-            <span class="logo-text brand-italic">Vibe<span>ML</span></span>
+            <span class="logo-text brand-italic">ML<span>Studio</span></span>
           </div>
           <p class="footer-desc">
             原生 AI 全自动机器学习 Agent<br>
@@ -1402,7 +1509,7 @@ validation → out_of_time_split</pre>
       </div>
 
       <div class="footer-bottom">
-        <p class="footer-copyright">© 2026 <span class="brand-italic">VibeML</span>. 保留所有权利。</p>
+        <p class="footer-copyright">© 2026 <span class="brand-italic">ML Studio</span>. 保留所有权利。</p>
       </div>
     </div>
   </footer>
@@ -1421,7 +1528,7 @@ validation → out_of_time_split</pre>
     // Theme toggle
     const root = document.documentElement;
     const themeToggle = document.getElementById('themeToggle');
-    const savedTheme = localStorage.getItem('vibeml-theme');
+    const savedTheme = localStorage.getItem('mlstudio-theme');
 
     if (savedTheme === 'light') {
       root.setAttribute('data-theme', 'light');
@@ -1431,10 +1538,10 @@ validation → out_of_time_split</pre>
       const isLight = root.getAttribute('data-theme') === 'light';
       if (isLight) {
         root.removeAttribute('data-theme');
-        localStorage.setItem('vibeml-theme', 'dark');
+        localStorage.setItem('mlstudio-theme', 'dark');
       } else {
         root.setAttribute('data-theme', 'light');
-        localStorage.setItem('vibeml-theme', 'light');
+        localStorage.setItem('mlstudio-theme', 'light');
       }
     });
 
@@ -1569,14 +1676,27 @@ validation → out_of_time_split</pre>
     let activeCapabilityCard = null;
 
     function closeCapabilityDrawer() {
+      clearCapabilityLeaveCloseTimer();
       capabilityGrid?.classList.remove('has-active');
       capabilityCards.forEach((card) => {
         card.classList.remove('is-selected');
+        card.removeAttribute('data-opened-by-dwell');
         card.setAttribute('aria-expanded', 'false');
         const deck = card.querySelector('.capability-feature-deck');
         if (deck) deck.setAttribute('aria-hidden', 'true');
       });
       activeCapabilityCard = null;
+    }
+
+    const CAPABILITY_DWELL_MS = 0;
+    const CAPABILITY_LEAVE_MS = 0;
+    let capabilityLeaveCloseTimer = null;
+
+    function clearCapabilityLeaveCloseTimer() {
+      if (capabilityLeaveCloseTimer) {
+        clearTimeout(capabilityLeaveCloseTimer);
+        capabilityLeaveCloseTimer = null;
+      }
     }
 
     capabilityCards.forEach((card) => {
@@ -1621,8 +1741,12 @@ validation → out_of_time_split</pre>
 
       renderFeature(0);
 
-      const selectCard = () => {
-        if (activeCapabilityCard === card) return;
+      let dwellTimer = null;
+
+      const selectCard = (fromDwell = false) => {
+        if (activeCapabilityCard === card && card.classList.contains('is-selected')) return;
+
+        capabilityCards.forEach((item) => item.removeAttribute('data-opened-by-dwell'));
 
         capabilityGrid?.classList.add('has-active');
         capabilityCards.forEach((item) => {
@@ -1634,6 +1758,7 @@ validation → out_of_time_split</pre>
         });
 
         activeCapabilityCard = card;
+        if (fromDwell) card.setAttribute('data-opened-by-dwell', 'true');
       };
 
       card.addEventListener('click', () => {
@@ -1641,7 +1766,7 @@ validation → out_of_time_split</pre>
           closeCapabilityDrawer();
           return;
         }
-        selectCard();
+        selectCard(false);
       });
 
       card.addEventListener('keydown', (event) => {
@@ -1650,9 +1775,19 @@ validation → out_of_time_split</pre>
           if (activeCapabilityCard === card) {
             closeCapabilityDrawer();
           } else {
-            selectCard();
+            selectCard(false);
           }
         }
+      });
+
+      card.addEventListener('pointerenter', () => {
+        clearCapabilityLeaveCloseTimer();
+        selectCard(true);
+      });
+
+      card.addEventListener('pointerleave', () => {
+        if (card.getAttribute('data-opened-by-dwell') !== 'true') return;
+        closeCapabilityDrawer();
       });
 
       if (deck) deck.setAttribute('aria-hidden', 'true');
