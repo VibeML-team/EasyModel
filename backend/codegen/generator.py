@@ -255,21 +255,21 @@ class ProgramGenerator:
     def _call_llm(self, prompt: str) -> str:
         """调用LLM生成代码"""
         if self.llm_client:
-            return self.llm_client.generate(prompt)
+            return self.llm_client.chat_completion(
+                messages=[
+                    {"role": "system", "content": "You are an expert machine learning code generator."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+                max_tokens=4000,
+            )
         
         # 模拟LLM调用（实际项目中替换为真实调用）
         raise NotImplementedError("需要提供LLM客户端")
     
     def _parse_response(self, response: str, intent: str) -> GeneratedProgram:
         """解析LLM响应，提取代码文件"""
-        
-        # 提取Python代码块
-        pattern = r'```python\s+(\w+\.py)\s*\n(.*?)```'
-        matches = re.findall(pattern, response, re.DOTALL)
-        
-        files = {}
-        for filename, code in matches:
-            files[filename] = code.strip()
+        files = self._extract_code_files(response)
         
         # 提取YAML
         yaml_pattern = r'```yaml\s*\n(.*?)```|search_space\.yaml:\s*\n(.*?)(?=\n\n|\Z)'
@@ -296,6 +296,56 @@ class ProgramGenerator:
             intent=intent,
             dependencies=deps,
         )
+
+    def _extract_code_files(self, response: str) -> dict[str, str]:
+        """从 LLM 响应中尽量稳健地提取代码文件。"""
+        files: dict[str, str] = {}
+
+        # 1. 首选：```python filename.py
+        named_fence_pattern = r"```python\s+([A-Za-z_][\w-]*\.py)\s*\n(.*?)```"
+        for filename, code in re.findall(named_fence_pattern, response, re.DOTALL):
+            content = code.strip()
+            if content:
+                files[filename] = content
+
+        # 2. 兼容：### filename.py 之后跟 ```python
+        header_fence_pattern = (
+            r"(?:^|\n)(?:#{1,6}\s*)?([A-Za-z_][\w-]*\.py)\s*\n```python\s*\n(.*?)```"
+        )
+        for filename, code in re.findall(header_fence_pattern, response, re.DOTALL):
+            content = code.strip()
+            if content and filename not in files:
+                files[filename] = content
+
+        # 3. 兼容：filename.py: 之后跟 ```python
+        label_fence_pattern = (
+            r"(?:^|\n)([A-Za-z_][\w-]*\.py)\s*:\s*\n```python\s*\n(.*?)```"
+        )
+        for filename, code in re.findall(label_fence_pattern, response, re.DOTALL):
+            content = code.strip()
+            if content and filename not in files:
+                files[filename] = content
+
+        return files
+
+    def _merge_with_existing_program(
+        self,
+        original: GeneratedProgram,
+        updated: GeneratedProgram,
+    ) -> GeneratedProgram:
+        """修复阶段如果 LLM 漏回某些文件，保留原文件而不是清空。"""
+        return GeneratedProgram(
+            model_code=updated.model_code or original.model_code,
+            loss_code=updated.loss_code or original.loss_code,
+            data_pipeline_code=updated.data_pipeline_code or original.data_pipeline_code,
+            train_loop_code=updated.train_loop_code or original.train_loop_code,
+            search_space=updated.search_space or original.search_space,
+            domain=updated.domain or original.domain,
+            intent=updated.intent or original.intent,
+            dependencies=updated.dependencies or original.dependencies,
+            test_cases=updated.test_cases or original.test_cases,
+            config_yaml=updated.config_yaml or original.config_yaml,
+        )
     
     def _extract_dependencies(self, files: dict[str, str]) -> list[str]:
         """从代码中提取依赖包"""
@@ -315,6 +365,16 @@ class ProgramGenerator:
         }
         
         return list(set(all_imports) & third_party)
+
+    def missing_required_files(self, program: GeneratedProgram) -> list[str]:
+        """返回缺失或为空的必需代码文件。"""
+        required = {
+            "model.py": program.model_code,
+            "loss.py": program.loss_code,
+            "data_pipeline.py": program.data_pipeline_code,
+            "train_loop.py": program.train_loop_code,
+        }
+        return [name for name, content in required.items() if not content.strip()]
     
     def fix_code(
         self,
@@ -352,8 +412,20 @@ class ProgramGenerator:
         prompt += f"\n### train_loop.py\n```python\n{program.train_loop_code}\n```\n"
         
         prompt += """
-请输出修复后的完整代码，使用相同的格式。
+请输出修复后的完整代码，必须同时返回以下 4 个非空文件：
+- model.py
+- loss.py
+- data_pipeline.py
+- train_loop.py
+
+如果某个文件无需修改，也必须原样完整返回，绝不能省略。
+推荐格式：
+### model.py
+```python
+...
+```
 """
         
         response = self._call_llm(prompt)
-        return self._parse_response(response, program.intent)
+        repaired = self._parse_response(response, program.intent)
+        return self._merge_with_existing_program(program, repaired)

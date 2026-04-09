@@ -362,7 +362,14 @@ class ReActAnalyzer:
 """
         
         try:
-            response = self.llm_client.generate(prompt)
+            response = self.llm_client.chat_completion(
+                messages=[
+                    {"role": "system", "content": "You are an expert ML optimization analyst."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+                max_tokens=2000,
+            )
             # 提取JSON
             import re
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
@@ -653,7 +660,14 @@ class HybridOptimizer:
         
         # 模拟LLM调用
         if self.llm_client:
-            response = self.llm_client.generate(prompt)
+            response = self.llm_client.chat_completion(
+                messages=[
+                    {"role": "system", "content": "You are an expert ML code optimizer."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+                max_tokens=4000,
+            )
             new_program = generator._parse_response(response, program.intent)
             return new_program
         

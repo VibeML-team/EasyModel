@@ -20,7 +20,9 @@ import pytest
 from starlette.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from backend.main import app
+from backend.main import app, job_manager, CHECKPOINT_DIR
+from backend.data_manager import data_manager
+from backend.trainer import TrainingResult
 
 
 @pytest.fixture
@@ -66,6 +68,32 @@ def test_upload_data(client, sample_data):
     assert data["n_rows"] == 100
     assert data["target_column"] == "churn"
     assert "dataset_id" in data
+
+
+def test_load_dataframe_falls_back_to_raw_uploaded_file(client, sample_data):
+    """当标准化 CSV 不存在时，仍应从数据集目录中的原始上传文件读取。"""
+    csv_buffer = io.BytesIO()
+    sample_data.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+
+    res = client.post(
+        "/api/data/upload",
+        files={"file": ("fallback_test.csv", csv_buffer, "text/csv")},
+        data={"target_hint": "churn"},
+    )
+
+    assert res.status_code == 200
+    dataset_id = res.json()["dataset_id"]
+    spec = data_manager.get_dataset(dataset_id)
+
+    normalized_csv = Path(spec.storage_path) / f"{dataset_id}_data.csv"
+    if normalized_csv.exists():
+        normalized_csv.unlink()
+
+    df = data_manager.load_dataframe(dataset_id)
+    assert not df.empty
+    assert list(df.columns) == list(sample_data.columns)
+    assert len(df) == len(sample_data)
 
 
 def test_compile_intent(client):
@@ -258,6 +286,70 @@ def test_pause_resume_stop(client, sample_data):
     resume_res = client.post(f"/api/training/{job_id}/resume")
     assert resume_res.status_code == 200
     assert resume_res.json()["status"] == "running"
+
+
+def test_download_artifact_uses_real_training_paths_and_generates_metadata(client, sample_data):
+    """下载接口应优先使用真实产物路径，并能按需生成 metadata。"""
+    csv_buffer = io.BytesIO()
+    sample_data.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+
+    upload_res = client.post(
+        "/api/data/upload",
+        files={"file": ("download_test.csv", csv_buffer, "text/csv")},
+        data={"target_hint": "churn"},
+    )
+    dataset_id = upload_res.json()["dataset_id"]
+
+    start_res = client.post(
+        "/api/training/start",
+        json={
+            "objective": "预测用户是否会流失",
+            "dataset_id": dataset_id,
+            "target_column": "churn",
+            "max_training_time": 1,
+            "max_trials": 1,
+        },
+    )
+    job_id = start_res.json()["job_id"]
+    job = job_manager.get(job_id)
+
+    model_path = CHECKPOINT_DIR / f"{job_id}_custom_model.onnx"
+    preprocessor_path = CHECKPOINT_DIR / f"{job_id}_custom_preprocessor.pkl"
+    metadata_path = CHECKPOINT_DIR / f"{job_id}_result.json"
+
+    model_path.write_bytes(b"fake-onnx")
+    preprocessor_path.write_bytes(b"fake-preprocessor")
+    if metadata_path.exists():
+        metadata_path.unlink()
+
+    job.training_result = TrainingResult(
+        job_id=job_id,
+        status="completed",
+        best_model_name="custom_model",
+        best_metric_score=0.91,
+        final_model_path=str(model_path),
+        preprocessor_path=str(preprocessor_path),
+        train_metrics={"accuracy": 0.95},
+        val_metrics={"accuracy": 0.91},
+    )
+    job.status = "completed"
+
+    model_res = client.get(f"/api/training/{job_id}/download/model")
+    assert model_res.status_code == 200
+    assert model_res.content == b"fake-onnx"
+    assert f'filename="{model_path.name}"' in model_res.headers.get("content-disposition", "")
+
+    preprocessor_res = client.get(f"/api/training/{job_id}/download/preprocessor")
+    assert preprocessor_res.status_code == 200
+    assert preprocessor_res.content == b"fake-preprocessor"
+
+    metadata_res = client.get(f"/api/training/{job_id}/download/metadata")
+    assert metadata_res.status_code == 200
+    assert metadata_path.exists()
+    metadata = json.loads(metadata_res.content.decode("utf-8"))
+    assert metadata["job_id"] == job_id
+    assert metadata["best_model_name"] == "custom_model"
     
     # 停止
     stop_res = client.post(f"/api/training/{job_id}/stop")

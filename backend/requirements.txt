@@ -11,6 +11,7 @@ httpx>=0.25.0
 # 数据文件支持
 openpyxl>=3.1.0  # Excel 读写
 py7zr>=0.20.0    # 7Z 压缩包支持
+pyarrow>=14.0.0  # Parquet 读写（HuggingFace 数据集常用格式）
 
 # 可选依赖 - 增强模型支持
 xgboost>=2.0.0

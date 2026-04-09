@@ -32,6 +32,38 @@ from .codegen import (
 from .optimizer import HybridOptimizer, OptimizationResult
 
 
+def _format_qa_failure(stage_results: list[dict[str, Any]] | None) -> str | None:
+    """Extract a compact first-failure summary from QA stage results."""
+    if not stage_results:
+        return None
+
+    for attempt in stage_results:
+        for stage in attempt.get("stages", []):
+            stage_name = stage.get("name", "unknown")
+
+            for result in stage.get("results", []):
+                if result.get("passed", True):
+                    continue
+                for error in result.get("errors", []):
+                    message = error.get("message")
+                    if message:
+                        location = error.get("file") or stage_name
+                        line = error.get("line")
+                        if line:
+                            location = f"{location}:{line}"
+                        return f"{stage_name} failed at {location}: {message}"
+                return f"{stage_name} failed"
+
+            result = stage.get("result")
+            if isinstance(result, dict) and not result.get("passed", True):
+                message = result.get("error_message") or result.get("stack_trace") or result.get("message")
+                if message:
+                    return f"{stage_name} failed: {message}"
+                return f"{stage_name} failed"
+
+    return None
+
+
 @dataclass
 class TrainingJob:
     """训练任务"""
@@ -115,6 +147,7 @@ class MLEngineerAgent:
         time_budget_sec: int = 3600,
         target_metric: str = "val_f1",
         target_threshold: float | None = None,
+        progress_callback=None,
     ) -> dict[str, Any]:
         """
         执行完整训练流程
@@ -142,7 +175,7 @@ class MLEngineerAgent:
         
         try:
             # Stage 1: 代码生成
-            self._log(job, "Stage 1: Generating training program...")
+            self._log(job, "Stage 1: Generating training program...", progress_callback, "generating")
             job.status = "generating"
             
             program = self.generator.generate(
@@ -155,28 +188,32 @@ class MLEngineerAgent:
             # 保存生成的代码
             job_dir = self.output_dir / job_id
             program.save(job_dir / "generated")
-            self._log(job, f"Code generated and saved to {job_dir / 'generated'}")
+            self._log(job, f"Code generated and saved to {job_dir / 'generated'}", progress_callback, "generating")
             
             # Stage 2: QA验证
-            self._log(job, "Stage 2: Running QA pipeline...")
+            self._log(job, "Stage 2: Running QA pipeline...", progress_callback, "validating")
             job.status = "validating"
             
             qa_result = self.qa_pipeline.validate(program, auto_fix=True)
             job.qa_result = qa_result.to_dict()
             
             if not qa_result.passed:
-                self._log(job, f"QA failed after {qa_result.attempts} attempts")
+                summary = _format_qa_failure(qa_result.stage_results)
+                if summary:
+                    self._log(job, f"QA failed after {qa_result.attempts} attempts: {summary}", progress_callback, "validating")
+                else:
+                    self._log(job, f"QA failed after {qa_result.attempts} attempts", progress_callback, "validating")
                 job.status = "failed"
                 return self._build_result(job)
             
             validated_program = qa_result.program
-            self._log(job, f"QA passed in {qa_result.attempts} attempts")
+            self._log(job, f"QA passed in {qa_result.attempts} attempts", progress_callback, "validating")
             
             # 保存验证后的代码
             validated_program.save(job_dir / "validated")
             
             # Stage 3: 优化训练
-            self._log(job, "Stage 3: Starting BO + ReAct optimization...")
+            self._log(job, "Stage 3: Starting BO + ReAct optimization...", progress_callback, "optimizing")
             job.status = "optimizing"
             
             # 更新优化器目标
@@ -201,15 +238,15 @@ class MLEngineerAgent:
                     "best_score": opt_result.best_score,
                     "target_metric": target_metric,
                 }
-                self._log(job, f"Training completed. Best score: {opt_result.best_score:.4f}")
+                self._log(job, f"Training completed. Best score: {opt_result.best_score:.4f}", progress_callback, "completed")
             
             return self._build_result(job)
             
         except Exception as e:
             job.status = "failed"
-            self._log(job, f"Error: {str(e)}")
+            self._log(job, f"Error: {str(e)}", progress_callback, "failed")
             import traceback
-            self._log(job, traceback.format_exc())
+            self._log(job, traceback.format_exc(), progress_callback, "failed")
             return self._build_result(job)
     
     def get_job_status(self, job_id: str) -> dict[str, Any]:
@@ -227,12 +264,19 @@ class MLEngineerAgent:
             "logs": job.logs[-20:] if job.logs else [],  # 最后20条日志
         }
     
-    def _log(self, job: TrainingJob, message: str):
+    def _log(self, job: TrainingJob, message: str, progress_callback=None, stage: str | None = None):
         """记录日志"""
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         log_entry = f"[{timestamp}] {message}"
         job.logs.append(log_entry)
         print(log_entry)
+        if progress_callback:
+            progress_callback({
+                "step": "agentic_log",
+                "agent_stage": stage or job.status,
+                "message": message,
+                "log_entry": log_entry,
+            })
     
     def _build_result(self, job: TrainingJob) -> dict[str, Any]:
         """构建返回结果"""
@@ -250,6 +294,8 @@ class MLEngineerAgent:
                 "passed": job.qa_result.get("passed"),
                 "attempts": job.qa_result.get("attempts"),
                 "duration_ms": job.qa_result.get("total_duration_ms"),
+                "stage_results": job.qa_result.get("stage_results", []),
+                "failure_summary": _format_qa_failure(job.qa_result.get("stage_results")),
             }
         
         if job.optimization_result:
@@ -280,6 +326,7 @@ def quick_train(
     intent: str,
     domain: str = "general",
     llm_client=None,
+    progress_callback=None,
     **kwargs
 ) -> dict[str, Any]:
     """
@@ -296,5 +343,6 @@ def quick_train(
     return agent.train(
         intent=intent,
         domain=domain,
+        progress_callback=progress_callback,
         **kwargs
     )

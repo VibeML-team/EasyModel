@@ -753,6 +753,33 @@
     .metric-value.emerald { color: var(--emerald-300); }
     .metric-value.rose { color: var(--rose-400); }
 
+    .agent-log-box {
+      margin-top: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .agent-log-title {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .agent-log-content {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
     .pause-notice {
       margin-top: 16px;
       padding: 14px;
@@ -1229,10 +1256,14 @@
       line-height: 1;
     }
 
-    /* Developer 模式：所有技术细节默认展开 */
+    /* Developer 模式：所有技术细节默认展开 + 思考过程可见 */
     body.mode-developer .tech-details { display: block !important; }
     body.mode-developer .tech-section-body { display: block !important; }
     body.mode-developer .tech-toggle { display: none; }
+
+    /* User 模式下隐藏思考过程 */
+    body.mode-user [id$="-tokens"] { display: none !important; }
+    body.mode-user [id$="-wrap"] .agent-feed { display: none !important; }
 
     /* User 模式（默认）：技术细节全部收起 */
     body.mode-user .tech-details { display: none; }
@@ -1617,6 +1648,8 @@
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
+    const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB per chunk
+
     async function uploadFile(file) {
       // Manus 风格：创建一条 Agent 活动消息，实时更新
       const feedId = 'agent-feed-' + Date.now();
@@ -1629,6 +1662,12 @@
           </div>
         </div>
       `);
+
+      // 大文件（>50MB）走分块上传
+      if (file.size > 50 * 1024 * 1024) {
+        await chunkedUpload(file, feedId);
+        return;
+      }
 
       const formData = new FormData();
       formData.append('file', file);
@@ -1799,6 +1838,89 @@
       html += `<p style="margin-top: 16px;">现在请描述你的<strong>业务目标和约束</strong>，我会结合数据生成个性化训练方案。</p>`;
 
       if (html) addMessage('assistant', html);
+    }
+
+    async function chunkedUpload(file, feedId) {
+      const feed = document.getElementById(feedId);
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      
+      try {
+        // Step 1: 初始化
+        appendAgentStep(feed, '', `📤 大文件分块上传 (${totalChunks} 块 × ${formatFileSize(CHUNK_SIZE)})`, '');
+        
+        const initResp = await fetch(`${API}/data/upload-init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            total_size: file.size,
+            total_chunks: totalChunks,
+          })
+        });
+        const initData = await initResp.json();
+        const uploadId = initData.upload_id;
+        
+        // Step 2: 逐块上传
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
+          
+          const chunkForm = new FormData();
+          chunkForm.append('upload_id', uploadId);
+          chunkForm.append('chunk_index', i.toString());
+          chunkForm.append('chunk', chunk, `chunk_${i}`);
+          
+          const chunkResp = await fetch(`${API}/data/upload-chunk`, {
+            method: 'POST',
+            body: chunkForm,
+          });
+          
+          if (!chunkResp.ok) {
+            throw new Error(`Chunk ${i} failed: HTTP ${chunkResp.status}`);
+          }
+          
+          // 每 5 块更新一次进度
+          if (i % 5 === 0 || i === totalChunks - 1) {
+            const pct = Math.round(((i + 1) / totalChunks) * 100);
+            appendAgentStep(feed, '', `📦 上传进度: ${pct}% (${i + 1}/${totalChunks})`, '');
+          }
+        }
+        
+        // Step 3: 完成 → 触发服务端处理
+        appendAgentStep(feed, '', '✅ 上传完成，正在处理...', 'thinking');
+        
+        const completeForm = new FormData();
+        completeForm.append('upload_id', uploadId);
+        
+        const completeResp = await fetch(`${API}/data/upload-complete`, {
+          method: 'POST',
+          body: completeForm,
+        });
+        
+        const data = await completeResp.json();
+        hideLoading();
+        
+        if (data.success || data.dataset_id) {
+          currentDatasetId = data.dataset_id;
+          
+          // 移除 spinners
+          feed.querySelectorAll('.agent-spinner').forEach(s => {
+            s.parentElement.innerHTML = '✅';
+          });
+          
+          appendAgentStep(feed, '✅', `文件处理完成 (${data.data_type || '未知类型'}, ${data.file_scan?.total_files || '?'} 个文件)`, 'done');
+          
+          // 触发 AI Agent 探索
+          addMessage('assistant', '<p>🧠 正在启动 AI Agent 探索数据集...</p>');
+          await exploreDataset(data.dataset_id);
+        } else {
+          throw new Error(data.detail || '处理失败');
+        }
+      } catch (e) {
+        hideLoading();
+        appendAgentStep(feed, '❌', `分块上传失败: ${e.message}`, 'error');
+      }
     }
 
     async function uploadFileFallback(file) {
@@ -1984,6 +2106,84 @@
 
     // ===== 公开数据集搜索 + 合成数据 =====
 
+    async function agentFindData() {
+      // 从对话中提取用户目标
+      let userGoal = '';
+      document.querySelectorAll('.message').forEach(m => {
+        const author = m.querySelector('.message-author');
+        const text = m.querySelector('.message-text');
+        if (author && author.textContent === 'You' && text) {
+          const t = text.textContent.trim();
+          if (t.length > 5 && !t.startsWith('我准备了') && !t.startsWith('使用公开')) userGoal = t;
+        }
+      });
+
+      if (!userGoal) {
+        addMessage('assistant', '<p>请先描述你想做什么（例如"训练一个 MNIST 分类模型"），Agent 会自动获取数据。</p>');
+        return;
+      }
+
+      const feedId = 'agent-find-' + Date.now();
+      addMessage('assistant', `
+        <p>🤖 <strong>Agent 正在自动获取数据...</strong></p>
+        <div class="agent-feed" id="${feedId}">
+          <div class="agent-step thinking">
+            <span class="step-icon"><span class="agent-spinner"></span></span>
+            <span class="step-text">启动 Agent: ${userGoal.slice(0, 60)}...</span>
+          </div>
+        </div>
+      `);
+
+      try {
+        // Step 1: 启动 Agent（立即返回 task_id）
+        const startResp = await fetch(`${API}/data/agent-find`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_goal: userGoal }),
+        });
+        const startData = await startResp.json();
+
+        if (!startData.task_id) {
+          throw new Error(startData.detail || '启动 Agent 失败');
+        }
+
+        // Step 2: 轮询获取 Agent 进度（比 SSE 更可靠，不受代理超时影响）
+        pollAgentStatus(startData.task_id, feedId);
+
+      } catch (e) {
+        const feed = document.getElementById(feedId);
+        if (feed) appendAgentStep(feed, '❌', `启动 Agent 失败: ${e.message}`, 'error');
+      }
+    }
+
+    function pollAgentStatus(taskId, feedId) {
+      let logSince = 0;
+      const poll = setInterval(async () => {
+        try {
+          const resp = await fetch(`${API}/data/agent-status/${taskId}?since=${logSince}`);
+          const st = await resp.json();
+          const feed = document.getElementById(feedId);
+          if (!feed) { clearInterval(poll); return; }
+          for (const log of (st.new_logs || [])) {
+            if (log.step === 'action') appendAgentStep(feed, '', log.message, 'action');
+            else if (log.step === 'observe') appendAgentStep(feed, '', log.message, 'observation');
+            else appendAgentStep(feed, '', log.message, log.step === 'think' ? 'thinking' : '');
+          }
+          logSince = st.log_total;
+          if (st.status === 'completed') {
+            clearInterval(poll);
+            feed.querySelectorAll('.agent-spinner').forEach(s => s.parentElement.innerHTML = '✅');
+            appendAgentStep(feed, '✅', 'Agent 完成', 'done');
+            currentDatasetId = st.dataset_id;
+            if (st.result?.exploration) showDataExplorationFromStream(st.result);
+          } else if (st.status === 'failed') {
+            clearInterval(poll);
+            appendAgentStep(feed, '❌', st.error || '失败', 'error');
+          }
+        } catch (e) { /* retry */ }
+      }, 2500);
+    }
+
     async function searchPublicDatasets() {
       showLoading();
       addMessage('assistant', '<p>🔍 正在搜索匹配你需求的公开数据集...</p>');
@@ -2120,14 +2320,18 @@
 
         if (data.success || data.dataset_id) {
           currentDatasetId = data.dataset_id;
-          addMessage('assistant', `<p>📂 公开数据集已导入（${data.n_rows} 行 × ${data.n_cols} 列），正在分析...</p>`);
+          if (data.data_type && data.data_type !== 'unknown') {
+            addMessage('assistant', `<p>📂 数据集已导入（${data.data_type}），正在让 Agent 分析...</p>`);
+          } else {
+            addMessage('assistant', `<p>📂 文件已下载，正在让 Agent 探索数据格式...</p>`);
+          }
           await exploreDataset(data.dataset_id);
         } else {
           throw new Error(data.detail || '下载失败');
         }
       } catch (e) {
         hideLoading();
-        addMessage('assistant', `<p>❌ 数据集下载失败: ${e.message}</p><p style="font-size: 12px; color: var(--text-secondary);">提示：部分数据集需要特殊格式处理，你可以手动从 HuggingFace 下载后上传。</p>`);
+        addMessage('assistant', `<p>⚠️ 下载遇到问题: ${e.message}</p><p style="font-size: 12px; color: var(--text-secondary);">正在尝试其他方式...</p>`);
       }
     }
 
@@ -2248,8 +2452,8 @@
       isWaitingResponse = true;
 
       try {
-        // Use the legacy API for now
-        const response = await fetch(`${API}/intent/clarify`, {
+        // Step 1: 启动流式方案生成
+        const startResp = await fetch(`${API}/intent/clarify-start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2261,19 +2465,172 @@
             dataset_id: currentDatasetId
           })
         });
+        const startData = await startResp.json();
 
-        const data = await response.json();
-
-        hideLoading();
-
-        if (data.is_ambiguous) {
-          showClarification(data);
-        } else {
-          showSetupCards(data);
+        if (!startData.task_id) {
+          // 回退到同步版本
+          throw new Error('fallback');
         }
+
+        // Step 2: 轮询方案生成进度（思考过程实时更新）
+        hideLoading();
+        const thinkingId = 'think-' + Date.now();
+        addMessage('assistant', `
+          <div id="${thinkingId}-wrap">
+            <div class="agent-feed" id="${thinkingId}" style="margin-bottom: 12px;">
+              <div class="agent-step thinking">
+                <span class="step-icon"><span class="agent-spinner"></span></span>
+                <span class="step-text">🧠 正在思考训练方案...</span>
+              </div>
+            </div>
+            <div id="${thinkingId}-tokens" style="font-size: 13px; color: var(--text-secondary); padding: 12px 16px; background: rgba(139,92,246,0.05); border-radius: 8px; border-left: 3px solid var(--violet-500); max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-family: 'Inter', sans-serif; line-height: 1.6; display: none;"></div>
+          </div>
+        `);
+
+        // 轮询思考进度
+        const planTaskId = startData.task_id;
+        const planPoll = setInterval(async () => {
+          try {
+            const stResp = await fetch(`${API}/data/agent-status/${planTaskId}?since=0`);
+            // 这个端点复用不了，用专门的 clarify-stream 轮询
+          } catch (e) {}
+        }, 1500);
+
+        // 用 clarify-status 轮询（复用 agent-status 的模式）
+        let lastThinkLen = 0;
+        const thinkPoll = setInterval(async () => {
+          try {
+            const resp = await fetch(`${API}/intent/clarify-stream/${planTaskId}`);
+            // SSE 流式读取（不阻塞，读到什么就显示什么）
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '';
+            
+            const readChunk = async () => {
+              const { done, value } = await reader.read();
+              if (done) return;
+              buf += decoder.decode(value, { stream: true });
+              const lines = buf.split('\n');
+              buf = lines.pop();
+              
+              for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                try {
+                  const evt = JSON.parse(line.slice(6));
+                  if (evt.step === 'heartbeat') continue;
+                  
+                  if (evt.step === 'thinking' && evt.token) {
+                    const tokensDiv = document.getElementById(thinkingId + '-tokens');
+                    if (tokensDiv) {
+                      tokensDiv.style.display = 'block';
+                      tokensDiv.textContent += evt.token;
+                      tokensDiv.scrollTop = tokensDiv.scrollHeight;
+                      const messages = document.getElementById('messages');
+                      if (messages) messages.scrollTop = messages.scrollHeight;
+                    }
+                  } else if (evt.step === 'result' && evt.done) {
+                    clearInterval(thinkPoll);
+                    clearInterval(planPoll);
+                    const feed = document.getElementById(thinkingId);
+                    if (feed) {
+                      feed.querySelectorAll('.agent-spinner').forEach(s => s.parentElement.innerHTML = '✅');
+                      if (currentMode === 'user') {
+                        const wrap = document.getElementById(thinkingId + '-wrap');
+                        if (wrap) wrap.style.display = 'none';
+                      }
+                    }
+                    if (evt.plan) showSetupCards({ personalized_plan: evt.plan });
+                    isWaitingResponse = false;
+                    reader.cancel();
+                    return;
+                  } else if (evt.step === 'error' && evt.done) {
+                    clearInterval(thinkPoll);
+                    clearInterval(planPoll);
+                    const feed = document.getElementById(thinkingId);
+                    if (feed) appendAgentStep(feed, '❌', evt.message, 'error');
+                    isWaitingResponse = false;
+                    reader.cancel();
+                    return;
+                  }
+                } catch (pe) {}
+              }
+              // 继续读
+              readChunk();
+            };
+            readChunk();
+          } catch (e) {}
+        }, 100); // 只启动一次 SSE 连接
+
+        // 实际上只需要一次 SSE 连接，清理多余的 interval
+        clearInterval(planPoll);
+        clearInterval(thinkPoll);
+
+        // 直接发起一次 SSE 连接
+        try {
+          const streamResp = await fetch(`${API}/intent/clarify-stream/${planTaskId}`);
+          const reader2 = streamResp.body.getReader();
+          const decoder2 = new TextDecoder();
+          let buffer2 = '';
+
+          while (true) {
+            const { done, value } = await reader2.read();
+            if (done) break;
+            buffer2 += decoder2.decode(value, { stream: true });
+            const lines = buffer2.split('\n');
+            buffer2 = lines.pop();
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              try {
+                const evt = JSON.parse(line.slice(6));
+                if (evt.step === 'heartbeat') continue;
+
+                if (evt.step === 'thinking' && evt.token) {
+                  const tokensDiv = document.getElementById(thinkingId + '-tokens');
+                  if (tokensDiv) {
+                    tokensDiv.style.display = 'block';
+                    tokensDiv.textContent += evt.token;
+                    tokensDiv.scrollTop = tokensDiv.scrollHeight;
+                  }
+                } else if (evt.step === 'result' && evt.done) {
+                  const feed = document.getElementById(thinkingId);
+                  if (feed) {
+                    feed.querySelectorAll('.agent-spinner').forEach(s => s.parentElement.innerHTML = '✅');
+                    if (currentMode === 'user') {
+                      const wrap = document.getElementById(thinkingId + '-wrap');
+                      if (wrap) wrap.style.display = 'none';
+                    }
+                  }
+                  if (evt.plan) showSetupCards({ personalized_plan: evt.plan });
+                  break;
+                } else if (evt.step === 'error') {
+                  const feed = document.getElementById(thinkingId);
+                  if (feed) appendAgentStep(feed, '❌', evt.message, 'error');
+                  if (evt.done) break;
+                }
+              } catch (pe) {}
+            }
+          }
+        } catch (streamErr) {
+          // SSE 失败 → 回退到同步
+          try {
+            const resp2 = await fetch(`${API}/intent/clarify`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_goal: text, must_keep: [], can_change: [], worst_errors: [], priority: 'quality', dataset_id: currentDatasetId })
+            });
+            const data2 = await resp2.json();
+            if (data2.personalized_plan) showSetupCards(data2);
+          } catch (e2) {
+            addMessage('assistant', `<p>❌ 方案生成失败: ${e2.message}</p>`);
+          }
+        }
+
+        isWaitingResponse = false;
+
       } catch (e) {
         hideLoading();
-        addMessage('assistant', `<p>❌ 处理失败: ${e.message}</p>`);
+        isWaitingResponse = false;
+        addMessage('assistant', `<p>❌ 启动失败: ${e.message}</p>`);
       }
 
       isWaitingResponse = false;
@@ -2439,25 +2796,17 @@
 
     async function confirmAndStartTraining() {
       if (!currentDatasetId) {
-        // 没有数据 → 帮用户找数据或生成数据
+        // 没有数据 → 启动 Agent 自己去获取数据
         addMessage('assistant', `
-          <p>📭 你还没有提供训练数据。别担心，我可以帮你：</p>
+          <p>📭 还没有数据。Agent 会自动帮你找到合适的数据集。</p>
           <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
-            <button class="confirm-btn" onclick="searchPublicDatasets()" style="background: var(--blue-500);">
-              <span>🔍</span>
-              <span>搜索公开数据集（HuggingFace / GitHub / Kaggle）</span>
-            </button>
-            <button class="confirm-btn" onclick="generateSyntheticData()" style="background: var(--emerald-500);">
-              <span>🧪</span>
-              <span>用 AI 生成合成训练数据（快速原型验证）</span>
+            <button class="confirm-btn" onclick="agentFindData()" style="background: var(--violet-600);">
+              <span>🤖</span>
+              <span>让 Agent 自动获取数据</span>
             </button>
             <button class="confirm-btn" onclick="document.getElementById('fileInput').click()" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border);">
               <span>📎</span>
-              <span>上传本地文件</span>
-            </button>
-            <button class="confirm-btn" onclick="promptLinkImport()" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border);">
-              <span>🔗</span>
-              <span>通过链接导入（Google Drive / Sheets）</span>
+              <span>我自己上传</span>
             </button>
           </div>
         `);
@@ -2527,6 +2876,10 @@
                     <div class="metric-value rose" id="fnWeight">Auto 调优中: 5.0x</div>
                   </div>
                 </div>
+                <div class="agent-log-box">
+                  <div class="agent-log-title">执行过程</div>
+                  <div class="agent-log-content" id="agentLogs">等待 Agent 输出执行日志...</div>
+                </div>
                 <div id="pauseNotice" class="pause-notice hidden">
                   <span class="pause-notice-text">训练已暂停。您可以检查中间 Checkpoint 偏差，或重新调整损失函数惩罚比。</span>
                   <button class="checkpoint-btn" onclick="downloadCheckpoint()">
@@ -2580,98 +2933,201 @@
       }
     }
 
-    function downloadCheckpoint() {
+    async function downloadCheckpoint() {
       const epoch = window.currentEpoch || 0;
       addMessage('assistant', `<p>📥 正在准备 Checkpoint Epoch ${epoch} 下载...</p>`);
-      // In real implementation, this would trigger a download
+      if (!currentJobId) return;
+
+      try {
+        const resp = await fetch(`${API}/training/${currentJobId}/checkpoints`);
+        const data = await resp.json().catch(() => ({}));
+
+        if (!resp.ok) {
+          throw new Error(data.detail || `HTTP ${resp.status}`);
+        }
+
+        const checkpoints = Array.isArray(data.checkpoints) ? data.checkpoints : [];
+        const modelCheckpoint = checkpoints.find(item => item.type === 'model');
+
+        if (!modelCheckpoint) {
+          addMessage('assistant', `<p>⚠️ 当前训练流程还没有可下载的中间模型权重。这个入口只会在后端实际产出 checkpoint 后才可用。</p>`);
+          return;
+        }
+
+        await downloadArtifact(currentJobId, 'model');
+      } catch (e) {
+        addMessage('assistant', `<p>❌ Checkpoint 下载失败: ${e.message}</p>`);
+      }
+    }
+
+    async function downloadArtifact(jobId, fileType) {
+      const url = `${API}/training/${jobId}/download/${fileType}`;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          addMessage('assistant', `<p>❌ 下载失败: ${err.detail || `HTTP ${resp.status}`}</p>`);
+          return;
+        }
+        // 触发浏览器下载
+        const blob = await resp.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const contentDisposition = resp.headers.get('Content-Disposition') || '';
+        const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+        const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+        const serverFilename = utf8Match
+          ? decodeURIComponent(utf8Match[1])
+          : (plainMatch ? plainMatch[1] : '');
+        const nameMap = { model: `${jobId}_model.pkl`, preprocessor: `${jobId}_preprocessor.pkl`, metadata: `${jobId}_result.json` };
+        a.download = serverFilename || nameMap[fileType] || `${jobId}_${fileType}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      } catch (e) {
+        addMessage('assistant', `<p>❌ 下载失败: ${e.message}</p>`);
+      }
     }
 
     function startProgressPolling(jobId) {
-      const pollInterval = setInterval(() => {
-        // Simulated progress update for demo
+      if (window.trainingPollInterval) clearInterval(window.trainingPollInterval);
+
+      const poll = async () => {
         if (window.trainingPaused) return;
 
-        window.currentEpoch = (window.currentEpoch || 0) + Math.floor(Math.random() * 3) + 1;
-        if (window.currentEpoch > 100) window.currentEpoch = 100;
+        try {
+          const response = await fetch(`${API}/training/${jobId}`);
+          const data = await response.json();
 
-        const epoch = window.currentEpoch;
-        const valRecall = (0.4 + (epoch / 100) * 0.52).toFixed(3);
-        const progress = epoch;
+          if (!response.ok) {
+            throw new Error(data.detail || `HTTP ${response.status}`);
+          }
 
-        const epochNum = document.getElementById('epochNum');
-        const valRecallEl = document.getElementById('valRecall');
-        const progressFill = document.getElementById('progressFill');
-        const actionConstraint = document.getElementById('actionConstraint');
-        const fnWeight = document.getElementById('fnWeight');
-        const checkpointEpoch = document.getElementById('checkpointEpoch');
+          const progress = Math.max(0, Math.min(100, Number(data.progress || 0)));
+          const progressFill = document.getElementById('progressFill');
+          const epochNum = document.getElementById('epochNum');
+          const valRecallEl = document.getElementById('valRecall');
+          const actionConstraint = document.getElementById('actionConstraint');
+          const fnWeight = document.getElementById('fnWeight');
+          const checkpointEpoch = document.getElementById('checkpointEpoch');
+          const agentLogs = document.getElementById('agentLogs');
 
-        if (epochNum) epochNum.textContent = epoch;
-        if (valRecallEl) valRecallEl.textContent = `val_recall: ${valRecall}`;
-        if (progressFill) progressFill.style.width = `${progress}%`;
-        if (actionConstraint) actionConstraint.textContent = `${Math.floor(epoch * 4.9)} / 500`;
-        if (fnWeight) fnWeight.textContent = `Auto 调优中: 5.${Math.floor(epoch / 10)}x`;
-        if (checkpointEpoch) checkpointEpoch.textContent = epoch;
+          if (progressFill) progressFill.style.width = `${progress}%`;
+          if (epochNum) epochNum.textContent = Math.round(progress);
+          if (valRecallEl) {
+            const bestScore = typeof data.best_score === 'number'
+              ? data.best_score.toFixed(4)
+              : '--';
+            valRecallEl.textContent = `${data.current_step || 'training'} · best_score: ${bestScore}`;
+          }
+          if (actionConstraint) actionConstraint.textContent = data.message || '训练中...';
+          if (fnWeight) fnWeight.textContent = `状态: ${data.status || 'running'}`;
+          if (checkpointEpoch) checkpointEpoch.textContent = Math.round(progress);
+          if (agentLogs) {
+            const logs = Array.isArray(data.recent_logs) ? data.recent_logs : [];
+            agentLogs.textContent = logs.length ? logs.join('\n') : (data.message || '等待 Agent 输出执行日志...');
+            agentLogs.scrollTop = agentLogs.scrollHeight;
+          }
 
-        if (epoch >= 100) {
-          clearInterval(pollInterval);
-          showTrainingComplete(jobId);
+          if (data.status === 'completed') {
+            clearInterval(window.trainingPollInterval);
+            window.trainingPollInterval = null;
+            await showTrainingComplete(jobId);
+            return;
+          }
+
+          if (data.status === 'failed' || data.status === 'stopped') {
+            clearInterval(window.trainingPollInterval);
+            window.trainingPollInterval = null;
+            const rawError = data.error_message || data.message || data.status;
+            addMessage('assistant', `<p>❌ ${rawError}</p>`);
+          }
+        } catch (e) {
+          clearInterval(window.trainingPollInterval);
+          window.trainingPollInterval = null;
+          addMessage('assistant', `<p>❌ 获取训练状态失败: ${e.message}</p>`);
         }
-      }, 400);
+      };
+
+      poll();
+      window.trainingPollInterval = setInterval(poll, 2000);
     }
 
     async function showTrainingComplete(jobId) {
-      // Show Evaluation Card instead of simple result
-      let html = `
-        <p>🎉 训练已跑完全部 Epoch。请验收最终定版：</p>
-        <div class="evaluation-card" id="evaluationCard">
-          <div class="evaluation-card-header">
-            <span style="font-size: 16px;">✅</span>
-            <span>验收与权重定版</span>
-          </div>
-          <div class="evaluation-card-body">
-            <div class="checkpoint-list">
-              <div class="checkpoint-item selected" onclick="selectCheckpoint(this)">
-                <div class="checkpoint-info">
-                  <div class="checkpoint-name"><strong>Checkpoint 85 (最优)</strong></div>
-                  <div class="checkpoint-desc">满足预算下的全局最优解</div>
-                </div>
-                <div class="checkpoint-metrics">
-                  <div class="checkpoint-score">召回率 92.1%</div>
-                  <div class="checkpoint-score-sub">误报率极低</div>
-                </div>
+      try {
+        const [statusResp, checkpointsResp] = await Promise.all([
+          fetch(`${API}/training/${jobId}`),
+          fetch(`${API}/training/${jobId}/checkpoints`)
+        ]);
+
+        const statusData = await statusResp.json().catch(() => ({}));
+        const checkpointsData = await checkpointsResp.json().catch(() => ({}));
+
+        if (!statusResp.ok) {
+          throw new Error(statusData.detail || `HTTP ${statusResp.status}`);
+        }
+        if (!checkpointsResp.ok) {
+          throw new Error(checkpointsData.detail || `HTTP ${checkpointsResp.status}`);
+        }
+
+        const checkpoints = Array.isArray(checkpointsData.checkpoints) ? checkpointsData.checkpoints : [];
+        const available = new Set(checkpoints.map(item => item.type));
+        const bestScore = typeof statusData.best_score === 'number'
+          ? statusData.best_score.toFixed(4)
+          : '--';
+
+        let downloadButtons = '';
+        if (available.has('model')) {
+          downloadButtons += `<button class="header-btn primary" onclick="downloadArtifact('${jobId}', 'model')">⬇️ 模型权重</button>`;
+        }
+        if (available.has('preprocessor')) {
+          downloadButtons += `<button class="header-btn" onclick="downloadArtifact('${jobId}', 'preprocessor')">⬇️ 预处理器</button>`;
+        }
+        if (available.has('metadata')) {
+          downloadButtons += `<button class="header-btn" onclick="downloadArtifact('${jobId}', 'metadata')">⬇️ 元数据</button>`;
+        }
+
+        const artifactNote = downloadButtons
+          ? `
+            <p style="margin-top: 12px;">已确认可下载的模型产物：</p>
+            <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+              ${downloadButtons}
+            </div>
+          `
+          : `<p style="margin-top: 12px; color: var(--rose-400);">⚠️ 后端尚未找到可下载产物，请稍后重试或检查训练日志。</p>`;
+
+        addMessage('assistant', `
+          <p>✅ 训练已完成，后端状态已确认。</p>
+          <div class="card card-emerald">
+            <div class="card-header" style="color: var(--emerald-400);">
+              <span>🚀</span>
+              <span>训练结果</span>
+            </div>
+            <div style="padding: 0 4px;">
+              <div class="setup-row">
+                <span class="setup-label">任务 ID</span>
+                <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">${jobId}</code>
               </div>
-              <div class="checkpoint-item" onclick="selectCheckpoint(this)">
-                <div class="checkpoint-info">
-                  <div class="checkpoint-name">Checkpoint 100 (最新)</div>
-                  <div class="checkpoint-desc">对长尾样本泛化更好</div>
-                </div>
-                <div class="checkpoint-metrics">
-                  <div class="checkpoint-score">召回率 89.4%</div>
-                  <div class="checkpoint-score-sub">超出预算 2%</div>
-                </div>
+              <div class="setup-row">
+                <span class="setup-label">训练状态</span>
+                <span>${statusData.status || 'completed'}</span>
+              </div>
+              <div class="setup-row">
+                <span class="setup-label">最佳得分</span>
+                <span>${bestScore}</span>
+              </div>
+              <div class="setup-row">
+                <span class="setup-label">预测接口</span>
+                <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">POST /api/predict/${jobId}</code>
               </div>
             </div>
-
-            <div class="evaluation-summary">
-              系统建议选择 <strong>Checkpoint 85</strong>。该权重已完美满足您"单日最多干预500人"的硬约束，同时对高价值流失客户的召回达到了验收标准。
-            </div>
-
-            <div class="evaluation-actions">
-              <button class="action-btn primary" onclick="finalizeModel('${jobId}')">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 10l-4-4-4 4M6 6l-4 4 4 4"/>
-                </svg>
-                选择定版并生成部署 API
-              </button>
-              <button class="action-btn secondary" onclick="restartTraining()">
-                退回重练
-              </button>
-            </div>
           </div>
-        </div>
-      `;
-
-      addMessage('assistant', html);
+          ${artifactNote}
+        `);
+      } catch (e) {
+        addMessage('assistant', `<p>❌ 读取训练产物失败: ${e.message}</p>`);
+      }
     }
 
     function selectCheckpoint(el) {
@@ -2681,36 +3137,8 @@
       el.classList.add('selected');
     }
 
-    function finalizeModel(jobId) {
-      addMessage('assistant', `
-        <p>✅ 模型已定版！正在生成部署 API...</p>
-        <div class="card card-emerald">
-          <div class="card-header" style="color: var(--emerald-400);">
-            <span>🚀</span>
-            <span>部署就绪</span>
-          </div>
-          <div style="padding: 0 4px;">
-            <div class="setup-row">
-              <span class="setup-label">API Endpoint</span>
-              <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">POST /api/predict/${jobId}</code>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">模型格式</span>
-              <span>ONNX / Pickle</span>
-            </div>
-            <div class="setup-row">
-              <span class="setup-label">预估延迟</span>
-              <span class="setup-value emerald">< 50ms</span>
-            </div>
-          </div>
-        </div>
-        <p style="margin-top: 12px;">下载模型产物：</p>
-        <div style="display: flex; gap: 8px; margin-top: 8px;">
-          <a href="${API}/training/${jobId}/download/model" class="header-btn primary" download>⬇️ 模型权重</a>
-          <a href="${API}/training/${jobId}/download/preprocessor" class="header-btn" download>⬇️ 预处理器</a>
-          <a href="${API}/training/${jobId}/download/metadata" class="header-btn" download>⬇️ 元数据</a>
-        </div>
-      `);
+    async function finalizeModel(jobId) {
+      await showTrainingComplete(jobId);
     }
 
     function restartTraining() {
