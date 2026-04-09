@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeML · 模型详情</title>
+  <title>ML Studio · 模型详情</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <style>
     @font-face {
@@ -595,7 +595,7 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 $J(\pi)=\math
 
     const root = document.documentElement;
     const themeToggle = document.getElementById('themeToggle');
-    const savedTheme = localStorage.getItem('vibeml-theme');
+    const savedTheme = localStorage.getItem('mlstudio-theme');
 
     if (savedTheme === 'light') {
       root.setAttribute('data-theme', 'light');
@@ -605,10 +605,10 @@ SAC：基于最大熵强化学习，在奖励目标中加入熵项 $J(\pi)=\math
       const isLight = root.getAttribute('data-theme') === 'light';
       if (isLight) {
         root.removeAttribute('data-theme');
-        localStorage.setItem('vibeml-theme', 'dark');
+        localStorage.setItem('mlstudio-theme', 'dark');
       } else {
         root.setAttribute('data-theme', 'light');
-        localStorage.setItem('vibeml-theme', 'light');
+        localStorage.setItem('mlstudio-theme', 'light');
       }
     });
   </script>
