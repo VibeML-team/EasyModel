@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VibeML Agent - 全自动炼丹平台</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     @font-face {
       font-family: "Avenir Next LT Pro";
@@ -22,45 +25,60 @@
     }
     :root {
       color-scheme: dark light;
-      /* Figma Design System - Aligned with VibeML Brand */
+      --bg-primary: #03070a;
+      --bg-secondary: #08110f;
+      --bg-tertiary: #0d1916;
+      --bg: var(--bg-primary);
       --primary: #10ca90;
-      --primary-hover: #0db37f;
+      --primary-hover: #47f5b7;
       --success: #57f8c2;
       --warning: #fbbf24;
       --error: #fb7185;
-      --bg: #03070a;
       --card-bg: #0d1916;
-      --border: rgba(136, 255, 216, 0.16);
+      --border-soft: rgba(136, 255, 216, 0.16);
       --border-strong: rgba(136, 255, 216, 0.34);
+      --border: var(--border-soft);
       --text-primary: #f4fff9;
       --text-secondary: #70958a;
       --violet-400: #9dffe0;
       --violet-500: #47f5b7;
       --violet-600: #10ca90;
+      --blue-400: #d4fff2;
       --blue-500: #84ffd5;
       --cyan-400: #7cf6e4;
+      --cyan-500: #42e6d2;
       --emerald-400: #57f8c2;
+      --emerald-500: #1fd79d;
+      --gray-700: #334943;
+      --white: #f4fff9;
       --surface-glass: rgba(14, 31, 26, 0.58);
       --surface-glass-strong: rgba(10, 24, 20, 0.78);
     }
     [data-theme="light"] {
+      --bg-primary: #f5f9f7;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f0f6f3;
+      --bg: var(--bg-primary);
       --primary: #059d6f;
       --primary-hover: #048a61;
       --success: #049f70;
       --warning: #d97706;
       --error: #dc2626;
-      --bg: #f5f9f7;
       --card-bg: rgba(255, 255, 255, 0.88);
-      --border: rgba(4, 138, 97, 0.16);
+      --border-soft: rgba(4, 138, 97, 0.16);
       --border-strong: rgba(4, 138, 97, 0.3);
+      --border: var(--border-soft);
       --text-primary: #07130f;
       --text-secondary: #527167;
       --violet-400: #06b67f;
       --violet-500: #059d6f;
       --violet-600: #048a61;
+      --blue-400: #0f172a;
       --blue-500: #0b1220;
       --cyan-400: #0f766e;
+      --cyan-500: #0a8f83;
       --emerald-400: #049f70;
+      --emerald-500: #04825c;
       --surface-glass: rgba(255, 255, 255, 0.75);
       --surface-glass-strong: rgba(255, 255, 255, 0.92);
     }
@@ -68,13 +86,151 @@
       font-family: "Avenir Next LT Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
       margin: 0;
       padding: 0;
-      background: linear-gradient(180deg, var(--bg), color-mix(in srgb, var(--bg) 84%, #000 16%));
+      background-color: var(--bg-primary);
       color: var(--text-primary);
       line-height: 1.6;
       display: flex;
+      flex-direction: column;
       height: 100vh;
       overflow: hidden;
-      transition: background 0.35s ease, color 0.35s ease;
+      transition: background-color 0.35s ease, color 0.35s ease;
+    }
+
+    /* 顶栏：与 index / chat 同高、同玻璃风格 */
+    .dashboard-topnav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      height: 64px;
+      background: var(--surface-glass-strong);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-soft);
+      box-sizing: border-box;
+    }
+    .dashboard-topnav-inner {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 0 20px 0 16px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .topnav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      flex-shrink: 0;
+      color: var(--text-primary);
+    }
+    .topnav-logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 24px rgba(16, 202, 144, 0.28);
+    }
+    .topnav-logo-text {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .topnav-logo-text span { color: var(--violet-400); }
+    .brand-italic { font-style: italic; }
+
+    /* 与 chat 页「Dashboard」药丸按钮同款，链回全屏对话 */
+    .topnav-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .dashboard-topnav .logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      text-decoration: none;
+      height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg-secondary) 16%);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      box-sizing: border-box;
+    }
+    .dashboard-topnav .logo:hover {
+      transform: translateY(-1px);
+      border-color: var(--border-strong);
+      box-shadow: 0 10px 22px -16px rgba(16, 202, 144, 0.6);
+    }
+    .dashboard-topnav .logo .dashboard-link {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+
+    .step-indicators {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+      padding: 0 8px;
+    }
+    .step-indicator {
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-glass) 80%, var(--bg-secondary) 20%);
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease;
+    }
+    .step-indicator:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+    .step-indicator.active {
+      background: linear-gradient(120deg, var(--violet-600), var(--emerald-400));
+      border-color: rgba(16, 202, 144, 0.45);
+      color: var(--white);
+      box-shadow:
+        0 0 18px rgba(16, 202, 144, 0.45),
+        0 0 36px rgba(16, 202, 144, 0.22),
+        0 0 0 1px rgba(136, 255, 216, 0.2);
+    }
+    .topnav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .dashboard-shell {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      margin-top: 64px;
+      height: calc(100vh - 64px);
     }
     body::before {
       content: "";
@@ -82,8 +238,8 @@
       inset: 0;
       pointer-events: none;
       background:
-        radial-gradient(circle at 10% 14%, rgba(31, 215, 157, 0.15), transparent 28%),
-        radial-gradient(circle at 88% 84%, rgba(124, 246, 228, 0.11), transparent 30%);
+        radial-gradient(circle at 12% 18%, rgba(71, 245, 183, 0.14), transparent 30%),
+        radial-gradient(circle at 88% 82%, rgba(124, 246, 228, 0.1), transparent 32%);
       z-index: -1;
     }
     [data-theme="light"] body::before {
@@ -93,40 +249,10 @@
     }
     input, textarea, select, button { font-family: inherit; }
     .wrap { max-width: 1400px; margin: 0 auto; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .brand-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      margin-bottom: 12px;
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-    }
-    .brand-link:hover {
-      transform: translateY(-2px);
-      border-color: var(--violet-500);
-      box-shadow: 0 10px 22px -16px rgba(16, 202, 144, 0.65);
-    }
-    .brand-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, var(--violet-500), var(--cyan-400));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 18px rgba(16, 202, 144, 0.32);
-    }
-    .brand-text { font-size: 28px; font-weight: 600; color: var(--text-primary); line-height: 1; }
-    .brand-italic { font-style: italic; }
-    .brand-text span { color: var(--emerald-400); }
-    .header h1 { margin: 0; font-size: 2.5rem; background: linear-gradient(135deg, var(--violet-400) 0%, var(--cyan-400) 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .header p { color: var(--text-secondary); margin-top: 8px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(400px,1fr)); gap: 18px; }
+    .card.section-step {
+      scroll-margin-top: 88px;
+    }
     .card {
       --card-shift-x: 0px;
       --card-shift-y: 0px;
@@ -176,7 +302,7 @@
       border-radius: 10px;
       transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
-    .btn:hover { background: linear-gradient(120deg, var(--violet-500), var(--emerald-400)); transform: translateY(-2px); box-shadow: 0 12px 24px -14px rgba(16, 202, 144, 0.75); }
+    .btn:hover { background: linear-gradient(120deg, var(--violet-500), var(--emerald-400)); transform: translateY(-2px); box-shadow: 0 0 34px rgba(16, 202, 144, 0.42); }
     .btn.secondary {
       background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg) 16%);
       border-color: var(--border);
@@ -198,7 +324,7 @@
       padding: 12px;
       min-height: 100px;
       white-space: pre-wrap;
-      font-family: 'Fira Code', monospace;
+      font-family: 'JetBrains Mono', 'Avenir Next LT Pro', monospace;
       font-size: 12px;
       overflow-x: auto;
     }
@@ -329,13 +455,13 @@
 
     /* ============ LEFT SIDEBAR ============ */
     .sidebar {
-      width: 244px;
-      min-width: 244px;
-      background: transparent;
+      width: 260px;
+      min-width: 260px;
+      background: var(--bg-primary);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100%;
       overflow: hidden;
       transition: width 0.3s ease, min-width 0.3s ease;
     }
@@ -345,56 +471,26 @@
       border-right: none;
       overflow: hidden;
     }
-    .sidebar-header {
-      padding: 12px 12px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .sidebar-home-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: inherit;
-      transition: transform 0.2s ease;
-    }
-    .sidebar-home-link:hover { transform: translateY(-1px); }
-
-    .sidebar-logo {
-      width: 28px; height: 28px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--violet-500), var(--blue-500));
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 24px rgba(16, 202, 144, 0.28);
-      flex-shrink: 0;
-    }
-    .sidebar-brand { font-size: 18px; font-weight: 600; color: var(--text-primary); line-height: 1; }
-    .sidebar-brand span { color: var(--emerald-400); }
-    .sidebar-brand i { font-style: italic; }
-    [data-theme="light"] .sidebar-brand { color: #08110f; }
     .new-chat-btn {
-      margin: 10px;
-      padding: 10px 12px;
-      width: calc(100% - 20px);
-      background: color-mix(in srgb, var(--surface-glass) 84%, var(--bg) 16%);
-      border: 1px solid var(--border);
+      margin: 12px 12px 8px;
+      padding: 10px 14px;
+      width: calc(100% - 24px);
+      background: rgba(16, 202, 144, 0.12);
+      border: 1px dashed rgba(136, 255, 216, 0.3);
       border-radius: 10px;
       color: var(--text-primary);
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 500;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 8px;
       transition: background 0.2s, border-color 0.2s;
+      font-family: inherit;
     }
     .new-chat-btn:hover {
-      background: color-mix(in srgb, var(--surface-glass-strong) 86%, var(--bg) 14%);
-      border-color: var(--border-strong);
-      transform: translateY(-1px);
-      box-shadow: 0 10px 22px -16px rgba(16, 202, 144, 0.45);
+      background: rgba(16, 202, 144, 0.2);
+      border-color: rgba(136, 255, 216, 0.5);
     }
     .history-list {
       flex: 1;
@@ -434,7 +530,7 @@
       background: rgba(16, 202, 144, 0.15);
       color: var(--text-primary);
     }
-    .history-item .history-icon { flex-shrink: 0; font-size: 12px; opacity: 0.7; }
+    .history-item .history-icon { flex-shrink: 0; font-size: 14px; }
     .history-item .history-title { overflow: hidden; text-overflow: ellipsis; }
     .sidebar-footer {
       padding: 12px 16px;
@@ -450,8 +546,8 @@
       width: 38px;
       height: 38px;
       border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-soft);
+      background: var(--surface-glass);
       color: var(--text-primary);
       display: inline-flex;
       align-items: center;
@@ -468,31 +564,6 @@
     .theme-icon-light { display: none; }
     [data-theme="light"] .theme-icon-light { display: inline; }
     [data-theme="light"] .theme-icon-dark { display: none; }
-    .dashboard-theme-toggle { position: static; }
-    .chat-float-controls {
-      position: fixed;
-      top: 14px;
-      right: 14px;
-      z-index: 260;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: color-mix(in srgb, var(--surface-glass-strong) 70%, transparent);
-      backdrop-filter: blur(10px);
-      opacity: 0;
-      transform: translateY(-8px) scale(0.96);
-      pointer-events: none;
-      transition: opacity 0.24s ease, transform 0.24s ease;
-    }
-    body.chat-hidden .chat-float-controls {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-      pointer-events: auto;
-    }
-
     [data-theme="light"] .sidebar,
     [data-theme="light"] .chat-panel {
       background: transparent;
@@ -534,7 +605,7 @@
       border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100%;
       opacity: 1;
       transform: translateX(0);
       overflow: hidden;
@@ -551,28 +622,6 @@
     .chat-panel.collapsed {
       width: 200px;
       min-width: 200px;
-    }
-    .chat-panel-header {
-      min-height: 68px;
-      padding: 10px 14px;
-      border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: color-mix(in srgb, var(--surface-glass-strong) 74%, transparent);
-      backdrop-filter: blur(10px);
-    }
-    .chat-panel-title {
-      font-size: 15px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .chat-panel-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
     .chat-toggle-btn {
       width: 38px; height: 38px;
@@ -638,8 +687,8 @@
       font-size: 13px;
       flex-shrink: 0;
     }
-    .chat-msg-avatar.user { background: #47f5b7; }
-    .chat-msg-avatar.assistant { background: linear-gradient(135deg, #47f5b7, #42e6d2); }
+    .chat-msg-avatar.user { background: var(--violet-500); }
+    .chat-msg-avatar.assistant { background: linear-gradient(135deg, var(--violet-500), var(--blue-500)); }
     .chat-msg-body {
       flex: 1;
       min-width: 0;
@@ -672,16 +721,23 @@
       padding: 8px 10px;
       align-items: center;
     }
+    .chat-input-box button.chat-send-btn {
+      width: 36px;
+      margin-top: 0;
+      padding: 0;
+    }
     .chat-input-box:focus-within {
       border-color: var(--border-strong);
-      box-shadow: 0 0 0 2px rgba(16, 202, 144, 0.08);
+      box-shadow: 0 0 0 3px rgba(16, 202, 144, 0.1);
     }
     .chat-input-box textarea {
       flex: 1;
+      min-width: 0;
       background: transparent;
       border: none;
       color: var(--text-primary);
       font-size: 14px;
+      font-weight: 400;
       resize: none;
       outline: none;
       min-height: 22px;
@@ -689,24 +745,30 @@
       line-height: 1.5;
       padding: 6px 0 5px;
       margin: 0;
-      width: 100%;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      margin-top: 0;
+      width: auto;
+      font-family: inherit;
     }
-    .chat-input-box textarea::placeholder { color: var(--text-secondary); }
+    .chat-input-box textarea::placeholder {
+      color: var(--text-secondary);
+      font-weight: 400;
+      opacity: 1;
+    }
     .chat-send-btn {
-      width: 34px; height: 34px;
-      background: linear-gradient(120deg, #10ca90, #57f8c2);
-      border: 1px solid rgba(136, 255, 216, 0.32);
-      border-radius: 9px;
-      color: white;
+      width: 36px; height: 36px;
+      background: linear-gradient(120deg, var(--violet-600), var(--emerald-400));
+      border: 1px solid rgba(16, 202, 144, 0.36);
+      border-radius: 10px;
+      color: var(--white);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      transition: transform 0.15s, box-shadow 0.2s ease;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+      box-shadow: 0 0 20px rgba(16, 202, 144, 0.2);
     }
-    .chat-send-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -16px rgba(16, 202, 144, 0.7); }
+    .chat-send-btn:hover { transform: translateY(-2px); box-shadow: 0 0 34px rgba(16, 202, 144, 0.42); filter: brightness(1.03); }
     .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .chat-welcome {
       text-align: center;
@@ -719,10 +781,10 @@
       width: 100%;
       margin-top: 8px;
       padding: 10px;
-      background: #10ca90;
+      background: var(--violet-600);
       border: none;
       border-radius: 8px;
-      color: white;
+      color: var(--white);
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
@@ -732,13 +794,13 @@
       gap: 6px;
       transition: background 0.2s;
     }
-    .chat-confirm-btn:hover { background: #0db37f; }
+    .chat-confirm-btn:hover { background: var(--violet-500); }
 
     /* ============ SIDEBAR TOGGLE (mobile) ============ */
     .sidebar-toggle-btn {
       display: none;
       position: fixed;
-      top: 12px;
+      top: 76px;
       left: 12px;
       z-index: 200;
       width: 36px; height: 36px;
@@ -753,65 +815,88 @@
     }
     @media (max-width: 1240px) {
       .sidebar { width: 0; min-width: 0; border-right: none; }
-      .sidebar.open { width: 244px; min-width: 244px; border-right: 1px solid var(--border); position: fixed; z-index: 150; left: 0; top: 0; }
+      .sidebar.open { width: 260px; min-width: 260px; border-right: 1px solid var(--border); position: fixed; z-index: 150; left: 0; top: 64px; height: calc(100vh - 64px); }
       .chat-panel { width: 280px; min-width: 280px; }
       .chat-panel.collapsed { width: 160px; min-width: 160px; }
       .sidebar-toggle-btn { display: flex; }
     }
     @media (max-width: 1024px) {
       .chat-panel { display: none; }
+      #chatToggleTopnav { display: none; }
       .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .step-indicators { gap: 4px; padding: 0 4px; }
+      .step-indicator {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        font-size: 12px;
+      }
+      .dashboard-topnav-inner { padding: 0 10px 0 8px; }
+      .topnav-logo-text { font-size: 16px; }
     }
   </style>
 </head>
 <body>
+  <header class="dashboard-topnav" role="banner">
+    <div class="dashboard-topnav-inner">
+      <div class="topnav-left">
+        <a href="./index.html" class="topnav-logo" aria-label="VibeML 首页">
+          <div class="topnav-logo-icon">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
+              <circle cx="9" cy="9" r="2" fill="white"/>
+            </svg>
+          </div>
+          <span class="topnav-logo-text brand-italic">Vibe<span>ML</span></span>
+        </a>
+        <a href="./chat.html" class="logo" aria-label="前往 Chat 全屏对话">
+          <span class="dashboard-link">Chat</span>
+        </a>
+      </div>
+      <nav class="step-indicators" id="stepIndicators" aria-label="流程步骤">
+        <button type="button" class="step-indicator active" data-step="1" aria-label="数据上传" aria-current="true">1</button>
+        <button type="button" class="step-indicator" data-step="2" aria-label="意图澄清">2</button>
+        <button type="button" class="step-indicator" data-step="3" aria-label="训练控制">3</button>
+        <button type="button" class="step-indicator" data-step="4" aria-label="模型产物">4</button>
+        <button type="button" class="step-indicator" data-step="5" aria-label="批量预测">5</button>
+        <button type="button" class="step-indicator" data-step="6" aria-label="预测结果输出">6</button>
+      </nav>
+      <div class="topnav-actions">
+        <button id="themeToggleTopnav" class="theme-toggle" type="button" aria-label="切换明暗主题">
+          <span class="theme-icon-dark">◐</span>
+          <span class="theme-icon-light">◑</span>
+        </button>
+        <button type="button" class="chat-toggle-btn" id="chatToggleTopnav" onclick="toggleChatPanel()" title="隐藏 Chat">✕</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="dashboard-shell">
   <!-- Mobile sidebar toggle -->
   <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
   <!-- LEFT SIDEBAR: Project History -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <a class="sidebar-home-link" href="./index.html" aria-label="返回 VibeML 首页">
-        <div class="sidebar-logo">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L15.5 5.75V12.25L9 16L2.5 12.25V5.75L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
-            <circle cx="9" cy="9" r="2" fill="white"/>
-          </svg>
-        </div>
-        <span class="sidebar-brand"><i>Vibe</i><span>ML</span></span>
-      </a>
-    </div>
     <button class="new-chat-btn" onclick="createNewSession()">
       ＋ 新对话
     </button>
     <div class="history-list" id="historyList">
       <div class="history-section-label">今天</div>
       <div class="history-item active" data-id="current">
-        <span class="history-icon">◉</span>
+        <span class="history-icon">💬</span>
         <span class="history-title">当前会话</span>
       </div>
     </div>
   </aside>
 
-  <div class="chat-float-controls" id="chatFloatControls" aria-label="Chat 浮动控制">
-    <button id="themeToggleDashboardFloating" class="theme-toggle dashboard-theme-toggle" type="button" aria-label="切换明暗主题">
-      <span class="theme-icon-dark">◐</span>
-      <span class="theme-icon-light">◑</span>
-    </button>
-    <button class="chat-toggle-btn" onclick="toggleChatPanel()" title="显示 Chat">↩</button>
-  </div>
-
   <!-- MAIN AREA -->
   <div class="main-area">
     <div class="main-scroll">
       <div class="wrap">
-        <div class="header">
-          <h1>VibeML Agent</h1>
-          <p>从自然语言需求到可部署模型权重的全自动 ML 平台</p>
-        </div>
-
         <div class="grid">
       <!-- 1. 数据上传 & 数据集列表 -->
-      <section class="card">
+      <section class="card section-step" id="step-1">
         <h2><span class="step">1</span> 数据上传</h2>
         <p class="muted">上传 CSV 文件，支持自动类型推断和目标列识别</p>
 
@@ -838,7 +923,7 @@
       </section>
 
       <!-- 2. 意图澄清 -->
-      <section class="card">
+      <section class="card section-step" id="step-2">
         <h2><span class="step">2</span> 意图澄清</h2>
         <p class="muted">描述你的业务目标，系统自动编译为优化任务</p>
 
@@ -885,7 +970,7 @@
       </section>
 
       <!-- 3. 训练控制 -->
-      <section class="card">
+      <section class="card section-step" id="step-3">
         <h2><span class="step">3</span> 训练控制</h2>
         <p class="muted">AutoML 自动搜索最佳模型和超参数</p>
 
@@ -920,7 +1005,7 @@
       </section>
 
       <!-- 4. 训练结果 -->
-      <section class="card">
+      <section class="card section-step" id="step-4">
         <h2><span class="step">4</span> 模型产物</h2>
         <p class="muted">下载训练好的模型权重和预处理管道</p>
 
@@ -957,7 +1042,7 @@
       </section>
 
       <!-- 5. 预测服务 -->
-      <section class="card">
+      <section class="card section-step" id="step-5">
         <h2><span class="step">5</span> 批量预测</h2>
         <p class="muted">使用训练好的模型对新数据进行预测</p>
 
@@ -971,7 +1056,7 @@
       </section>
 
       <!-- 6. 预测结果输出 -->
-      <section class="card">
+      <section class="card section-step" id="step-6">
         <h2><span class="step">6</span> 预测结果输出</h2>
         <p class="muted">查看完整预测结果并导出为文件</p>
 
@@ -1002,17 +1087,7 @@
   </div>
 
   <!-- RIGHT CHAT PANEL -->
-  <aside class="chat-panel" id="chatPanel">
-    <div class="chat-panel-header">
-      <div class="chat-panel-title">Chat Assistant</div>
-      <div class="chat-panel-actions">
-        <button id="themeToggleDashboard" class="theme-toggle dashboard-theme-toggle" type="button" aria-label="切换明暗主题">
-          <span class="theme-icon-dark">◐</span>
-          <span class="theme-icon-light">◑</span>
-        </button>
-        <button class="chat-toggle-btn" onclick="toggleChatPanel()" title="隐藏 Chat">✕</button>
-      </div>
-    </div>
+  <aside class="chat-panel" id="chatPanel" aria-label="Chat Assistant">
     <div class="chat-messages" id="chatMessages">
       <div class="chat-welcome">
         <div class="chat-welcome-icon">🤖</div>
@@ -1024,13 +1099,14 @@
       <div class="chat-input-box">
         <textarea id="chatInput" placeholder="描述你的业务需求..." rows="1"></textarea>
         <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
       </div>
     </div>
   </aside>
+  </div>
 
   <script>
     const API = "/api";
@@ -1044,22 +1120,68 @@
     const THEME_KEY = 'vibeml-theme';
 
     function applyTheme(theme) {
-      document.documentElement.setAttribute('data-theme', theme);
+      const root = document.documentElement;
+      if (theme === 'light') {
+        root.setAttribute('data-theme', 'light');
+      } else {
+        root.removeAttribute('data-theme');
+      }
     }
 
     const savedTheme = localStorage.getItem(THEME_KEY);
-    const initialTheme = savedTheme || 'dark';
-    applyTheme(initialTheme);
-
-    function toggleTheme() {
-      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-      const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      applyTheme(nextTheme);
-      localStorage.setItem(THEME_KEY, nextTheme);
+    if (savedTheme === 'light') {
+      applyTheme('light');
     }
 
-    byId('themeToggleDashboard')?.addEventListener('click', toggleTheme);
-    byId('themeToggleDashboardFloating')?.addEventListener('click', toggleTheme);
+    function toggleTheme() {
+      const root = document.documentElement;
+      const isLight = root.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        root.removeAttribute('data-theme');
+        localStorage.setItem(THEME_KEY, 'dark');
+      } else {
+        root.setAttribute('data-theme', 'light');
+        localStorage.setItem(THEME_KEY, 'light');
+      }
+    }
+
+    byId('themeToggleTopnav')?.addEventListener('click', toggleTheme);
+
+    function initStepNavigation() {
+      const scrollEl = document.querySelector('.main-scroll');
+      const buttons = document.querySelectorAll('.step-indicator');
+      if (!scrollEl || !buttons.length) return;
+
+      const LINE = 96;
+
+      function syncActiveStep() {
+        let active = 1;
+        for (let n = 1; n <= 6; n++) {
+          const sec = byId('step-' + n);
+          if (!sec) continue;
+          const top = sec.getBoundingClientRect().top;
+          if (top <= LINE) active = n;
+        }
+        buttons.forEach((b) => {
+          const on = +b.dataset.step === active;
+          b.classList.toggle('active', on);
+          b.setAttribute('aria-current', on ? 'true' : 'false');
+        });
+      }
+
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const n = btn.dataset.step;
+          const target = byId('step-' + n);
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+
+      scrollEl.addEventListener('scroll', () => window.requestAnimationFrame(syncActiveStep), { passive: true });
+      syncActiveStep();
+    }
+
+    initStepNavigation();
 
     function initCardHoverParallax() {
       const cards = document.querySelectorAll('.card');
@@ -1622,10 +1744,11 @@
       chatHidden = !chatHidden;
       byId('chatPanel').classList.toggle('hidden', chatHidden);
       document.body.classList.toggle('chat-hidden', chatHidden);
-      document.querySelectorAll('.chat-toggle-btn').forEach((btn) => {
+      const btn = byId('chatToggleTopnav');
+      if (btn) {
         btn.textContent = chatHidden ? '↩' : '✕';
         btn.title = chatHidden ? '显示 Chat' : '隐藏 Chat';
-      });
+      }
     }
 
     // Auto-resize chat textarea
@@ -1710,7 +1833,7 @@
             if (biz.core_promises && biz.core_promises.length > 0) {
               html += `<p style="font-size:11px;color:var(--text-secondary);margin-top:6px;">保证：</p>`;
               biz.core_promises.forEach(p => {
-                html += `<p style="font-size:11px;color:#57f8c2;margin:2px 0;">✓ ${p}</p>`;
+                html += `<p style="font-size:11px;color:var(--emerald-400);margin:2px 0;">✓ ${p}</p>`;
               });
             }
             html += `<button class="chat-confirm-btn" onclick="confirmChatPlan()">✓ 确认方案，开始训练</button>`;
