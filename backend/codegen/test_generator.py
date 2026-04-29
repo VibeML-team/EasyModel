@@ -12,7 +12,10 @@ Unit Test Generator - 自动生成单元测试
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -617,9 +620,6 @@ sys.exit(0 if passed == total else 1)
         Returns:
             每个测试的结果
         """
-        import subprocess
-        import time
-        
         results = []
         
         with tempfile.TemporaryDirectory() as tmpdir:
