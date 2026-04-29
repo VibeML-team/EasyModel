@@ -267,12 +267,14 @@ def test_cpu_forward():
     assert output is not None
     assert output.device.type == 'cpu'
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_cuda_forward():
-    \"\"\"测试CUDA前向传播\"\"\"
+    \"\"\"测试CUDA前向传播（无 GPU 时直接跳过）\"\"\"
+    # 不能用 @pytest.mark.skipif —— 我们的 runner 是直接调用函数的，
+    # pytest 的 marker 不会被识别，必须在函数体里手动短路。
+    if not torch.cuda.is_available():
+        return
     model = {model_class}().cuda()
     x = torch.randn(2, 10).cuda()
-    
     output = model(x)
     assert output.device.type == 'cuda'
 
@@ -311,50 +313,38 @@ def test_state_dict_save_load():
     \"\"\"测试state_dict保存和加载\"\"\"
     model = {model_class}()
     x = torch.randn(2, 10)
-    
-    # 获取输出
     model.eval()
     with torch.no_grad():
         output1 = model(x)
-    
-    # 保存和加载
     state_dict = model.state_dict()
     buffer = io.BytesIO()
     torch.save(state_dict, buffer)
     buffer.seek(0)
-    loaded_state = torch.load(buffer)
-    
-    # 新模型加载权重
+    # PyTorch 2.6 起 torch.load 默认 weights_only=True；state_dict 是纯 tensor，
+    # 这里显式声明就好。
+    loaded_state = torch.load(buffer, weights_only=True)
     model2 = {model_class}()
     model2.load_state_dict(loaded_state)
     model2.eval()
-    
     with torch.no_grad():
         output2 = model2(x)
-    
     assert torch.allclose(output1, output2), "加载后的模型输出不一致"
 
 def test_full_model_save_load():
-    \"\"\"测试完整模型保存和加载\"\"\"
+    \"\"\"测试完整模型保存和加载（pickle 整个模型 → 必须 weights_only=False）\"\"\"
     model = {model_class}()
     x = torch.randn(2, 10)
-    
     model.eval()
     with torch.no_grad():
         output1 = model(x)
-    
-    # 保存整个模型
     buffer = io.BytesIO()
     torch.save(model, buffer)
     buffer.seek(0)
-    
-    # 加载
-    model2 = torch.load(buffer)
+    # 保存整个 nn.Module 是 pickle 全对象，PyTorch 2.6+ 必须显式关闭 weights_only。
+    model2 = torch.load(buffer, weights_only=False)
     model2.eval()
-    
     with torch.no_grad():
         output2 = model2(x)
-    
     assert torch.allclose(output1, output2), "加载后的模型输出不一致"
 """
             tests.append(TestCase(
