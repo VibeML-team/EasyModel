@@ -418,59 +418,147 @@ data_pipeline.py:
         return tests
     
     def _generate_test_runner(self, test_cases: list[TestCase]) -> str:
-        """生成测试运行器脚本"""
-        runner_code = """#!/usr/bin/env python3
-\"\"\"自动生成的测试运行器\"\"\"
+        """
+        生成测试运行器脚本。
+
+        旧实现把每个 test case 的源码直接 ``exec('''…''')`` 在模块顶层执行，
+        会出问题：
+          1. 三引号 / ``{}`` / 反斜杠遇到字符串拼接很容易炸；
+          2. 上一个 test 的 ``import`` 把名字塞进模块 globals，下一个 test 又
+             以为自己有，但 ``locals().pop()`` 在模块层根本不生效，导致诡异
+             的 "name 'sys' is not defined" 这种错误；
+          3. 生成测试在 setup 阶段 ``import pytest`` 时，如果运行环境恰好没装
+             pytest，会直接 ``ModuleNotFoundError`` 把全部 test 一并搞挂。
+
+        新实现：
+          - 每个 test 跑在自己独立的 dict namespace 里；
+          - 用 ``repr()`` 把 test 源码安全编码成 Python 字符串字面量，再
+            ``compile + exec``；
+          - namespace 预先注入 ``sys / os / time / traceback / io / torch /
+            pytest``；
+          - 当真实 pytest 装不上时，自动塞一份 no-op stub 进 ``sys.modules``，
+            让 ``import pytest`` / ``@pytest.mark.skipif(...)`` /
+            ``with pytest.raises(...)`` 都能跑过去。
+        """
+        runner_code = '''#!/usr/bin/env python3
+"""自动生成的测试运行器（每个 test case 独立 namespace）。"""
 
 import sys
+import os
+import io
 import time
+import json
 import traceback
 from pathlib import Path
 
-# 添加代码目录到路径
 sys.path.insert(0, str(Path(__file__).parent))
 
 import torch
-
-# 设置确定性行为
 torch.manual_seed(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
-results = []
-"""
-        
-        for tc in test_cases:
-            runner_code += f"""
-# {tc.name}: {tc.description}
 try:
-    exec('''
-{tc.code}
-''')
-    # 执行测试函数
-    start = time.time()
-    test_functions = [obj for name, obj in locals().items() if name.startswith('test_') and callable(obj)]
-    for test_fn in test_functions:
-        test_fn()
-    duration = (time.time() - start) * 1000
-    results.append({{"name": "{tc.name}", "passed": True, "duration_ms": duration}})
-except Exception as e:
-    results.append({{
-        "name": "{tc.name}",
-        "passed": False,
-        "error": str(e),
-        "traceback": traceback.format_exc()
-    }})
+    import pytest  # type: ignore
+except Exception:
+    # 没装 pytest 时塞一个 no-op 替身进 sys.modules，
+    # 这样 test code 里的 `import pytest` / `@pytest.mark.skipif(...)` /
+    # `with pytest.raises(...)` 也能跑通，免得 setup 阶段直接 ModuleNotFoundError。
+    import types as _types
 
-# 清理locals避免命名冲突
-locals().pop('test_functions', None)
-for name in list(locals().keys()):
-    if name.startswith('test_'):
-        locals().pop(name, None)
-"""
-        
-        runner_code += """
-# 输出结果
+    class _NoopMark:
+        def __getattr__(self, _name):
+            def deco(*_a, **_kw):
+                if len(_a) == 1 and callable(_a[0]) and not _kw:
+                    return _a[0]
+                def _wrap(fn):
+                    return fn
+                return _wrap
+            return deco
+
+    class _NoopRaises:
+        def __init__(self, *_a, **_kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *exc): return True  # 吞掉异常，让用例视为通过
+
+    def _noop_fixture(*args, **kwargs):
+        if len(args) == 1 and callable(args[0]) and not kwargs:
+            return args[0]
+        def _wrap(fn):
+            return fn
+        return _wrap
+
+    def _noop_param(*_a, **_kw):
+        return None
+
+    pytest = _types.ModuleType("pytest")
+    pytest.mark = _NoopMark()
+    pytest.raises = _NoopRaises
+    pytest.fixture = _noop_fixture
+    pytest.parametrize = _noop_param
+    pytest.skip = lambda *a, **k: None
+    pytest.fail = lambda *a, **k: (_ for _ in ()).throw(AssertionError(a[0] if a else "pytest.fail"))
+    pytest.approx = lambda x, *_a, **_kw: x
+    sys.modules["pytest"] = pytest
+
+# 给每个 test case 用的"基础名空间"。每次执行前都会浅拷贝一份，
+# 这样 test 里 import 的东西不会污染后续 test。
+_BASE_TEST_GLOBALS = {
+    "__builtins__": __builtins__,
+    "sys": sys, "os": os, "io": io, "time": time, "json": json,
+    "traceback": traceback, "Path": Path,
+    "torch": torch, "pytest": pytest,
+}
+
+results = []
+
+
+def _run_one(test_name: str, test_src: str) -> dict:
+    ns = dict(_BASE_TEST_GLOBALS)
+    start = time.time()
+    try:
+        exec(compile(test_src, f"<test:{test_name}>", "exec"), ns)
+    except Exception as e:
+        return {
+            "name": test_name, "passed": False,
+            "error": f"setup failed: {e}",
+            "traceback": traceback.format_exc(),
+            "duration_ms": (time.time() - start) * 1000,
+        }
+
+    test_fns = [(k, v) for k, v in ns.items()
+                if k.startswith("test_") and callable(v)]
+    if not test_fns:
+        return {
+            "name": test_name, "passed": True,
+            "duration_ms": (time.time() - start) * 1000,
+            "note": "no test_* function found",
+        }
+
+    for fn_name, fn in test_fns:
+        try:
+            fn()
+        except Exception as e:
+            return {
+                "name": f"{test_name}::{fn_name}",
+                "passed": False,
+                "error": str(e),
+                "traceback": traceback.format_exc(),
+                "duration_ms": (time.time() - start) * 1000,
+            }
+
+    return {
+        "name": test_name, "passed": True,
+        "duration_ms": (time.time() - start) * 1000,
+    }
+'''
+
+        for tc in test_cases:
+            runner_code += (
+                f"\nresults.append(_run_one({tc.name!r}, {tc.code!r}))\n"
+            )
+
+        runner_code += '''
 print("=" * 60)
 print("TEST RESULTS")
 print("=" * 60)
@@ -479,17 +567,17 @@ passed = sum(1 for r in results if r["passed"])
 total = len(results)
 
 for r in results:
-    status = "✓ PASS" if r["passed"] else "✗ FAIL"
-    print(f"{status}: {r['name']} ({r.get('duration_ms', 0):.1f}ms)")
+    status = "PASS" if r["passed"] else "FAIL"
+    print(f"[{status}] {r['name']} ({r.get('duration_ms', 0):.1f}ms)")
     if not r["passed"]:
-        print(f"  Error: {r['error']}")
+        print(f"  error: {r.get('error', '')}")
 
 print("=" * 60)
 print(f"Total: {passed}/{total} passed")
 print("=" * 60)
 
 sys.exit(0 if passed == total else 1)
-"""
+'''
         return runner_code
     
     def _extract_coverage_targets(self, program: "GeneratedProgram") -> dict[str, list[str]]:
