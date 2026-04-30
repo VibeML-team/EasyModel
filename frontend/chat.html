@@ -2050,9 +2050,9 @@
           
           appendAgentStep(feed, '✅', `文件处理完成 (${data.data_type || '未知类型'}, ${data.file_scan?.total_files || '?'} 个文件)`, 'done');
           
-          // 触发 AI Agent 探索（把用户随附件一起发的那段文字带进去）
-          addMessage('assistant', '<p>🧠 正在启动 AI Agent 探索数据集...</p>');
-          await exploreDataset(data.dataset_id, explicitUserGoal);
+          // 走 SSE 探索流（带心跳），避免阻塞 POST 被网关空闲断开 —— 与 upload-stream 行为一致
+          appendAgentStep(feed, '🧠', '正在启动 AI Agent 探索数据集（流式）...', 'thinking');
+          await exploreDataset(data.dataset_id, explicitUserGoal, feedId);
         } else {
           throw new Error(data.detail || '处理失败');
         }
@@ -2107,25 +2107,105 @@
       }
     }
 
-    async function exploreDataset(datasetId, explicitUserGoal) {
+    async function exploreDataset(datasetId, explicitUserGoal, feedId = null) {
+      const ug = (explicitUserGoal || '').trim();
+      let feed = feedId ? document.getElementById(feedId) : null;
+
+      if (!feed) {
+        const fid = 'explore-feed-' + Date.now();
+        addMessage('assistant', `
+          <p>🧠 <strong>AI Agent 正在探索数据集...</strong></p>
+          <div class="agent-feed" id="${fid}">
+            <div class="agent-step thinking">
+              <span class="step-icon"><span class="agent-spinner"></span></span>
+              <span class="step-text">连接探索流（长任务会定期心跳，避免网关超时断开）...</span>
+            </div>
+          </div>
+        `);
+        feed = document.getElementById(fid);
+      }
+
+      let gotResult = false;
+      let streamHardStop = false;
+
       try {
-        const response = await fetch(`${API}/data/${datasetId}/explore`, {
+        const response = await fetch(`${API}/data/${datasetId}/explore-stream`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_goal: (explicitUserGoal || '').trim() })
+          body: JSON.stringify({ user_goal: ug }),
         });
 
-        const data = await response.json();
-        hideLoading();
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || `HTTP ${response.status}`);
+        }
 
-        if (data.exploration) {
-          showDataExploration(data);
-        } else {
-          addMessage('assistant', '<p>数据分析完成，但未获得详细结果。请描述你的业务目标。</p>');
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed === '' || trimmed.startsWith(':')) continue;
+            if (!trimmed.startsWith('data:')) continue;
+            const payload = trimmed.startsWith('data: ') ? trimmed.slice(6) : trimmed.slice(5).replace(/^\s/, '');
+            try {
+              const evt = JSON.parse(payload);
+              if (!feed) continue;
+              if (evt.step === 'heartbeat') continue;
+
+              if (evt.step === 'result' && evt.done === true) {
+                gotResult = true;
+                hideLoading();
+                feed.querySelectorAll('.agent-spinner').forEach(s => {
+                  if (s.parentElement) s.parentElement.innerHTML = '✅';
+                });
+                appendAgentStep(feed, '✅', '数据探索完成', 'done');
+                const data = evt.data;
+                if (data && data.dataset_id) currentDatasetId = data.dataset_id;
+                if (data && data.exploration) {
+                  showDataExplorationFromStream(data);
+                } else {
+                  addMessage('assistant', '<p>数据分析完成，但未获得详细结果。请描述你的业务目标。</p>');
+                }
+              } else if (evt.step === 'error') {
+                hideLoading();
+                appendAgentStep(feed, '❌', evt.message || '探索失败', 'error');
+                if (evt.done) streamHardStop = true;
+              } else if (evt.step === 'action') {
+                appendAgentStep(feed, '⚡', evt.message, 'action');
+              } else if (evt.step === 'observe') {
+                appendAgentStep(feed, '👁', evt.message, 'observation');
+              } else if (evt.step === 'think') {
+                appendAgentStep(feed, '', evt.message, 'thinking');
+              } else if (evt.message) {
+                appendAgentStep(feed, '', evt.message, '');
+              }
+            } catch (_) {
+              /* ignore non-JSON SSE lines */
+            }
+          }
+        }
+
+        if (!gotResult && !streamHardStop) {
+          hideLoading();
+          if (feed) appendAgentStep(feed, '⚠️', '探索流意外结束（连接被关闭）', 'error');
+          addMessage('assistant', `<p>⚠️ AI 数据分析连接中断。请稍后重试或直接描述你的业务目标。</p>
+            <p style="font-size:12px;color:var(--text-secondary)">若刚上传超大压缩包，探索可能需数分钟；仍可继续用文字说明目标以生成训练方案。</p>`);
         }
       } catch (e) {
         hideLoading();
-        addMessage('assistant', `<p>⚠️ AI 数据分析暂时不可用。请直接描述你的业务目标。</p>`);
+        if (feed) appendAgentStep(feed, '⚠️', `探索不可用: ${e.message}`, 'error');
+        addMessage('assistant', `<p>⚠️ AI 数据分析暂时不可用。请直接描述你的业务目标。</p>
+          <p style="font-size:12px;color:var(--text-secondary)">${escapeHtml(e.message)}</p>`);
       }
     }
 

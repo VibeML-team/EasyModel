@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -698,6 +698,11 @@ class ChunkInitRequest(BaseModel):
     # 可选：基于文件的稳定指纹（前端用 name|size|lastModified 之类拼出来）
     # 服务端据此实现幂等 init —— 同一文件再次 init 会返回原会话，不丢进度。
     client_token: str | None = None
+
+
+class ExploreDatasetRequest(BaseModel):
+    """POST /explore 与 /explore-stream 的请求体（与前端 JSON 对齐）"""
+    user_goal: str = ""
 
 
 @app.post("/api/data/upload-init")
@@ -1526,7 +1531,7 @@ async def agent_stream(task_id: str):
 
 
 @app.post("/api/data/{dataset_id}/explore")
-def explore_dataset(dataset_id: str, user_goal: str = "") -> dict[str, Any]:
+def explore_dataset(dataset_id: str, body: ExploreDatasetRequest = Body()) -> dict[str, Any]:
     """
     ReAct Agent 驱动的数据探索
     
@@ -1536,6 +1541,7 @@ def explore_dataset(dataset_id: str, user_goal: str = "") -> dict[str, Any]:
     - 理解数据结构和内容
     - 生成结构化 insights
     """
+    user_goal = (body.user_goal or "").strip()
     try:
         spec = data_manager.get_dataset(dataset_id)
     except ValueError:
@@ -1636,11 +1642,12 @@ def explore_dataset(dataset_id: str, user_goal: str = "") -> dict[str, Any]:
 
 
 @app.post("/api/data/{dataset_id}/explore-stream")
-def explore_dataset_stream(dataset_id: str, user_goal: str = ""):
+def explore_dataset_stream(dataset_id: str, body: ExploreDatasetRequest = Body()):
     """
     SSE 流式数据探索 — 与 /upload-stream 中的 Agent 探索阶段一致，
     供分块上传完成后或外部触发使用。
     """
+    user_goal = (body.user_goal or "").strip()
     try:
         spec = data_manager.get_dataset(dataset_id)
     except ValueError:
