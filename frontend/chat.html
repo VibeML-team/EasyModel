@@ -1107,6 +1107,60 @@
 
     .file-icon { font-size: 20px; }
     .file-info { flex: 1; }
+
+    /* 输入框上方的附件 chip：参考 ChatGPT，挂在 textarea 上面，等用户点发送才真正提交 */
+    .input-attachments {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 2px;
+    }
+    .input-attachments[hidden] { display: none; }
+    .input-attachments .file-preview {
+      margin-top: 0;
+      padding: 8px 10px;
+      gap: 10px;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .input-attachments .file-name {
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .input-attachments .file-size { font-size: 11px; color: var(--text-secondary); }
+    .input-attachments .file-remove {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .input-attachments .file-remove:hover { background: var(--surface-glass-strong); color: var(--text-primary); }
+
+    /* 消息气泡里的"已附文件" chip（用户发出的那条消息里展示）：紧凑只读样式 */
+    .message-attachment-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 8px;
+      font-size: 12px;
+      max-width: 100%;
+    }
+    .message-attachment-chip .file-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 280px;
+    }
+    .message-attachment-chip .file-size { color: var(--text-secondary); }
     .file-name { font-size: 14px; font-weight: 500; }
     .file-size { font-size: 12px; color: var(--text-secondary); }
 
@@ -1519,6 +1573,7 @@
     <div class="input-area">
       <div class="input-container">
         <div class="input-box">
+          <div class="input-attachments" id="inputAttachments" hidden></div>
           <textarea id="messageInput" placeholder="描述你的精细业务需求，例如：我有一份电商记录，想找出快流失的高价值用户，宁可误报也别漏报..." rows="1"></textarea>
           <div class="input-footer">
             <div class="input-toolbar">
@@ -1615,40 +1670,69 @@
       if (file) handleFile(file);
     }
 
+    // 文件被选中时：只挂在输入框上方，等用户点 send 再真正上传
+    // 这样和 ChatGPT 一致 —— 上传 ≠ 立刻分析。
     function handleFile(file) {
       currentFile = file;
 
-      const filePreview = document.createElement('div');
-      filePreview.className = 'file-preview';
-      filePreview.id = 'filePreview';
-      filePreview.innerHTML = `
-        <div class="file-icon">📊</div>
-        <div class="file-info">
-          <div class="file-name">${file.name}</div>
-          <div class="file-size">${formatFileSize(file.size)}</div>
-        </div>
-        <button class="file-remove" onclick="removeFile()">✕</button>
-      `;
+      const tray = document.getElementById('inputAttachments');
+      if (tray) {
+        tray.innerHTML = `
+          <div class="file-preview" id="filePreview">
+            <div class="file-icon">📊</div>
+            <div class="file-info">
+              <div class="file-name">${escapeHtml(file.name)}</div>
+              <div class="file-size">${formatFileSize(file.size)}</div>
+            </div>
+            <button class="file-remove" onclick="removeFile()" aria-label="移除附件" title="移除附件">✕</button>
+          </div>
+        `;
+        tray.hidden = false;
+      }
 
-      const existingPreview = document.getElementById('filePreview');
-      if (existingPreview) existingPreview.remove();
-
+      // 兜底：清掉历史 UI 残留（旧逻辑会把 preview 塞进消息气泡里）
+      document.querySelectorAll('.message .file-preview').forEach((el) => {
+        if (el.id !== 'filePreview' || !tray || !tray.contains(el)) el.remove();
+      });
       const uploadArea = document.getElementById('uploadArea');
       if (uploadArea) uploadArea.style.display = 'none';
 
-      const lastMessage = document.querySelector('.message:last-child .message-content');
-      if (lastMessage) lastMessage.appendChild(filePreview);
+      // 让用户继续打字
+      const input = document.getElementById('messageInput');
+      if (input) input.focus();
 
-      addMessage('user', `我准备了一个数据集：${file.name}`);
-      uploadFile(file);
+      // 关键：不再 addMessage('user', ...)，也不调用 uploadFile()。
+      // 真正的上传 + 分析改到 sendMessage() 里 —— 用户点发送时才触发。
     }
 
     function removeFile() {
       currentFile = null;
-      const preview = document.getElementById('filePreview');
-      if (preview) preview.remove();
+      const tray = document.getElementById('inputAttachments');
+      if (tray) {
+        tray.innerHTML = '';
+        tray.hidden = true;
+      }
+      // 重置 file input，这样同一个文件可以再次选择
+      const fileInput = document.getElementById('fileInput');
+      if (fileInput) fileInput.value = '';
       const uploadArea = document.getElementById('uploadArea');
       if (uploadArea) uploadArea.style.display = 'block';
+    }
+
+    function clearAttachmentTray() {
+      const tray = document.getElementById('inputAttachments');
+      if (tray) {
+        tray.innerHTML = '';
+        tray.hidden = true;
+      }
+      const fileInput = document.getElementById('fileInput');
+      if (fileInput) fileInput.value = '';
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
     }
 
     // isBusinessQuery 已移除 — 是否是 ML 需求由后端 LLM 判断
@@ -1663,7 +1747,7 @@
 
     const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB per chunk
 
-    async function uploadFile(file) {
+    async function uploadFile(file, explicitUserGoal) {
       // Manus 风格：创建一条 Agent 活动消息，实时更新
       const feedId = 'agent-feed-' + Date.now();
       addMessage('assistant', `
@@ -1678,23 +1762,27 @@
 
       // 大文件（>50MB）走分块上传
       if (file.size > 50 * 1024 * 1024) {
-        await chunkedUpload(file, feedId);
+        await chunkedUpload(file, feedId, explicitUserGoal);
         return;
       }
 
       const formData = new FormData();
       formData.append('file', file);
 
-      // 先获取用户之前的目标描述（如果有）
-      let userGoal = '';
-      document.querySelectorAll('.message').forEach(m => {
-        const author = m.querySelector('.message-author');
-        const text = m.querySelector('.message-text');
-        if (author && author.textContent === 'You' && text) {
-          const t = text.textContent.trim();
+      // user_goal 优先用调用方传进来的（来自当前 send 框里那段文字），
+      // 否则回退到从历史消息里抓 —— 但要过滤掉只是附件 chip 的"用户消息"。
+      let userGoal = (explicitUserGoal || '').trim();
+      if (!userGoal) {
+        document.querySelectorAll('.message').forEach(m => {
+          const author = m.querySelector('.message-author');
+          const textEl = m.querySelector('.message-text');
+          if (!author || author.textContent !== 'You' || !textEl) return;
+          // 排除"只挂了附件 chip"的消息（没有 <p> 文本）
+          const para = textEl.querySelector('p');
+          const t = (para ? para.textContent : textEl.textContent).trim();
           if (t.length > 10 && !t.startsWith('我准备了')) userGoal = t;
-        }
-      });
+        });
+      }
       if (userGoal) formData.append('user_goal', userGoal);
 
       try {
@@ -1853,7 +1941,7 @@
       if (html) addMessage('assistant', html);
     }
 
-    async function chunkedUpload(file, feedId) {
+    async function chunkedUpload(file, feedId, explicitUserGoal) {
       const feed = document.getElementById(feedId);
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
       
@@ -1924,9 +2012,9 @@
           
           appendAgentStep(feed, '✅', `文件处理完成 (${data.data_type || '未知类型'}, ${data.file_scan?.total_files || '?'} 个文件)`, 'done');
           
-          // 触发 AI Agent 探索
+          // 触发 AI Agent 探索（把用户随附件一起发的那段文字带进去）
           addMessage('assistant', '<p>🧠 正在启动 AI Agent 探索数据集...</p>');
-          await exploreDataset(data.dataset_id);
+          await exploreDataset(data.dataset_id, explicitUserGoal);
         } else {
           throw new Error(data.detail || '处理失败');
         }
@@ -1981,12 +2069,12 @@
       }
     }
 
-    async function exploreDataset(datasetId) {
+    async function exploreDataset(datasetId, explicitUserGoal) {
       try {
         const response = await fetch(`${API}/data/${datasetId}/explore`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_goal: '' })
+          body: JSON.stringify({ user_goal: (explicitUserGoal || '').trim() })
         });
 
         const data = await response.json();
@@ -2460,8 +2548,10 @@
     async function sendMessage() {
       const input = document.getElementById('messageInput');
       const text = input.value.trim();
+      const stagedFile = currentFile;
 
-      if (!text || isWaitingResponse) return;
+      // 没文字 && 没附件 → 不发送；正在等响应也直接 return
+      if ((!text && !stagedFile) || isWaitingResponse) return;
 
       // 检测是否是数据链接（Google Drive / Sheets / CSV 下载链接）
       const linkPatterns = [
@@ -2469,10 +2559,38 @@
         /docs\.google\.com\/spreadsheets/,
         /^https?:\/\/.+\.(csv|xlsx|xls|zip)(\?|$)/i,
       ];
-      if (linkPatterns.some(p => p.test(text))) {
+      if (text && linkPatterns.some(p => p.test(text))) {
         input.value = '';
         input.style.height = 'auto';
         importFromLink(text);
+        return;
+      }
+
+      // 有文件附件：先把"用户消息（文字 + 附件 chip）"渲染出来，
+      // 然后把上传 + 数据探索的活儿交给 uploadFile()。
+      // uploadFile 内部会从历史消息里抓 user_goal，所以这里要先 addMessage 再 uploadFile。
+      if (stagedFile) {
+        const safeName = escapeHtml(stagedFile.name);
+        const sizeStr = formatFileSize(stagedFile.size);
+        const chipHtml = `
+          <div class="message-attachment-chip">
+            <span>📎</span>
+            <span class="file-name">${safeName}</span>
+            <span class="file-size">(${sizeStr})</span>
+          </div>`;
+        const bodyHtml = text
+          ? `<p>${escapeHtml(text)}</p>${chipHtml}`
+          : chipHtml;
+        addMessage('user', bodyHtml);
+
+        input.value = '';
+        input.style.height = 'auto';
+        currentFile = null;
+        clearAttachmentTray();
+
+        // 真正触发上传 + 数据探索（同一份逻辑，只是改成"用户主动点了发送"才跑）
+        // 把当前输入框里的文字作为 user_goal 一起带过去
+        uploadFile(stagedFile, text);
         return;
       }
 
@@ -3287,6 +3405,7 @@
       currentDatasetId = null;
       currentJobId = null;
       isWaitingResponse = false;
+      if (typeof clearAttachmentTray === 'function') clearAttachmentTray();
 
       // Clear messages to welcome state
       const messagesDiv = document.getElementById('messages');
