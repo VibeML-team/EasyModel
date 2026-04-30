@@ -1747,6 +1747,38 @@
 
     const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB per chunk
 
+    // 通用 fetch 重试器：对 502/503/504/网络抖动做指数退避，最多 5 次（约 32s）。
+    // 用于分块上传场景：滚动部署造成的瞬时 502 不应该丢掉已传的进度。
+    async function fetchWithRetry(url, options, opts = {}) {
+      const maxAttempts = opts.maxAttempts ?? 5;
+      const baseDelay = opts.baseDelay ?? 1000;
+      const onRetry = opts.onRetry || (() => {});
+      let lastErr;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const resp = await fetch(url, options);
+          if (resp.ok) return resp;
+          if (resp.status >= 500 && resp.status < 600 && attempt < maxAttempts) {
+            const wait = baseDelay * Math.pow(2, attempt - 1);
+            onRetry(attempt, resp.status, wait);
+            await new Promise(r => setTimeout(r, wait));
+            continue;
+          }
+          return resp;
+        } catch (e) {
+          lastErr = e;
+          if (attempt < maxAttempts) {
+            const wait = baseDelay * Math.pow(2, attempt - 1);
+            onRetry(attempt, 'NET', wait);
+            await new Promise(r => setTimeout(r, wait));
+            continue;
+          }
+          throw e;
+        }
+      }
+      throw lastErr || new Error('fetchWithRetry: max attempts exhausted');
+    }
+
     async function uploadFile(file, explicitUserGoal) {
       // Manus 风格：创建一条 Agent 活动消息，实时更新
       const feedId = 'agent-feed-' + Date.now();
@@ -1949,7 +1981,7 @@
         // Step 1: 初始化
         appendAgentStep(feed, '', `📤 大文件分块上传 (${totalChunks} 块 × ${formatFileSize(CHUNK_SIZE)})`, '');
         
-        const initResp = await fetch(`${API}/data/upload-init`, {
+        const initResp = await fetchWithRetry(`${API}/data/upload-init`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1957,47 +1989,53 @@
             total_size: file.size,
             total_chunks: totalChunks,
           })
+        }, {
+          onRetry: (att, status, wait) => appendAgentStep(feed, '',
+            `⏳ 初始化上传暂时不可达 (${status})，${(wait/1000).toFixed(1)}s 后第 ${att+1} 次重试...`, 'thinking'),
         });
         const initData = await initResp.json();
         const uploadId = initData.upload_id;
-        
-        // Step 2: 逐块上传
+
+        // Step 2: 逐块上传（每块走重试，502/网络抖动不掉进度）
         for (let i = 0; i < totalChunks; i++) {
           const start = i * CHUNK_SIZE;
           const end = Math.min(start + CHUNK_SIZE, file.size);
           const chunk = file.slice(start, end);
-          
+
           const chunkForm = new FormData();
           chunkForm.append('upload_id', uploadId);
           chunkForm.append('chunk_index', i.toString());
           chunkForm.append('chunk', chunk, `chunk_${i}`);
-          
-          const chunkResp = await fetch(`${API}/data/upload-chunk`, {
+
+          const chunkResp = await fetchWithRetry(`${API}/data/upload-chunk`, {
             method: 'POST',
             body: chunkForm,
+          }, {
+            maxAttempts: 6,
+            onRetry: (att, status, wait) => appendAgentStep(feed, '',
+              `⏳ 块 ${i + 1}/${totalChunks} 暂时不可达 (${status})，${(wait/1000).toFixed(1)}s 后第 ${att+1} 次重试...`, 'thinking'),
           });
-          
+
           if (!chunkResp.ok) {
             throw new Error(`Chunk ${i} failed: HTTP ${chunkResp.status}`);
           }
-          
-          // 每 5 块更新一次进度
+
           if (i % 5 === 0 || i === totalChunks - 1) {
             const pct = Math.round(((i + 1) / totalChunks) * 100);
             appendAgentStep(feed, '', `📦 上传进度: ${pct}% (${i + 1}/${totalChunks})`, '');
           }
         }
-        
+
         // Step 3: 完成 → 触发服务端处理
         appendAgentStep(feed, '', '✅ 上传完成，正在处理...', 'thinking');
-        
+
         const completeForm = new FormData();
         completeForm.append('upload_id', uploadId);
-        
-        const completeResp = await fetch(`${API}/data/upload-complete`, {
+
+        const completeResp = await fetchWithRetry(`${API}/data/upload-complete`, {
           method: 'POST',
           body: completeForm,
-        });
+        }, { maxAttempts: 6 });
         
         const data = await completeResp.json();
         hideLoading();

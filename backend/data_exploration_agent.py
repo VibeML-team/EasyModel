@@ -32,9 +32,9 @@ ALLOWED_COMMANDS = [
     "md5sum", "sha256sum", "mkdir", "cp",
 ]
 
-MAX_STEPS = 15       # 最大探索步数
+MAX_STEPS = 25       # 最大探索步数（给重试和深入分析留余地）
 CMD_TIMEOUT = 120    # 单条命令超时（秒）— pip install / 数据下载需要更长
-MAX_OUTPUT = 3000    # 单条命令输出截断长度
+MAX_OUTPUT = 3500    # 单条命令输出截断长度
 
 
 def execute_command(cmd: str, cwd: str, timeout: int = CMD_TIMEOUT) -> str:
@@ -174,10 +174,29 @@ def run_exploration_agent(
             output = execute_command(cmd, cwd=dataset_dir)
             yield {"type": "observation", "content": output}
             
-            # 把 observation 加入对话
+            # 把 observation 加入对话；如果命令报错，强烈引导重试而不是直接 CONCLUDE
+            looks_failed = (
+                'SyntaxError' in output or 'Traceback' in output
+                or output.startswith('[ERROR]') or output.startswith('[TIMEOUT]')
+                or 'command not found' in output or 'No such file' in output
+                or 'unterminated' in output.lower() or 'here-document' in output
+            )
+            if looks_failed:
+                guidance = (
+                    "上一条命令失败了。**不要直接 CONCLUDE**。"
+                    "请把刚才的目标拆成更小的步骤，用更短的命令重试（"
+                    "比如把分析脚本写进 /tmp/xxx.py 再 python3 /tmp/xxx.py，"
+                    "或者改用一条只统计单一指标的命令）。"
+                    "继续执行，直到拿到必要的统计信息后再 CONCLUDE。"
+                )
+            else:
+                guidance = (
+                    "请继续分析。还没拿到 类别分布 / 样本统计 / 关键质量发现 时不要 CONCLUDE，"
+                    "再用一两条聚焦的命令把数据吃透。所有要求满足后再输出 CONCLUDE 和结论。"
+                )
             messages.append({
                 "role": "user",
-                "content": f"[Observation]\n{output}\n\n请继续分析。如果已经充分理解数据集，请输出 CONCLUDE 和你的结论。",
+                "content": f"[Observation]\n{output}\n\n{guidance}",
             })
     else:
         # 达到最大步数，强制总结
@@ -360,8 +379,19 @@ PY
 ## 工作流程
 
 1. **Thought**: 说出你的分析和计划
-2. **Action**: 给出一条命令
+2. **Action**: 给出一条命令（**只能是真正的 shell / python 命令**）
 3. 观察输出 → 继续
+
+⚠️ 严禁在你自己的回复里写 `Observation:`、`[Observation]` 之类的行——
+那是我执行完命令后才会生成的反馈。
+你的回复结构只能是 `Thought:` + `Action:`（或 `Thought:` + `CONCLUDE`）。
+
+⚠️ 当目录里文件很多（>50）时，**绝对不要**用 `ls -R` 或不加限制的 `find`，
+否则会输出几万行把上下文撑爆。请优先：
+- `ls | head -30` 看前几个
+- `find . -maxdepth 2 -type d` 只看目录骨架
+- `find . -type f | wc -l` 只统计数量
+- `find . -type f -name "*.csv" | head -5` 按类型抽样
 
 示例：
 ```

@@ -8,10 +8,20 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+import threading
+import time
 from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel, Field
+
+
+class EmptyLLMResponseError(RuntimeError):
+    """LLM 返回 200 OK 但 content 为空（V4-Flash 限流时见过）。
+    被 _is_transient_error 当作可回退错误处理。
+    """
+    pass
 
 
 class LLMConfig:
@@ -21,11 +31,26 @@ class LLMConfig:
         api_key: str | None = None,
         base_url: str | None = None,
         model_name: str | None = None,
+        fallback_model: str | None = None,
     ):
         self.api_key = api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
         self.base_url = base_url or os.getenv("LLM_BASE_URL") or "https://api.openai.com/v1"
         self.model_name = model_name or os.getenv("LLM_MODEL_NAME") or "gpt-4o-mini"
-        
+
+        # 备用模型：当 primary 返回 503/429/网络异常时自动回退
+        # 留空字符串表示禁用（可以通过 LLM_FALLBACK_MODEL="" 显式关闭）
+        env_fallback = os.getenv("LLM_FALLBACK_MODEL")
+        if fallback_model is not None:
+            self.fallback_model = fallback_model or None
+        elif env_fallback is not None:
+            self.fallback_model = env_fallback or None
+        else:
+            self.fallback_model = None
+
+        if self.fallback_model and self.fallback_model == self.model_name:
+            # 一样的没意义
+            self.fallback_model = None
+
         if not self.api_key:
             raise ValueError(
                 "LLM API Key 未设置。请设置 LLM_API_KEY 环境变量或在初始化时传入。"
@@ -63,18 +88,91 @@ class ObjectiveCompileResult(BaseModel):
 
 class LLMClient:
     """LLM 客户端"""
-    
+
+    # 主模型遭遇 503/429/网络抖动时进入"不健康"状态的冷却时长（秒）
+    PRIMARY_COOLDOWN_SEC = 300
+
     def __init__(self, config: LLMConfig | None = None):
         self.config = config or LLMConfig()
+        # 代码生成场景下 LLM 单次推理可能跑 5–10 分钟。改为粒度更细的 timeout：
+        #   - connect 30s 足够
+        #   - read 1200s 兜底（实际走流式后每个 chunk 都会重置 read 计时器）
+        #   - write/pool 30s
         self.client = httpx.Client(
             base_url=self.config.base_url,
             headers={
                 "Authorization": f"Bearer {self.config.api_key}",
                 "Content-Type": "application/json",
             },
-            timeout=180.0,  # 3分钟，复杂 prompt 需要更多时间
+            timeout=httpx.Timeout(connect=30.0, read=1200.0, write=30.0, pool=30.0),
         )
-    
+
+        # 主模型健康状态（多线程并发：用锁保护）
+        self._primary_unhealthy_until: float = 0.0
+        self._lock = threading.Lock()
+
+    # ---------- 健康/回退辅助 ----------
+
+    def _is_primary_unhealthy(self) -> bool:
+        with self._lock:
+            return time.time() < self._primary_unhealthy_until
+
+    def _mark_primary_unhealthy(self, reason: str) -> None:
+        with self._lock:
+            self._primary_unhealthy_until = time.time() + self.PRIMARY_COOLDOWN_SEC
+        print(
+            f"[LLM] primary={self.config.model_name} 标记为不健康 ({reason})，"
+            f"未来 {self.PRIMARY_COOLDOWN_SEC}s 内自动用 fallback={self.config.fallback_model}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    def _pick_model(self) -> tuple[str, bool]:
+        """返回 (model_name, is_fallback_already)。"""
+        if self.config.fallback_model and self._is_primary_unhealthy():
+            return self.config.fallback_model, True
+        return self.config.model_name, False
+
+    @staticmethod
+    def _is_transient_error(exc: BaseException) -> bool:
+        """判断是否值得回退到备用模型 —— 服务过载 / 网络抖动 / 超时 / 空响应 等。"""
+        if isinstance(exc, EmptyLLMResponseError):
+            return True
+        if isinstance(exc, httpx.HTTPStatusError):
+            return exc.response.status_code in (408, 425, 429, 500, 502, 503, 504)
+        if isinstance(exc, (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError)):
+            return True
+        return False
+
+    def _with_fallback(self, fn):
+        """
+        fn(model_name) -> result。
+
+        策略：
+        1. 若主模型当前在冷却中，直接用 fallback。
+        2. 若主模型调用抛出 transient 错误（503/429/超时/网络抖动）：
+           - 标记主模型不健康（5 分钟冷却）
+           - 立刻用 fallback 重试一次
+        3. 已经在用 fallback 时不再二次回退，让原异常抛出。
+        """
+        model, is_fallback_active = self._pick_model()
+        try:
+            return fn(model)
+        except Exception as e:
+            if not self._is_transient_error(e):
+                raise
+            if is_fallback_active:
+                # 已经在 fallback 上还失败 → 没救了，原样抛
+                raise
+            if not self.config.fallback_model:
+                raise
+            # 主模型挂了 → 标记冷却，立刻用 fallback 再来一次
+            reason = f"{type(e).__name__}: {str(e)[:160]}"
+            self._mark_primary_unhealthy(reason)
+            return fn(self.config.fallback_model)
+
+    # ---------- 公共 API ----------
+
     def chat_completion(
         self,
         messages: list[dict[str, str]],
@@ -82,25 +180,41 @@ class LLMClient:
         max_tokens: int | None = None,
         response_format: dict | None = None,
     ) -> str:
-        """调用聊天补全API（非流式）"""
-        payload = {
-            "model": self.config.model_name,
+        """调用聊天补全 API（非流式），自带主→备模型回退。"""
+        return self._with_fallback(
+            lambda model: self._do_chat_completion(
+                model, messages, temperature, max_tokens, response_format
+            )
+        )
+
+    def _do_chat_completion(
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+        temperature: float,
+        max_tokens: int | None,
+        response_format: dict | None,
+    ) -> str:
+        payload: dict[str, Any] = {
+            "model": model,
             "messages": messages,
             "temperature": temperature,
         }
-        
         if max_tokens:
             payload["max_tokens"] = max_tokens
-        
         if response_format:
             payload["response_format"] = response_format
-        
+
         response = self.client.post("/chat/completions", json=payload)
         response.raise_for_status()
-        
         data = response.json()
-        return data["choices"][0]["message"]["content"]
-    
+        content = data["choices"][0]["message"]["content"] or ""
+        if not content.strip():
+            raise EmptyLLMResponseError(
+                f"LLM returned empty content (model={model}, status=200)"
+            )
+        return content
+
     def chat_completion_stream(
         self,
         messages: list[dict[str, str]],
@@ -108,25 +222,33 @@ class LLMClient:
         max_tokens: int | None = None,
         on_token: Any = None,
     ) -> str:
-        """
-        流式聊天补全 — 每个 token 到达时调用 on_token(token_text)
-        
-        Args:
-            on_token: 回调函数 (str) -> None，每收到一个 token 调用一次
-        Returns:
-            完整的响应文本
-        """
-        payload = {
-            "model": self.config.model_name,
+        """流式聊天补全，自带主→备模型回退。"""
+        return self._with_fallback(
+            lambda model: self._do_chat_completion_stream(
+                model, messages, temperature, max_tokens, on_token
+            )
+        )
+
+    def _do_chat_completion_stream(
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+        temperature: float,
+        max_tokens: int | None,
+        on_token: Any,
+    ) -> str:
+        payload: dict[str, Any] = {
+            "model": model,
             "messages": messages,
             "temperature": temperature,
             "stream": True,
         }
         if max_tokens:
             payload["max_tokens"] = max_tokens
-        
-        full_text = []
-        
+
+        full_text: list[str] = []
+        # 注意：raise_for_status() 会在 4xx/5xx 时抛 HTTPStatusError，
+        # 由外层 _with_fallback 捕获 → 自动回退到 fallback model
         with self.client.stream("POST", "/chat/completions", json=payload) as response:
             response.raise_for_status()
             for line in response.iter_lines():
@@ -145,8 +267,15 @@ class LLMClient:
                             on_token(token)
                 except (json.JSONDecodeError, IndexError, KeyError):
                     continue
-        
-        return "".join(full_text)
+
+        result = "".join(full_text)
+        # V4-Flash 等被限流时见过：HTTP 200 + 0 字节流。视为可回退错误，
+        # 由 _with_fallback 切到 fallback model 重试。
+        if not result.strip():
+            raise EmptyLLMResponseError(
+                f"LLM stream returned no content (model={model})"
+            )
+        return result
     
     def parse_intent(
         self,
