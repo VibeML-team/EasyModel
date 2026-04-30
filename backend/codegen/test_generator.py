@@ -602,30 +602,65 @@ sys.exit(0 if passed == total else 1)
         methods = re.findall(r'def\s+(\w+)\s*\(', code)
         return [m for m in methods if not m.startswith('_')]
     
-    def run_tests(self, test_suite: TestSuite, program: "GeneratedProgram", 
-                  timeout: int = 120) -> list[TestResult]:
+    def run_tests(
+        self,
+        test_suite: TestSuite,
+        program: "GeneratedProgram",
+        timeout: int = 120,
+        sandbox=None,
+    ) -> list[TestResult]:
+        """执行测试套件。
+
+        Args:
+            sandbox: 可选。如果传入，则把 run_tests.py 扔进沙箱（本地 SandboxExecutor
+                或 ModalSandboxExecutor）跑；不传就用本地 subprocess（旧行为）。
+                沙箱必须实现 ``run_python(files: dict, entry: str, timeout_sec: int)``，
+                返回 ``{returncode, stdout, stderr, duration_sec, timed_out}``。
         """
-        执行测试套件
-        
-        Returns:
-            每个测试的结果
-        """
-        results = []
-        
+        files = {
+            "model.py": program.model_code,
+            "loss.py": program.loss_code,
+            "data_pipeline.py": program.data_pipeline_code,
+            "train_loop.py": program.train_loop_code,
+            "run_tests.py": test_suite.test_runner_code,
+        }
+
+        if sandbox is not None:
+            # 走 sandbox（本地子进程隔离 / Modal CPU 容器）
+            try:
+                ret = sandbox.run_python(files, entry="run_tests.py", timeout_sec=timeout)
+            except Exception as e:
+                return [TestResult(
+                    passed=False,
+                    test_name="test_suite",
+                    duration_ms=0,
+                    error_message=f"sandbox 调用失败: {e}",
+                )]
+            duration_ms = float(ret.get("duration_sec", 0)) * 1000.0
+            if ret.get("timed_out"):
+                return [TestResult(
+                    passed=False,
+                    test_name="test_suite",
+                    duration_ms=duration_ms,
+                    error_message=f"测试超时（>{timeout}秒）",
+                )]
+            passed = int(ret.get("returncode", -1)) == 0
+            err = (ret.get("stderr") or "").strip() or (ret.get("stdout") or "").strip()
+            return [TestResult(
+                passed=passed,
+                test_name="test_suite",
+                duration_ms=duration_ms,
+                error_message=None if passed else err,
+            )]
+
+        # 本地 subprocess 路径（保留旧行为，向后兼容）
+        results: list[TestResult] = []
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
-            
-            # 写入代码文件
-            (tmpdir / "model.py").write_text(program.model_code)
-            (tmpdir / "loss.py").write_text(program.loss_code)
-            (tmpdir / "data_pipeline.py").write_text(program.data_pipeline_code)
-            (tmpdir / "train_loop.py").write_text(program.train_loop_code)
-            
-            # 写入测试运行器
-            runner_path = tmpdir / "run_tests.py"
-            runner_path.write_text(test_suite.test_runner_code)
-            
-            # 执行测试
+            tmpdir_p = Path(tmpdir)
+            for fname, fcode in files.items():
+                (tmpdir_p / fname).write_text(fcode)
+            runner_path = tmpdir_p / "run_tests.py"
+
             start = time.time()
             try:
                 proc = subprocess.run(
@@ -633,11 +668,9 @@ sys.exit(0 if passed == total else 1)
                     capture_output=True,
                     text=True,
                     timeout=timeout,
-                    cwd=str(tmpdir),
+                    cwd=str(tmpdir_p),
                 )
                 duration = (time.time() - start) * 1000
-                
-                # 解析结果
                 passed = proc.returncode == 0
                 results.append(TestResult(
                     passed=passed,
@@ -645,7 +678,6 @@ sys.exit(0 if passed == total else 1)
                     duration_ms=duration,
                     error_message=proc.stderr if not passed else None,
                 ))
-                
             except subprocess.TimeoutExpired:
                 results.append(TestResult(
                     passed=False,
@@ -660,5 +692,5 @@ sys.exit(0 if passed == total else 1)
                     duration_ms=0,
                     error_message=str(e),
                 ))
-        
+
         return results

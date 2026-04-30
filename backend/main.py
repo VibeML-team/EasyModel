@@ -440,8 +440,20 @@ def detect_ambiguity(req):
 
 # ============ API 端点 ============
 
+# HTML 页面统一带上 no-cache 头：ETag 仍然在，浏览器每次会发条件请求，
+# 内容没变服务器返回 304，没有额外开销，但能避免每次部署后用户拿到旧前端导致 bug。
+_HTML_NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, must-revalidate",
+    "Pragma": "no-cache",
+}
+
+
+def _html_response(path: Path) -> FileResponse:
+    return FileResponse(path, headers=_HTML_NO_CACHE_HEADERS)
+
+
 @app.get("/")
-def root() -> FileResponse:
+def root():
     """根路径 - 返回前端"""
     index = FRONTEND_DIR / "index.html"
     if not index.exists():
@@ -450,35 +462,35 @@ def root() -> FileResponse:
             "version": "1.0.0",
             "docs": "/docs",
         })
-    return FileResponse(index)
+    return _html_response(index)
 
 
 @app.get("/chat")
-def chat() -> FileResponse:
+def chat():
     """Chat 页面"""
     chat_file = FRONTEND_DIR / "chat.html"
     if chat_file.exists():
-        return FileResponse(chat_file)
+        return _html_response(chat_file)
     return JSONResponse({"error": "Chat page not found"}, status_code=404)
 
 
 @app.get("/chat.html")
-def chat_html() -> FileResponse:
+def chat_html():
     """Chat 页面 (.html 后缀)"""
     return chat()
 
 
 @app.get("/dashboard")
-def dashboard() -> FileResponse:
+def dashboard():
     """Dashboard 页面"""
     dashboard_file = FRONTEND_DIR / "dashboard.html"
     if dashboard_file.exists():
-        return FileResponse(dashboard_file)
+        return _html_response(dashboard_file)
     return JSONResponse({"error": "Dashboard page not found"}, status_code=404)
 
 
 @app.get("/dashboard.html")
-def dashboard_html() -> FileResponse:
+def dashboard_html():
     """Dashboard 页面 (.html 后缀)"""
     return dashboard()
 
@@ -574,35 +586,210 @@ async def upload_data(
 
 from fastapi.responses import StreamingResponse
 
-# ---- 分块上传 API（绕过 proxy body size 限制）----
+# ---- 分块上传 API（绕过 proxy body size 限制；支持容器重启 / 网络抖动 / 浏览器刷新后断点续传）----
+#
+# 设计要点：
+# 1. 会话元数据持久化到磁盘（_uploads/{upload_id}.json），进程重启后可恢复。
+# 2. 已收分块的"真相源"是磁盘上的 chunk 文件，而不是内存集合 —— 内存丢失也能从磁盘重建。
+# 3. 写分块用流式 + 临时文件 + 原子重命名，连接被掐断不会留下半残的"看似已收"分块。
+# 4. 同一分块重复上传是幂等的（已存在则直接 skip 返回成功），支持瞬时 502/超时后客户端无脑重试。
+# 5. 客户端可携带 client_token（基于文件指纹），若同一文件已有会话则复用，避免页面刷新或后端 404 时丢进度。
 
-_chunk_uploads: dict[str, dict] = {}  # upload_id → {dir, filename, received_chunks, total_chunks}
+_UPLOADS_INDEX_DIR = DATA_DIR / "_uploads"
+_chunk_uploads: dict[str, dict] = {}  # 内存缓存（仅作为加速；真相在磁盘上）
+
+
+def _safe_token(token: str) -> str:
+    """把 client_token 规范为安全的文件名片段。"""
+    import re as _re
+    # 只允许字母数字下划线短横，其余替换；超过 96 字符截断 + 哈希后缀。
+    cleaned = _re.sub(r"[^A-Za-z0-9._-]", "_", token)[:96]
+    if len(token) > 96:
+        import hashlib as _h
+        cleaned += "_" + _h.sha1(token.encode("utf-8")).hexdigest()[:10]
+    return cleaned or "anon"
+
+
+def _session_path(upload_id: str) -> Path:
+    return _UPLOADS_INDEX_DIR / f"{upload_id}.json"
+
+
+def _token_path(client_token: str) -> Path:
+    return _UPLOADS_INDEX_DIR / f"_token_{_safe_token(client_token)}.json"
+
+
+def _save_session(upload_id: str, info: dict) -> None:
+    """把会话元数据持久化到磁盘（received 集合不写入，运行时按磁盘扫描重建）。"""
+    _UPLOADS_INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    persist = {
+        "dataset_id": info["dataset_id"],
+        "dir": info["dir"],
+        "filename": info["filename"],
+        "total_size": info["total_size"],
+        "total_chunks": info["total_chunks"],
+        "client_token": info.get("client_token"),
+        "created_at": info.get("created_at") or datetime.now(timezone.utc).isoformat(),
+    }
+    p = _session_path(upload_id)
+    tmp = p.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(persist, ensure_ascii=False))
+    os.replace(tmp, p)
+
+
+def _scan_received_chunks(upload_dir: Path) -> set[int]:
+    """从磁盘真实状态重建已收分块集合（忽略 .part 临时文件）。"""
+    chunk_dir = upload_dir / "_chunks"
+    if not chunk_dir.exists():
+        return set()
+    received: set[int] = set()
+    for f in chunk_dir.iterdir():
+        if not f.is_file() or f.name.endswith(".part"):
+            continue
+        if not f.name.startswith("chunk_"):
+            continue
+        try:
+            idx = int(f.name.split("_", 1)[1])
+        except (ValueError, IndexError):
+            continue
+        if f.stat().st_size > 0:
+            received.add(idx)
+    return received
+
+
+def _load_session(upload_id: str) -> dict | None:
+    """优先内存，失败则从磁盘 lazy load；任何返回的对象都已重新扫描了 received。"""
+    info = _chunk_uploads.get(upload_id)
+    if info is None:
+        p = _session_path(upload_id)
+        if not p.exists():
+            return None
+        try:
+            persist = json.loads(p.read_text())
+        except Exception:
+            return None
+        info = dict(persist)
+        info["received"] = set()
+        _chunk_uploads[upload_id] = info
+    info["received"] = _scan_received_chunks(Path(info["dir"]))
+    return info
+
+
+def _drop_session(upload_id: str, *, remove_token: bool = True) -> None:
+    info = _chunk_uploads.pop(upload_id, None)
+    p = _session_path(upload_id)
+    try:
+        if p.exists():
+            p.unlink()
+    except OSError:
+        pass
+    if remove_token and info and info.get("client_token"):
+        try:
+            tp = _token_path(info["client_token"])
+            if tp.exists():
+                tp.unlink()
+        except OSError:
+            pass
+
 
 class ChunkInitRequest(BaseModel):
     filename: str
     total_size: int
     total_chunks: int
+    # 可选：基于文件的稳定指纹（前端用 name|size|lastModified 之类拼出来）
+    # 服务端据此实现幂等 init —— 同一文件再次 init 会返回原会话，不丢进度。
+    client_token: str | None = None
+
 
 @app.post("/api/data/upload-init")
 async def upload_init(req: ChunkInitRequest) -> dict[str, Any]:
-    """初始化分块上传"""
-    import uuid as _uuid
-    upload_id = _uuid.uuid4().hex[:12]
-    dataset_id = f"ds_{_uuid.uuid4().hex[:8]}"
-    
+    """初始化分块上传；带 client_token 时支持幂等续传。"""
+    _UPLOADS_INDEX_DIR.mkdir(parents=True, exist_ok=True)
+
+    if req.client_token:
+        tp = _token_path(req.client_token)
+        if tp.exists():
+            try:
+                ref = json.loads(tp.read_text())
+                existing = _load_session(ref.get("upload_id", ""))
+                if (
+                    existing
+                    and existing.get("filename") == req.filename
+                    and int(existing.get("total_size", -1)) == int(req.total_size)
+                    and int(existing.get("total_chunks", -1)) == int(req.total_chunks)
+                ):
+                    return {
+                        "upload_id": ref["upload_id"],
+                        "dataset_id": existing["dataset_id"],
+                        "resumed": True,
+                        "received": sorted(existing["received"]),
+                        "total_chunks": existing["total_chunks"],
+                    }
+            except Exception:
+                # 索引文件损坏或会话已不一致 —— 删掉重建
+                try:
+                    tp.unlink()
+                except OSError:
+                    pass
+
+    upload_id = uuid.uuid4().hex[:12]
+    dataset_id = f"ds_{uuid.uuid4().hex[:8]}"
     upload_dir = DATA_DIR / dataset_id
     upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    _chunk_uploads[upload_id] = {
+
+    info = {
         "dataset_id": dataset_id,
         "dir": str(upload_dir),
         "filename": req.filename,
         "total_size": req.total_size,
         "total_chunks": req.total_chunks,
+        "client_token": req.client_token,
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "received": set(),
     }
-    
-    return {"upload_id": upload_id, "dataset_id": dataset_id}
+    _chunk_uploads[upload_id] = info
+    _save_session(upload_id, info)
+
+    if req.client_token:
+        tp = _token_path(req.client_token)
+        tp.write_text(json.dumps({"upload_id": upload_id}))
+
+    return {
+        "upload_id": upload_id,
+        "dataset_id": dataset_id,
+        "resumed": False,
+        "received": [],
+        "total_chunks": req.total_chunks,
+    }
+
+
+@app.get("/api/data/upload-status")
+async def upload_status(upload_id: str) -> dict[str, Any]:
+    """查询某次分块上传的真实进度（用于前端断点续传）。"""
+    info = _load_session(upload_id)
+    if info is None:
+        raise HTTPException(404, "Upload session not found")
+    return {
+        "upload_id": upload_id,
+        "dataset_id": info["dataset_id"],
+        "filename": info["filename"],
+        "total_chunks": info["total_chunks"],
+        "received": sorted(info["received"]),
+        "total_received": len(info["received"]),
+        "complete": len(info["received"]) >= info["total_chunks"],
+    }
+
+
+@app.post("/api/data/upload-abort")
+async def upload_abort(upload_id: str = Form(...)) -> dict[str, Any]:
+    """主动放弃上传：清理分块和会话索引（数据集目录保留，由清理任务回收）。"""
+    info = _load_session(upload_id)
+    if info is None:
+        return {"ok": True, "already_gone": True}
+    import shutil
+    chunk_dir = Path(info["dir"]) / "_chunks"
+    shutil.rmtree(chunk_dir, ignore_errors=True)
+    _drop_session(upload_id)
+    return {"ok": True}
 
 
 @app.post("/api/data/upload-chunk")
@@ -611,27 +798,65 @@ async def upload_chunk(
     chunk_index: int = Form(...),
     chunk: UploadFile = File(...),
 ) -> dict[str, Any]:
-    """上传单个分块"""
-    if upload_id not in _chunk_uploads:
+    """上传单个分块：流式落盘 + 原子重命名 + 幂等。"""
+    info = _load_session(upload_id)
+    if info is None:
         raise HTTPException(404, "Upload session not found")
-    
-    info = _chunk_uploads[upload_id]
+
+    total_chunks = int(info["total_chunks"])
+    if chunk_index < 0 or chunk_index >= total_chunks:
+        raise HTTPException(400, f"chunk_index {chunk_index} out of range [0,{total_chunks})")
+
     chunk_dir = Path(info["dir"]) / "_chunks"
     chunk_dir.mkdir(exist_ok=True)
-    
-    # 写入分块
-    chunk_path = chunk_dir / f"chunk_{chunk_index:05d}"
-    content = await chunk.read()
-    with open(chunk_path, 'wb') as f:
-        f.write(content)
-    
+    final_path = chunk_dir / f"chunk_{chunk_index:05d}"
+    tmp_path = chunk_dir / f"chunk_{chunk_index:05d}.part"
+
+    # 幂等：已存在的非空分块直接 skip
+    if final_path.exists() and final_path.stat().st_size > 0:
+        info["received"].add(chunk_index)
+        return {
+            "received": chunk_index,
+            "total_received": len(info["received"]),
+            "total_chunks": total_chunks,
+            "complete": len(info["received"]) >= total_chunks,
+            "skipped": True,
+        }
+
+    # 流式写入临时文件，避免 8MB 整块加载到内存
+    bytes_written = 0
+    try:
+        with open(tmp_path, "wb") as f:
+            while True:
+                block = await chunk.read(1024 * 1024)  # 1MB
+                if not block:
+                    break
+                f.write(block)
+                bytes_written += len(block)
+    except Exception:
+        # 写一半被掐断 —— 删掉临时文件，让客户端重试
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        raise
+
+    if bytes_written == 0:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        raise HTTPException(400, f"Empty chunk {chunk_index}")
+
+    os.replace(tmp_path, final_path)  # 原子重命名 —— 此刻"已收"才生效
     info["received"].add(chunk_index)
-    
+
     return {
         "received": chunk_index,
         "total_received": len(info["received"]),
-        "total_chunks": info["total_chunks"],
-        "complete": len(info["received"]) >= info["total_chunks"],
+        "total_chunks": total_chunks,
+        "complete": len(info["received"]) >= total_chunks,
+        "skipped": False,
     }
 
 
@@ -641,36 +866,49 @@ async def upload_complete(
     target_hint: str = Form(""),
     user_goal: str = Form(""),
 ) -> dict[str, Any]:
-    """分块上传完成，拼接文件并触发分析"""
-    if upload_id not in _chunk_uploads:
+    """分块上传完成，拼接文件并触发分析。"""
+    info = _load_session(upload_id)
+    if info is None:
         raise HTTPException(404, "Upload session not found")
-    
-    info = _chunk_uploads[upload_id]
-    
-    if len(info["received"]) < info["total_chunks"]:
-        raise HTTPException(400, f"Missing chunks: received {len(info['received'])}/{info['total_chunks']}")
-    
-    # 拼接文件
+
+    total_chunks = int(info["total_chunks"])
+    received = info["received"]
+    if len(received) < total_chunks:
+        missing = sorted(set(range(total_chunks)) - received)
+        raise HTTPException(
+            400,
+            f"Missing chunks: received {len(received)}/{total_chunks}; missing first 10: {missing[:10]}",
+        )
+
     chunk_dir = Path(info["dir"]) / "_chunks"
     dest = Path(info["dir"]) / info["filename"]
-    
-    with open(dest, 'wb') as out:
-        for i in range(info["total_chunks"]):
-            chunk_path = chunk_dir / f"chunk_{i:05d}"
-            with open(chunk_path, 'rb') as inp:
-                while True:
-                    block = inp.read(1024 * 1024)
-                    if not block:
-                        break
-                    out.write(block)
-    
-    # 清理分块
+    dest_tmp = dest.with_suffix(dest.suffix + ".assembling")
+
+    try:
+        with open(dest_tmp, 'wb') as out:
+            for i in range(total_chunks):
+                chunk_path = chunk_dir / f"chunk_{i:05d}"
+                if not chunk_path.exists() or chunk_path.stat().st_size == 0:
+                    raise HTTPException(500, f"Chunk {i} missing on disk during assembly")
+                with open(chunk_path, 'rb') as inp:
+                    while True:
+                        block = inp.read(1024 * 1024)
+                        if not block:
+                            break
+                        out.write(block)
+        os.replace(dest_tmp, dest)
+    except Exception:
+        try:
+            dest_tmp.unlink()
+        except OSError:
+            pass
+        raise
+
     import shutil
     shutil.rmtree(chunk_dir, ignore_errors=True)
-    
+
     file_size = dest.stat().st_size
-    
-    # 用 upload_from_disk 处理
+
     try:
         spec = data_manager.upload_from_disk(
             file_path=dest,
@@ -678,9 +916,9 @@ async def upload_complete(
             dataset_id=info["dataset_id"],
             target_hint=target_hint if target_hint else None,
         )
-        
-        del _chunk_uploads[upload_id]
-        
+
+        _drop_session(upload_id)
+
         return {
             "success": True,
             "dataset_id": spec.dataset_id,
@@ -1397,6 +1635,177 @@ def explore_dataset(dataset_id: str, user_goal: str = "") -> dict[str, Any]:
         }
 
 
+@app.post("/api/data/{dataset_id}/explore-stream")
+def explore_dataset_stream(dataset_id: str, user_goal: str = ""):
+    """
+    SSE 流式数据探索 — 与 /upload-stream 中的 Agent 探索阶段一致，
+    供分块上传完成后或外部触发使用。
+    """
+    try:
+        spec = data_manager.get_dataset(dataset_id)
+    except ValueError:
+        raise HTTPException(404, f"数据集不存在: {dataset_id}")
+
+    agent_cwd = spec.storage_path or str(DATA_DIR / dataset_id)
+    extracted = Path(agent_cwd) / "extracted"
+    if extracted.exists():
+        agent_cwd = str(extracted)
+
+    filename = spec.filename
+    file_size_human = spec.file_scan.get("total_size_human", "unknown") if spec.file_scan else "unknown"
+
+    def event_stream():
+        import sys, traceback as _tb
+        from backend.compiler import _use_llm_compiler
+        if not _use_llm_compiler():
+            yield f"data: {json.dumps({'step': 'error', 'message': 'LLM 未配置，无法启动探索 Agent', 'done': True}, ensure_ascii=False)}\n\n"
+            return
+
+        # 如果已经探索过（用户网络抖动导致前端断线后重连等），直接秒回缓存结果，
+        # 不再重新跑 Agent。这能让 streamExplore 安全地重试。
+        if spec.exploration:
+            print(f"[explore-stream] cached hit dataset={dataset_id}", file=sys.stderr, flush=True)
+            cached_result = {
+                "step": "result",
+                "done": True,
+                "data": {
+                    "dataset_id": spec.dataset_id,
+                    "filename": spec.filename,
+                    "n_rows": spec.n_rows,
+                    "n_cols": spec.n_cols,
+                    "data_type": spec.data_type,
+                    "target_column": spec.target_column,
+                    "file_scan": {
+                        "total_files": spec.file_scan.get("total_files", 0),
+                        "total_size_human": spec.file_scan.get("total_size_human", ""),
+                        "extensions": spec.file_scan.get("extensions", {}),
+                        "directory_tree": spec.file_scan.get("directory_tree", ""),
+                    } if spec.file_scan else {},
+                    "exploration": spec.exploration,
+                }
+            }
+            yield f"data: {json.dumps({'step': 'think', 'message': '✅ 命中已有探索结果，跳过重跑', 'done': False}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps(cached_result, ensure_ascii=False)}\n\n"
+            return
+
+        import threading
+        import queue as _queue
+
+        exploration_holder = {"value": None}
+        q: _queue.Queue = _queue.Queue()
+        SENTINEL = object()
+        producer_done = threading.Event()
+
+        def producer():
+            try:
+                from backend.llm_client import get_llm_client
+                from backend.data_exploration_agent import run_exploration_agent
+                client = get_llm_client()
+
+                import httpx
+                if hasattr(client, 'client'):
+                    client.client = httpx.Client(
+                        base_url=client.config.base_url,
+                        headers={"Authorization": f"Bearer {client.config.api_key}", "Content-Type": "application/json"},
+                        timeout=600.0,
+                    )
+
+                for event in run_exploration_agent(
+                    dataset_dir=agent_cwd,
+                    filename=filename,
+                    file_size_human=file_size_human,
+                    user_goal=user_goal if user_goal else None,
+                    llm_client=client,
+                ):
+                    if event.get("type") == "insight":
+                        exploration_holder["value"] = event.get("content")
+                    q.put(event)
+            except Exception as e:
+                tb = _tb.format_exc()
+                print(f"[explore-stream] producer crashed: {e}\n{tb}", file=sys.stderr, flush=True)
+                q.put({"type": "error", "content": f"Agent 遇到问题: {str(e)[:200]}"})
+            finally:
+                producer_done.set()
+                q.put(SENTINEL)
+
+        t = threading.Thread(target=producer, daemon=True)
+        t.start()
+        print(f"[explore-stream] start dataset={dataset_id} cwd={agent_cwd}", file=sys.stderr, flush=True)
+
+        # 主循环：每 4s 没事件就同时发 SSE 注释 + heartbeat 数据帧，
+        # 同时反复 flush（双重保险）以避免任何反向代理空闲断开
+        try:
+            while True:
+                try:
+                    event = q.get(timeout=4)
+                except _queue.Empty:
+                    yield ": keep-alive\n\n"
+                    yield f"data: {json.dumps({'step': 'heartbeat'}, ensure_ascii=False)}\n\n"
+                    continue
+                if event is SENTINEL:
+                    break
+                etype = event.get("type")
+                content = event.get("content", "")
+                if etype == "thought":
+                    yield f"data: {json.dumps({'step': 'think', 'message': f'💭 {content}', 'done': False}, ensure_ascii=False)}\n\n"
+                elif etype == "action":
+                    yield f"data: {json.dumps({'step': 'action', 'message': f'⚡ 执行: {content}', 'done': False}, ensure_ascii=False)}\n\n"
+                elif etype == "observation":
+                    obs_preview = content[:300] + ('...' if len(content) > 300 else '')
+                    yield f"data: {json.dumps({'step': 'observe', 'message': f'👁 {obs_preview}', 'done': False}, ensure_ascii=False)}\n\n"
+                elif etype == "insight":
+                    yield f"data: {json.dumps({'step': 'think', 'message': '✅ 数据探索完成', 'done': False}, ensure_ascii=False)}\n\n"
+                elif etype == "error":
+                    yield f"data: {json.dumps({'step': 'think', 'message': f'⚠️ {content}', 'done': False}, ensure_ascii=False)}\n\n"
+        except GeneratorExit:
+            print(f"[explore-stream] client disconnected dataset={dataset_id}", file=sys.stderr, flush=True)
+            raise
+
+        exploration = exploration_holder["value"]
+        try:
+            if exploration:
+                spec.exploration = exploration
+                if exploration.get("data_type"):
+                    spec.data_type = exploration["data_type"]
+                meta_path = DATA_DIR / f"{dataset_id}_meta.json"
+                with open(meta_path, 'w', encoding='utf-8') as f:
+                    json.dump(spec.to_dict(), f, ensure_ascii=False, indent=2)
+                data_manager.datasets[dataset_id] = spec
+        except Exception as e:
+            yield f"data: {json.dumps({'step': 'think', 'message': f'⚠️ 保存探索结果失败: {str(e)[:120]}', 'done': False}, ensure_ascii=False)}\n\n"
+
+        result = {
+            "step": "result",
+            "done": True,
+            "data": {
+                "dataset_id": spec.dataset_id,
+                "filename": spec.filename,
+                "n_rows": spec.n_rows,
+                "n_cols": spec.n_cols,
+                "data_type": spec.data_type,
+                "target_column": spec.target_column,
+                "file_scan": {
+                    "total_files": spec.file_scan.get("total_files", 0),
+                    "total_size_human": spec.file_scan.get("total_size_human", ""),
+                    "extensions": spec.file_scan.get("extensions", {}),
+                    "directory_tree": spec.file_scan.get("directory_tree", ""),
+                } if spec.file_scan else {},
+                "exploration": exploration,
+            }
+        }
+        yield f"data: {json.dumps(result, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
 class DataSearchRequest(BaseModel):
     """搜索公开数据集"""
     user_goal: str = Field(min_length=3)
@@ -1829,37 +2238,71 @@ def _run_plan_background(task_id: str, user_goal: str, dataset_id: str | None, p
             except Exception:
                 pass
         
-        task["log"].append({"type": "status", "content": "🧠 正在生成训练方案..."})
+        # 流式调用 LLM 生成方案
+        def on_token(token: str):
+            task["log"][thinking_idx]["content"] += token
 
-        response_text = client.chat_completion(
-            messages=[
-                {"role": "system", "content": _get_plan_system_prompt()},
-                {"role": "user", "content": _get_plan_user_prompt(enriched_goal, priority)},
-            ],
-            temperature=0.2,
-            max_tokens=1800,
-        )
-        task["log"][thinking_idx]["content"] = _truncate_plan_reasoning(response_text)
-        
-        # 解析 JSON 结果
+        task["log"].append({"type": "status", "content": "🧠 正在思考训练方案..."})
+
         try:
-            json_str = client._extract_json(response_text)
+            response_text = client.chat_completion_stream(
+                messages=[
+                    {"role": "system", "content": _get_plan_system_prompt()},
+                    {"role": "user", "content": _get_plan_user_prompt(enriched_goal, priority)},
+                ],
+                temperature=0.4,
+                max_tokens=3000,
+                on_token=on_token,
+            )
+        except Exception as llm_err:
+            # primary + fallback 都失败（含 EmptyLLMResponseError 重试两次都空）
+            # → 直接告诉用户失败，不要再渲染半成品 50% 卡
+            task["status"] = "failed"
+            task["error"] = f"LLM 方案生成失败: {str(llm_err)[:200]}"
+            task["log"].append({"type": "error", "content": task["error"]})
+            return
+
+        # 解析 JSON 结果
+        plan = None
+        parse_err = None
+        try:
+            json_str = client._extract_json(response_text or "")
             plan = json.loads(json_str)
-        except Exception:
-            plan = {
-                "business_layer": {
-                    "understanding": response_text[:300],
-                    "personalized_approach": "",
-                    "core_promises": [],
-                    "vs_standard": "",
-                },
-                "technical_layer": {},
-                "confidence": 0.5,
-            }
-        
-        task["status"] = "completed"
-        task["result"] = plan
-        task["log"].append({"type": "done", "content": "✅ 方案生成完成"})
+        except Exception as e:
+            parse_err = e
+
+        # 如果连 understanding 这种关键字段都空了，说明这次 LLM 输出基本是垃圾，
+        # 比生成 50% 半成品卡片好的做法是直接让前端报错（用户能立即重试）。
+        def _plan_is_substantive(p):
+            if not isinstance(p, dict):
+                return False
+            biz = p.get("business_layer") or {}
+            if not isinstance(biz, dict):
+                return False
+            understanding = (biz.get("understanding") or "").strip()
+            approach = (biz.get("personalized_approach") or "").strip()
+            return len(understanding) >= 10 or len(approach) >= 10
+
+        if plan is not None and _plan_is_substantive(plan):
+            task["status"] = "completed"
+            task["result"] = plan
+            task["log"].append({"type": "done", "content": "✅ 方案生成完成"})
+            return
+
+        # 走到这里说明：JSON 解析失败 / 关键字段为空。打详细日志并标记失败。
+        import sys as _sys
+        _sys.stderr.write(
+            f"[plan_background] task={task_id} 方案生成不完整 "
+            f"(parse_err={parse_err}, raw_len={len(response_text or '')}, "
+            f"raw_preview={(response_text or '')[:300]!r})\n"
+        )
+        _sys.stderr.flush()
+        task["status"] = "failed"
+        task["error"] = (
+            "LLM 这次返回的方案不完整或为空，请稍后重试。"
+            "（可能是上游模型限流；fallback 已尝试但仍未拿到有效内容）"
+        )
+        task["log"].append({"type": "error", "content": task["error"]})
         
     except Exception as e:
         task["status"] = "failed"

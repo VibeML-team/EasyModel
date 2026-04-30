@@ -22,5 +22,11 @@ lightgbm>=4.1.0
 scikit-optimize>=0.9.0
 modal>=0.64.0
 
+# Modal 远端 GPU 训练后端（参考 Synapse-agent 的做法）
+# 真正的 PyTorch / cv2 / transformers 等重依赖跑在 Modal 镜像里，
+# 见 backend/codegen/modal_functions.py。本地容器装的 torch 是给 QA pipeline
+# 自己跑单元测试用的——不是给训练用的。
+
 # 测试
 pytest>=7.4.0
+hypothesis>=6.90.0

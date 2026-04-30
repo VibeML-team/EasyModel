@@ -9,6 +9,14 @@ from .static_analyzer import StaticAnalyzer, StaticCheckResult
 from .test_generator import UnitTestGenerator, TestSuite
 from .sandbox import SandboxExecutor, SmokeTestResult
 from .qa_pipeline import QAPipeline, QAResult
+from .modal_executor import ModalSandboxExecutor, make_executor_from_env
+from .gpu_selector import (
+    GPU_CATALOG,
+    DEFAULT_GPU,
+    GPURecommendation,
+    env_default_gpu,
+    recommend_gpu,
+)
 
 __all__ = [
     "ProgramGenerator",
@@ -21,4 +29,11 @@ __all__ = [
     "SmokeTestResult",
     "QAPipeline",
     "QAResult",
+    "ModalSandboxExecutor",
+    "make_executor_from_env",
+    "GPU_CATALOG",
+    "DEFAULT_GPU",
+    "GPURecommendation",
+    "env_default_gpu",
+    "recommend_gpu",
 ]

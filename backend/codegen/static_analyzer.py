@@ -20,42 +20,127 @@ from pathlib import Path
 from typing import Any
 
 
-# 允许的导入白名单
-ALLOWED_IMPORTS = {
-    # 标准库
-    "abc", "collections", "copy", "dataclasses", "enum", "functools", "inspect",
-    "itertools", "json", "logging", "math", "numbers", "os", "pathlib", "pickle",
-    "random", "re", "sys", "time", "typing", "warnings", "contextlib",
-    "hashlib", "typing_extensions",
-    
-    # 数值计算
-    "numpy", "np",
-    "scipy", "sklearn", "pandas", "pd",
-    
-    # PyTorch生态
-    "torch", "torch.nn", "torch.nn.functional", "torch.optim", "torch.utils.data",
-    "torchvision", "torchvision.transforms", "torchvision.datasets",
-    "torch_geometric", "torch_geometric.data", "torch_geometric.nn",
-    "pytorch_lightning", "lightning", "lightning.pytorch",
-    
-    # 配置和工具
-    "omegaconf", "hydra", "wandb", "tensorboard",
-    "tqdm", "matplotlib", "seaborn",
+# =============================================================================
+# Import 策略：allow-by-default + 显式黑名单
+#
+# 早期我们用「白名单 + 没列入就拒」的策略。结果就是 LLM 一旦写了
+# `import cv2` / `import PIL` / `import transformers` / `import einops` 这种
+# 完全合理的 ML 库，就被当成"危险导入"，整个 QA pipeline 三轮修不完直接 fail。
+#
+# 现在改成：
+#   - DENY_IMPORTS：明确拦的真危险模块（联网、系统调用、shell）
+#   - ALLOWED_IMPORTS：分类列出的"明确允许"集合，用于在错误信息和 LLM 修复
+#     prompt 里给出"你应该用这些库"的建议；它**不再用于硬性拦截**。
+#   - 任何不在 DENY_IMPORTS 中的模块默认通过；不在 ALLOWED_IMPORTS 中的会
+#     产生 warning（不致命），方便我们日后观察 LLM 在用什么"奇怪"的库。
+# =============================================================================
+
+# 真正应该被拒绝的模块（联网、远程执行、shell 等，跟训练无关）
+DENY_IMPORTS = {
+    # 远程/网络（训练代码不应该外联）
+    "subprocess", "socket", "ftplib", "smtplib", "telnetlib", "imaplib",
+    "poplib", "nntplib", "xmlrpc", "http", "urllib", "urllib2", "urllib3",
+    "requests", "httpx", "aiohttp", "websockets", "websocket",
+    "paramiko", "fabric", "asyncssh",
+    # Shell / 容器逃逸
+    "pty", "ptyprocess", "pexpect", "shlex",
+    # 钩子/反射类（不是 ML 必需，且容易被滥用）
+    "ctypes", "cffi",
 }
 
-# 禁止的危险函数/模式
+# 明确允许的库（按用途分类，主要给 LLM 修复 prompt 用作 "你可以用这些" 提示）
+ALLOWED_IMPORT_GROUPS: dict[str, list[str]] = {
+    "stdlib": [
+        "abc", "argparse", "asyncio", "base64", "bisect", "builtins", "collections",
+        "concurrent", "contextlib", "copy", "csv", "dataclasses", "datetime", "decimal",
+        "difflib", "dis", "enum", "errno", "fnmatch", "fractions", "functools", "gc",
+        "glob", "gzip", "hashlib", "heapq", "html", "importlib", "inspect", "io",
+        "ipaddress", "itertools", "json", "logging", "math", "multiprocessing",
+        "numbers", "operator", "os", "pathlib", "pickle", "queue", "random", "re",
+        "secrets", "shutil", "signal", "statistics", "string", "struct", "sys",
+        "tarfile", "tempfile", "textwrap", "threading", "time", "timeit", "traceback",
+        "types", "typing", "typing_extensions", "unicodedata", "uuid", "warnings",
+        "weakref", "xml", "zipfile", "zlib",
+    ],
+    "core_numerical": [
+        "numpy", "np", "scipy", "pandas", "pd", "polars", "pyarrow", "h5py",
+        "joblib", "safetensors", "pyyaml", "yaml", "toml", "tomli",
+    ],
+    "torch_ecosystem": [
+        "torch", "torchvision", "torchaudio", "torchtext", "torchdata",
+        "torch_geometric", "torch_scatter", "torch_sparse", "torch_cluster",
+        "pytorch_lightning", "lightning", "fastai",
+        "torchmetrics", "torchinfo", "torchsummary",
+        "einops", "einsum", "opt_einsum",
+    ],
+    "image_cv": [
+        "cv2", "opencv", "PIL", "Pillow", "skimage", "imageio", "albumentations",
+        "kornia", "imgaug", "augmentations", "imutils", "rasterio", "tifffile",
+    ],
+    "model_zoo": [
+        "timm", "transformers", "diffusers", "accelerate", "peft", "bitsandbytes",
+        "tokenizers", "datasets", "evaluate", "sentencepiece", "tiktoken",
+        "segmentation_models_pytorch", "smp", "ultralytics", "yolov5", "yolov8",
+        "efficientnet_pytorch", "pretrainedmodels", "huggingface_hub",
+    ],
+    "nlp": [
+        "nltk", "spacy", "jieba", "pkuseg", "gensim", "fasttext", "stanza",
+        "sacrebleu", "rouge_score", "bert_score",
+    ],
+    "audio": [
+        "librosa", "soundfile", "audioread", "pydub", "torchaudio",
+        "espnet", "speechbrain",
+    ],
+    "graph": [
+        "networkx", "dgl", "graph_tool", "igraph", "node2vec",
+    ],
+    "rl": [
+        "gym", "gymnasium", "stable_baselines3", "ray", "rllib", "pettingzoo",
+        "tianshou", "d4rl", "highway_env",
+    ],
+    "ml_classical": [
+        "sklearn", "xgboost", "lightgbm", "catboost", "mlxtend",
+        "imbalanced_learn", "imblearn", "umap", "hdbscan",
+        "shap", "lime",
+    ],
+    "config_logging": [
+        "omegaconf", "hydra", "wandb", "tensorboard", "tensorboardX",
+        "mlflow", "neptune", "comet_ml", "clearml",
+        "loguru", "rich", "click", "tap", "fire", "absl",
+    ],
+    "viz": [
+        "matplotlib", "seaborn", "plotly", "bokeh", "altair",
+    ],
+    "utils": [
+        "tqdm", "attrs", "pydantic", "marshmallow", "cachetools",
+        "more_itertools", "tenacity", "boltons", "toolz",
+    ],
+    "internal": [
+        # 项目内相对/相邻模块（QA 时这些必然存在）
+        "model", "loss", "data_pipeline", "train_loop", "utils", "dataset",
+        "models", "losses", "datasets",
+    ],
+}
+
+ALLOWED_IMPORTS: set[str] = {
+    name for group in ALLOWED_IMPORT_GROUPS.values() for name in group
+}
+
+# 真正应当被拦截的"危险调用模式"。`open` 不在这里 —— 训练代码读 csv/parquet/
+# 图像/checkpoint 完全合法，瞎拦只会让 LLM 写出更怪的绕过方案。
 DANGEROUS_PATTERNS = {
     "eval": "使用eval()存在代码注入风险",
     "exec": "使用exec()存在代码注入风险",
-    "compile": "使用compile()存在代码注入风险",
     "__import__": "动态导入可能被滥用",
-    "subprocess": "子进程调用存在安全风险",
-    "socket": "网络操作被禁止",
-    "urllib": "网络请求被禁止",
-    "requests": "网络请求被禁止",
-    "open": "文件操作应当通过DataModule进行",
     "os.system": "系统命令执行被禁止",
     "os.popen": "系统命令执行被禁止",
+    "os.execv": "系统命令执行被禁止",
+    "os.execve": "系统命令执行被禁止",
+    "os.spawn": "系统命令执行被禁止",
+    "subprocess.run": "子进程调用被禁止",
+    "subprocess.Popen": "子进程调用被禁止",
+    "subprocess.call": "子进程调用被禁止",
+    "subprocess.check_output": "子进程调用被禁止",
 }
 
 
@@ -81,6 +166,7 @@ class StaticAnalyzer:
     
     def __init__(self):
         self.allowed_imports = ALLOWED_IMPORTS
+        self.deny_imports = DENY_IMPORTS
         self.dangerous_patterns = DANGEROUS_PATTERNS
         
     def analyze(self, program: "GeneratedProgram") -> list[StaticCheckResult]:
@@ -188,37 +274,59 @@ class StaticAnalyzer:
         )
     
     def _check_imports(self, filename: str, code: str) -> StaticCheckResult:
-        """检查导入是否安全"""
-        errors = []
-        warnings = []
-        
+        """
+        检查导入。
+
+        策略（allow-by-default）：
+          - 落在 DENY_IMPORTS 里的：error（联网、系统调用、远程执行）
+          - 落在 ALLOWED_IMPORTS 里的：通过
+          - 其它：warning（不致命，不阻断 QA），方便我们看到 LLM 在用什么
+            "我们没列过但其实合理的"库，再决定要不要加进白名单。
+        """
+        errors: list[dict] = []
+        warnings: list[dict] = []
+
         try:
             tree = ast.parse(code)
-        except:
-            return StaticCheckResult(passed=False, stage="import", errors=[{"message": "无法解析AST"}])
-        
+        except Exception:
+            return StaticCheckResult(passed=False, stage="import",
+                                     errors=[{"message": "无法解析AST"}])
+
+        def _classify(module: str, lineno: int) -> None:
+            if not module:
+                return
+            top = module.split(".")[0]
+            if top in self.deny_imports:
+                errors.append({
+                    "file": filename,
+                    "line": lineno,
+                    "message": f"禁止导入模块: {top}（联网 / 系统调用 / 远程执行类，安全策略不允许）",
+                    "suggestion": (
+                        "训练代码不应外联或调用系统命令；"
+                        "数据下载请离线完成，IO 走 torch / numpy / pandas / PIL / cv2。"
+                    ),
+                })
+            elif top not in self.allowed_imports:
+                warnings.append({
+                    "file": filename,
+                    "line": lineno,
+                    "message": f"未在白名单内的导入: {top}（已放行，仅作提示）",
+                    "suggestion": "如确有必要可继续使用；否则建议改为常见 ML 生态库。",
+                })
+
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    module = alias.name.split('.')[0]
-                    if module not in self.allowed_imports:
-                        errors.append({
-                            "file": filename,
-                            "line": node.lineno,
-                            "message": f"禁止导入模块: {module}",
-                            "suggestion": f"请使用白名单中的库: {', '.join(sorted(self.allowed_imports)[:5])}...",
-                        })
-            
+                    _classify(alias.name, node.lineno)
             elif isinstance(node, ast.ImportFrom):
-                module = node.module.split('.')[0] if node.module else ""
-                if module and module not in self.allowed_imports:
-                    errors.append({
-                        "file": filename,
-                        "line": node.lineno,
-                        "message": f"禁止导入模块: {module}",
-                        "suggestion": "检查导入的库是否在允许列表中",
-                    })
-        
+                # `from . import x` / `from .foo import bar`：相对导入，永远允许
+                if node.level and not node.module:
+                    continue
+                if node.level and node.module:
+                    # 相对导入也直接放行
+                    continue
+                _classify(node.module or "", node.lineno)
+
         return StaticCheckResult(
             passed=len(errors) == 0,
             stage="import",
